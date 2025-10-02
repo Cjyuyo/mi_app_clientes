@@ -4490,65 +4490,322 @@ def _detect_column(conn, table: str, candidates: list[str]) -> str | None:
 # =========================
 # REPORTE: PROYECCIONES
 # ==================================================================
-def _selector_opciones(conn) -> tuple[list[str], list[str], list[str], list[str]]:
+
+# --------- HELPERS BD: tasas y egresos del período ---------
+
+def _fetch_bcv_anchor(conn, start_date):
     """
-    Devuelve (empresas, estados, condicion, estatus) combinando columnas/tablas existentes:
-    - Empresa: clientes.empresa (sin UPPER, para mostrar “bonito”)
-    - Estado del Plan: UNION de clientes.estado_del_plan y clientes.estado_plan (UPPER/TRIM)
-    - Condición: UNION de clientes.condicion_pago, clientes.condicion, cuotas.condicion, planes.condicion (UPPER/TRIM)
-    - Estatus: UNION de clientes.estatus_cliente y clientes.estatus con normalización ('PENDIENTE POR ENTREGA')
+    Ancla del período (13→12 o manual): usa la tasa del día 'start_date' si existe;
+    si no, toma la más reciente ANTES del inicio.
+    Retorna {'usd': <float>, 'fecha': <date>, 'tasa_binance': <float|None>}
     """
-    # Empresa (mantén casing original)
-    empresas = _collect_union(conn, [('clientes', 'empresa')], upper=False)
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT fecha, bcv_anchor, binance
+                FROM tasas_diarias
+                WHERE fecha <= %s
+                ORDER BY fecha DESC
+                LIMIT 1
+            """, (start_date,))
+            row = cur.fetchone()
+            if not row:
+                return {'usd': 0.0, 'fecha': start_date, 'tasa_binance': None}
+            fecha, bcv_anchor, binance = row
+            return {'usd': float(bcv_anchor or 0), 'fecha': fecha, 'tasa_binance': float(binance) if binance is not None else None}
+    except Exception:
+        try: conn.rollback()
+        except Exception: pass
+        return {'usd': 0.0, 'fecha': start_date, 'tasa_binance': None}
 
-    # Estados (UPPER)
-    estados = _collect_union(conn, [
-        ('clientes', 'estado_del_plan'),
-        ('clientes', 'estado_plan'),
-    ], upper=True)
 
-    # Condición (UPPER) – incluye varias fuentes
-    condicion = _collect_union(conn, [
-        ('clientes', 'condicion_pago'),
-        ('clientes', 'condicion'),
-        ('cuotas',   'condicion'),
-        ('planes',   'condicion'),
-    ], upper=True)
-    if not condicion:
-        condicion = ['SIN CONDICION']
+def _fetch_tasas_now(conn):
+    """
+    Tasa “actual” (último registro en tasas_diarias).
+    Retorna {'usd': <bcv_now>, 'fecha': <date>, 'tasa_binance': <binance>}
+    """
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT fecha, bcv_now, binance
+                FROM tasas_diarias
+                ORDER BY fecha DESC
+                LIMIT 1
+            """)
+            row = cur.fetchone()
+            if not row:
+                return {'usd': 0.0, 'fecha': None, 'tasa_binance': 0.0}
+            fecha, bcv_now, binance = row
+            return {'usd': float(bcv_now or 0), 'fecha': fecha, 'tasa_binance': float(binance or 0)}
+    except Exception:
+        try: conn.rollback()
+        except Exception: pass
+        return {'usd': 0.0, 'fecha': None, 'tasa_binance': 0.0}
 
-    # Estatus (normalización especial)
-    estatus_parts = []
+
+def _get_egresos_totales_periodo(conn, start_date, end_date):
+    """
+    Total programado de egresos entre start_date y end_date (solo activos).
+    No convierte monedas aquí (solo suma en USD-equivalente conservador):
+    - USD / USDT: suma monto_origen como USD
+    - VES: convierte a USD con último BCV_now disponible (aprox).
+    Retorna {'totales': {'programado': <float>}}
+    """
+    try:
+        bcv_now = float((_fetch_tasas_now(conn) or {}).get('usd') or 0)
+        total = 0.0
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT moneda_origen, monto_origen
+                FROM egresos_programados
+                WHERE activo = true
+                  AND fecha_compromiso BETWEEN %s AND %s
+            """, (start_date, end_date))
+            for mon, monto in cur.fetchall() or []:
+                mon = (mon or 'USD').upper()
+                monto = float(monto or 0)
+                if mon in ('USD','USDT'):
+                    total += monto
+                elif mon == 'VES':
+                    total += (monto / bcv_now) if bcv_now > 0 else 0.0
+                else:
+                    total += monto  # fallback
+        return {'totales': {'programado': round(total, 2)}}
+    except Exception:
+        try: conn.rollback()
+        except Exception: pass
+        return {'totales': {'programado': 0.0}}
+
+# --------- HELPERS parámetros / FX / VALORACIÓN / COBERTURA ---------
+
+def get_params_map(conn):
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT key, value FROM parametros_financieros")
+            rows = cur.fetchall() or []
+            return {k: v for (k, v) in rows}
+    except Exception:
+        try: conn.rollback()
+        except Exception: pass
+        return {}
+
+def _fx_rate_effective(bcv_anchor, bcv_now, tasa_binance, slippage_pct, fijada_global: bool) -> float:
+    bcv_anchor = float(bcv_anchor or 0)
+    bcv_now    = float(bcv_now or 0)
+    binance    = float(tasa_binance or 0)
+    bin_adj    = binance * (1 - float(slippage_pct or 0)) if binance > 0 else 0.0
+    return bcv_anchor if fijada_global else max(bcv_now, bin_adj, bcv_anchor)
+
+def fx_egreso_rate(corredor, bcv_anchor, bcv_now, binance, slippage_pct, tasa_param, fijada_global: bool):
+    corredor = (corredor or '').upper()
+    if corredor in ('USD_DIRECTO','USDT_DIRECTO'):
+        return 1.0
+    if corredor == 'BCV':
+        return float(bcv_anchor or 0) if fijada_global else float(bcv_now or 0)
+    if corredor == 'BINANCE':
+        return float(binance or 0) * (1 - float(slippage_pct or 0))
+    if corredor in ('NEGOCIADA','FIJADA','MANUAL'):
+        return float(tasa_param or 0)
+    # fallback prudente
+    bin_adj = float(binance or 0) * (1 - float(slippage_pct or 0))
+    return float(bcv_anchor or 0) if fijada_global else max(float(bcv_now or 0), bin_adj, float(bcv_anchor or 0))
+
+def _haircut_row(condicion: str, estatus: str, FACT_CONDICION: dict, FACT_ESTATUS: dict) -> float:
+    cond = (condicion or '').strip().upper()
+    est  = (estatus or '').strip().upper()
+    f1 = float((FACT_CONDICION or {}).get(cond, 0.95))
+    f2 = float((FACT_ESTATUS  or {}).get(est,  0.95))
+    return max(0.0, min(1.0, f1 * f2))
+
+def valorar_egreso(item: dict, tasas: dict, slippage_pct: float, fijada_global=False) -> dict:
+    moneda_origen = (item.get('moneda_origen') or 'USD').upper()
+    moneda_pago   = (item.get('moneda_pago') or moneda_origen).upper()
+    corredor      = (item.get('corredor_fx') or 'BCV').upper()
+    tasa_param    = item.get('tasa_param')
+
+    fx = fx_egreso_rate(
+        corredor,
+        float(tasas.get('bcv_anchor') or 0),
+        float(tasas.get('bcv_now') or 0),
+        float(tasas.get('binance')   or 0),
+        slippage_pct, tasa_param, fijada_global
+    )
+
+    monto = float(item.get('monto_origen') or 0)
+    if moneda_origen == 'USD':
+        monto_usd  = monto
+        monto_ves  = monto * fx if (moneda_pago == 'VES' or corredor in ('BCV','BINANCE','NEGOCIADA','FIJADA','MANUAL')) else 0.0
+        monto_usdt = monto if moneda_pago in ('USDT','USD') else 0.0
+    elif moneda_origen == 'VES':
+        monto_usd  = (monto / fx) if fx > 0 else 0.0
+        monto_ves  = monto
+        monto_usdt = monto_usd if moneda_pago == 'USDT' else 0.0
+    elif moneda_origen == 'USDT':
+        monto_usd  = monto
+        monto_ves  = monto * fx if moneda_pago == 'VES' else 0.0
+        monto_usdt = monto
+    else:
+        monto_usd = monto; monto_ves = 0.0; monto_usdt = 0.0
+
+    return {
+        'fx_aplicada': round(fx, 4),
+        'usd_equivalente': round(monto_usd, 2),
+        'ves_equivalente': round(monto_ves, 2),
+        'usdt_equivalente': round(monto_usdt, 2),
+        'moneda_pago': moneda_pago
+    }
+
+def cubrir_egresos(egresos_valorados: list, saldos: dict, tasas: dict, slippage_pct: float) -> dict:
+    """
+    Sencillo plan de cobertura y rebalanceo contra saldos disponibles:
+    saldos keys esperadas: 'VES_BANCOS', 'USD_EFECTIVO', 'USDT_BINANCE'
+    """
+    plan = {'coberturas': [], 'rebalanceos': [], 'deficit': {}}
+    egresos_sorted = sorted(egresos_valorados, key=lambda e: (e.get('prioridad',2), str(e.get('fecha_compromiso') or '9999-12-31')))
+    bcv = float(tasas.get('bcv_now') or 0)
+    bin_adj = float(tasas.get('binance') or 0) * (1 - float(slippage_pct or 0))
+
+    def move(desde, hacia, monto, costo, nota):
+        saldos[desde] -= monto
+        if desde != hacia:
+            saldos[hacia] += (monto - costo)
+        plan['rebalanceos'].append({'desde':desde,'hacia':hacia,'monto':monto,'costo':costo,'nota':nota})
+
+    for eg in egresos_sorted:
+        mp = eg['moneda_pago']
+        covered = False
+
+        if mp == 'VES':
+            need = eg['ves_equivalente']
+            if saldos['VES_BANCOS'] >= need:
+                saldos['VES_BANCOS'] -= need; covered = True
+            else:
+                falta = need - saldos['VES_BANCOS']
+                usdt_req = falta / bin_adj if bin_adj > 0 else 1e18
+                fx = eg['fx_aplicada']; usd_req = falta / fx if fx > 0 else 1e18
+                if saldos['USDT_BINANCE'] >= usdt_req:
+                    saldos['USDT_BINANCE'] -= usdt_req; saldos['VES_BANCOS'] += falta
+                    move('USDT_BINANCE','VES_BANCOS', usdt_req, 0, 'USDT→VES p2p')
+                    saldos['VES_BANCOS'] -= need; covered = True
+                elif saldos['USD_EFECTIVO'] >= usd_req:
+                    saldos['USD_EFECTIVO'] -= usd_req; saldos['VES_BANCOS'] += falta
+                    move('USD_EFECTIVO','VES_BANCOS', usd_req, 0, 'USD→VES mesa')
+                    saldos['VES_BANCOS'] -= need; covered = True
+
+        elif mp == 'USD':
+            need = eg['usd_equivalente']
+            if saldos['USD_EFECTIVO'] >= need:
+                saldos['USD_EFECTIVO'] -= need; covered = True
+            else:
+                falta = need - saldos['USD_EFECTIVO']
+                if saldos['USDT_BINANCE'] >= falta:
+                    saldos['USDT_BINANCE'] -= falta; saldos['USD_EFECTIVO'] += falta
+                    move('USDT_BINANCE','USD_EFECTIVO', falta, 0, 'USDT→USD')
+                    saldos['USD_EFECTIVO'] -= need; covered = True
+                else:
+                    ves_req = falta * bcv
+                    if saldos['VES_BANCOS'] >= ves_req:
+                        saldos['VES_BANCOS'] -= ves_req; saldos['USD_EFECTIVO'] += falta
+                        move('VES_BANCOS','USD_EFECTIVO', ves_req, 0, 'VES→USD mesa')
+                        saldos['USD_EFECTIVO'] -= need; covered = True
+
+        elif mp == 'USDT':
+            need = eg['usdt_equivalente']
+            if saldos['USDT_BINANCE'] >= need:
+                saldos['USDT_BINANCE'] -= need; covered = True
+            else:
+                falta = need - saldos['USDT_BINANCE']
+                if saldos['USD_EFECTIVO'] >= falta:
+                    saldos['USD_EFECTIVO'] -= falta; saldos['USDT_BINANCE'] += falta
+                    move('USD_EFECTIVO','USDT_BINANCE', falta, 0, 'USD→USDT')
+                    saldos['USDT_BINANCE'] -= need; covered = True
+                else:
+                    ves_req = falta * bin_adj
+                    if saldos['VES_BANCOS'] >= ves_req:
+                        saldos['VES_BANCOS'] -= ves_req; saldos['USDT_BINANCE'] += falta
+                        move('VES_BANCOS','USDT_BINANCE', ves_req, 0, 'VES→USDT p2p')
+                        saldos['USDT_BINANCE'] -= need; covered = True
+
+        if not covered:
+            key = 'criticos' if (eg.get('obligatoriedad') == 'DURO') else 'diferibles'
+            plan['deficit'].setdefault(key, []).append({'egreso_id': eg.get('id'), 'falta': eg})
+        else:
+            plan['coberturas'].append({'egreso_id': eg.get('id'), 'moneda_pago': mp, 'fx': eg['fx_aplicada']})
+
+    plan['saldos_finales'] = saldos
+    return plan
+
+# --------- HELPERS de selectores (flexibles) ---------
+
+def _has_column(conn, table: str, col: str, schema: str = 'public') -> bool:
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT EXISTS(
+                  SELECT 1 FROM information_schema.columns
+                  WHERE table_schema=%s AND table_name=%s AND column_name=%s
+                ) AS ok
+            """, (schema, table, col))
+            row = cur.fetchone()
+            return bool(row[0] if not isinstance(row, dict) else (row.get('ok') or row.get('exists')))
+    except Exception:
+        try: conn.rollback()
+        except Exception: pass
+        return False
+
+def _collect_union(conn, specs, upper: bool = True) -> list[str]:
+    # specs: [(table, column[, schema])]
+    norm = [(t, c, (s or 'public') if len(x)==3 else 'public')
+            for x in specs for t,c,*s in [x]]
+    selects = []
+    for t, c, sch in norm:
+        if _has_column(conn, t, c, sch):
+            expr = f"TRIM({c})"
+            if upper: expr = f"UPPER({expr})"
+            selects.append(f"SELECT {expr} AS v FROM {sch}.{t} WHERE {c} IS NOT NULL AND TRIM({c})<>''")
+    if not selects: return []
+    sql = "SELECT DISTINCT v FROM (" + " UNION ALL ".join(selects) + ") u WHERE v IS NOT NULL AND v<>'' ORDER BY 1"
     with conn.cursor() as cur:
-        # arma sub-selects según existan
-        for table, col in [('clientes','estatus_cliente'), ('clientes','estatus')]:
+        cur.execute(sql)
+        rows = cur.fetchall() or []
+    return [r[0] if not isinstance(r, dict) else list(r.values())[0] for r in rows]
+
+def _estatus_normalize_case(base_expr: str) -> str:
+    return (
+        "CASE "
+        f"WHEN {base_expr} IS NULL OR {base_expr}='' THEN NULL "
+        f"WHEN regexp_replace({base_expr}, '\\s+', ' ', 'g') IN "
+        "('ENTREGA PENDIENTE','PENDIENTE DE ENTREGA','PENDIENTE ENTREGA','PENDIEN POR ENTREGA') "
+        f"OR ({base_expr} LIKE '%PENDIENT%' AND {base_expr} LIKE '%ENTREG%') "
+        "THEN 'PENDIENTE POR ENTREGA' "
+        f"ELSE regexp_replace({base_expr}, '\\s+', ' ', 'g') END"
+    )
+
+def _selector_opciones(conn) -> tuple[list[str], list[str], list[str], list[str]]:
+    empresas  = _collect_union(conn, [('clientes','empresa')], upper=False)
+    estados   = _collect_union(conn, [('clientes','estado_del_plan'), ('clientes','estado_plan')], upper=True)
+    condicion = _collect_union(conn, [('clientes','condicion_pago'), ('clientes','condicion'),
+                                      ('cuotas','condicion'), ('planes','condicion')], upper=True) or ['SIN CONDICION']
+    # Estatus
+    with conn.cursor() as cur:
+        parts = []
+        for table,col in [('clientes','estatus_cliente'),('clientes','estatus')]:
             if _has_column(conn, table, col):
                 base = f"TRIM(UPPER({col}))"
-                norm = _estatus_normalize_case(base)
-                estatus_parts.append(f"SELECT {norm} AS v FROM public.{table}")
-
-        # siempre garantizamos incluir 'PENDIENTE POR ENTREGA'
-        estatus_parts.append("SELECT 'PENDIENTE POR ENTREGA' AS v")
-
-        if estatus_parts:
-            sql = "SELECT DISTINCT v FROM (\n  " + "\n  UNION ALL\n  ".join(estatus_parts) + "\n) z WHERE v IS NOT NULL AND v <> '' ORDER BY 1"
-            cur.execute(sql)
-            rows = cur.fetchall() or []
-            estatus = [r[0] if not isinstance(r, dict) else list(r.values())[0] for r in rows]
-        else:
-            estatus = ['PENDIENTE POR ENTREGA']
-
-    app.logger.info(
-        "proyecciones/selects -> empresas:%d estados:%d condicion:%d estatus:%d",
-        len(empresas), len(estados), len(condicion), len(estatus)
-    )
+                parts.append(f"SELECT {_estatus_normalize_case(base)} AS v FROM public.{table}")
+        parts.append("SELECT 'PENDIENTE POR ENTREGA' AS v")
+        sql = "SELECT DISTINCT v FROM (" + " UNION ALL ".join(parts) + ") z WHERE v IS NOT NULL AND v<>'' ORDER BY 1"
+        cur.execute(sql)
+        rows = cur.fetchall() or []
+        estatus = [r[0] if not isinstance(r, dict) else list(r.values())[0] for r in rows]
+    app.logger.info("proyecciones/selects -> empresas:%d estados:%d condicion:%d estatus:%d",
+                    len(empresas),len(estados),len(condicion),len(estatus))
     return empresas, estados, condicion, estatus
 
 # ---------------------------------------------------------------------
-# 3) Pipeline de bloques (consulta + agregación)
+# Pipeline de bloques (consulta + agregación)
 # ---------------------------------------------------------------------
 
-# --- reemplazar ---
 def _parse_bloques(args) -> list[dict]:
     raw = (args.get('bloques_json') or '').strip()
     if not raw:
@@ -4560,13 +4817,12 @@ def _parse_bloques(args) -> list[dict]:
             for b in data:
                 if not isinstance(b, dict):
                     continue
-                # empresa ahora puede venir como lista o string
                 emp = b.get('empresa') or []
                 if isinstance(emp, str):
                     emp = [emp] if emp.strip() else []
                 out.append({
                     'empresa': emp,
-                    'estado_plan': b.get('estado_plan') or [],
+                    'estado_plan': b.get('estado_plan') or b.get('estados') or [],
                     'condicion': b.get('condicion') or [],
                     'estatus_cliente': b.get('estatus_cliente') or [],
                     'fecha_inicio': b.get('fecha_inicio') or None,
@@ -4578,138 +4834,142 @@ def _parse_bloques(args) -> list[dict]:
         pass
     return []
 
-# --- reemplazar ---
-def _build_block_where(bloque: dict) -> tuple[str, list]:
+def _build_block_where(conn, bloque: dict, default_start: date, default_end: date) -> tuple[str, list]:
+    has_estado_del_plan = _has_column(conn,'clientes','estado_del_plan')
+    has_estado_plan     = _has_column(conn,'clientes','estado_plan')
+    estado_col = "COALESCE(cl.estado_del_plan, cl.estado_plan)" if (has_estado_del_plan and has_estado_plan) \
+                 else ("cl.estado_del_plan" if has_estado_del_plan else "cl.estado_plan")
+
+    has_cond_pago = _has_column(conn,'clientes','condicion_pago')
+    has_cond      = _has_column(conn,'clientes','condicion')
+    condicion_col = "COALESCE(cl.condicion_pago, cl.condicion)" if (has_cond_pago and has_cond) \
+                    else ("cl.condicion_pago" if has_cond_pago else "cl.condicion")
+
+    has_est_cli = _has_column(conn,'clientes','estatus_cliente')
+    has_est     = _has_column(conn,'clientes','estatus')
+    estatus_col = "COALESCE(cl.estatus_cliente, cl.estatus)" if (has_est_cli and has_est) \
+                  else ("cl.estatus_cliente" if has_est_cli else "cl.estatus")
+
     where, params = [], []
 
-    fi = bloque.get('fecha_inicio')
-    ff = bloque.get('fecha_fin')
-    if fi and ff:
-        where.append("c.fecha_pago BETWEEN %s AND %s")
-        params.extend([fi, ff])
+    fi = bloque.get('fecha_inicio') or default_start
+    ff = bloque.get('fecha_fin')    or default_end
+    where.append("c.fecha_pago BETWEEN %s AND %s"); params += [fi, ff]
 
-    # empresa: ahora acepta lista
-    empresa = bloque.get('empresa') or []
-    if isinstance(empresa, str):
-        empresa = [empresa]
-    empresa = [e.strip() for e in empresa if (e or '').strip()]
-    if empresa:
-        where.append("cl.empresa = ANY(%s)")
-        params.append(empresa)
+    def _norm(xs):
+        if not xs: return []
+        if isinstance(xs, str): xs = [xs]
+        return [ (x or '').strip().upper() for x in xs if (x or '').strip() ]
 
-    estados = bloque.get('estado_plan') or []
-    if estados:
-        where.append("COALESCE(cl.estado_del_plan, cl.estado_plan) = ANY(%s)")
-        params.append(estados)
+    emp = _norm(bloque.get('empresa'))
+    if emp:
+        where.append("UPPER(TRIM(cl.empresa)) = ANY(%s)"); params.append(emp)
 
-    condiciones = bloque.get('condicion') or []
-    if condiciones:
-        where.append("COALESCE(cl.condicion_pago, cl.condicion) = ANY(%s)")
-        params.append(condiciones)
+    estados = _norm(bloque.get('estado_plan'))
+    if estados and estado_col:
+        where.append(f"UPPER(TRIM({estado_col})) = ANY(%s)"); params.append(estados)
 
-    estatus = bloque.get('estatus_cliente') or []
-    if estatus:
-        where.append("COALESCE(cl.estatus_cliente, cl.estatus) = ANY(%s)")
-        params.append(estatus)
+    conds = _norm(bloque.get('condicion'))
+    if conds and condicion_col:
+        where.append(f"UPPER(TRIM({condicion_col})) = ANY(%s)"); params.append(conds)
 
-    if bloque.get('excluir_rc'):
-        where.append("COALESCE(cl.estado_del_plan, cl.estado_plan) NOT IN ('retirado','completado')")
+    ests = _norm(bloque.get('estatus_cliente'))
+    if ests and estatus_col:
+        where.append(
+            f"""CASE 
+                   WHEN {estatus_col} IS NULL THEN NULL
+                   WHEN regexp_replace(UPPER(TRIM({estatus_col})),'\\s+',' ','g') IN
+                        ('ENTREGA PENDIENTE','PENDIENTE DE ENTREGA','PENDIENTE ENTREGA','PENDIEN POR ENTREGA')
+                        OR (UPPER({estatus_col}) LIKE '%PENDIENT%' AND UPPER({estatus_col}) LIKE '%ENTREG%')
+                   THEN 'PENDIENTE POR ENTREGA'
+                   ELSE regexp_replace(UPPER(TRIM({estatus_col})),'\\s+',' ','g')
+                END = ANY(%s)"""
+        ); params.append([ 'PENDIENTE POR ENTREGA' if ('PENDIENTE' in s and 'ENTREGA' in s) else s for s in ests ])
+
+    if bloque.get('excluir_rc') and estado_col:
+        where.append(f"UPPER(TRIM({estado_col})) NOT IN ('RETIRADO','COMPLETADO')")
 
     return (" AND ".join(where) if where else "TRUE"), params
 
-def _run_block(conn, bloque: dict, idx: int) -> tuple[float, list]:
-    """
-    Ejecuta el query del bloque y devuelve (ingresos_usd_sum, rows)
-    rows listo para la plantilla: nombre, apellido, cedula, estado_del_plan, condicion, numero_cuota, fecha_pago, monto_usd
-    """
-    where_sql, params = _build_block_where(bloque)
+def _run_block(conn, bloque: dict, idx: int, start_date: date, end_date: date) -> tuple[float, list]:
+    where_sql, params = _build_block_where(conn, bloque, start_date, end_date)
     sql = f"""
-        SELECT 
-            COALESCE(cl.nombre, split_part(COALESCE(cl.nombre_completo,''),' ',1)) AS nombre,
-            COALESCE(cl.apellido, NULLIF(SPLIT_PART(COALESCE(cl.nombre_completo,''),' ',2),'')) AS apellido,
-            cl.cedula,
-            COALESCE(cl.estado_del_plan, cl.estado_plan) AS estado_del_plan,
-            COALESCE(cl.condicion_pago, cl.condicion) AS condicion,
-            c.numero_cuota,
-            c.fecha_pago,
-            c.monto_usd
-        FROM public.cuotas c
-        JOIN public.clientes cl ON c.cliente_id = cl.id
+        SELECT
+            cl.id AS cliente_id,
+            cl.nombre, cl.apellido, cl.cedula, cl.empresa,
+            {("UPPER(TRIM(COALESCE(cl.estado_del_plan, cl.estado_plan)))" if (_has_column(conn,'clientes','estado_del_plan') and _has_column(conn,'clientes','estado_plan'))
+                else ("UPPER(TRIM(cl.estado_del_plan))" if _has_column(conn,'clientes','estado_del_plan') else "UPPER(TRIM(cl.estado_plan))"))} AS estado_plan,
+            UPPER(TRIM(COALESCE(cl.condicion_pago, cl.condicion))) AS condicion,
+            c.numero_cuota, c.fecha_pago, c.monto_usd
+        FROM cuotas c
+        JOIN clientes cl ON c.cliente_id = cl.id
         WHERE {where_sql}
         ORDER BY c.fecha_pago
-        LIMIT 200
+        LIMIT 500
     """
     t0 = time.perf_counter()
-    ingresos = 0.0
-    rows_out = []
+    total, rows_out = 0.0, []
     try:
         with conn.cursor() as cur:
             cur.execute(sql, params)
             rows = cur.fetchall() or []
-            desc = [d[0] for d in (cur.description or [])]
-
-        # Mapeo robusto por nombre de columna
-        def col(row, key):
-            if isinstance(row, dict):
-                return row.get(key)
-            # tupla -> usa índice por nombre
-            try:
-                i = desc.index(key)
-                return row[i]
-            except Exception:
-                return None
-
         for r in rows:
-            monto = float(col(r, 'monto_usd') or 0)
-            ingresos += monto
-            rows_out.append({
-                'nombre': col(r, 'nombre') or '',
-                'apellido': col(r, 'apellido') or '',
-                'cedula': col(r, 'cedula') or '',
-                'estado_del_plan': col(r, 'estado_del_plan') or '',
-                'condicion': col(r, 'condicion') or '',
-                'numero_cuota': col(r, 'numero_cuota'),
-                'fecha_pago': col(r, 'fecha_pago'),
-                'monto_usd': monto,
-                'bloque_index': idx,
-            })
+            if isinstance(r, dict):
+                monto = float(r.get('monto_usd') or 0)
+                item = {
+                    'cliente_id': r.get('cliente_id'),
+                    'nombre': r.get('nombre'), 'apellido': r.get('apellido'),
+                    'cedula': r.get('cedula'), 'empresa': r.get('empresa'),
+                    'estado_del_plan': r.get('estado_plan'),
+                    'condicion': r.get('condicion'),
+                    'numero_cuota': r.get('numero_cuota'),
+                    'fecha_pago': r.get('fecha_pago'),
+                    'monto_usd': monto,
+                    'bloque_index': idx,
+                }
+            else:
+                (cliente_id, nombre, apellido, cedula, empresa,
+                 estado_plan, condicion, numero_cuota, fecha_pago, monto_usd) = r
+                monto = float(monto_usd or 0)
+                item = {
+                    'cliente_id': cliente_id, 'nombre': nombre, 'apellido': apellido,
+                    'cedula': cedula, 'empresa': empresa,
+                    'estado_del_plan': estado_plan, 'condicion': condicion,
+                    'numero_cuota': numero_cuota, 'fecha_pago': fecha_pago,
+                    'monto_usd': monto, 'bloque_index': idx,
+                }
+            total += monto
+            rows_out.append(item)
     except Exception as e:
-        try:
-            conn.rollback()
-        except Exception:
-            pass
-        app.logger.exception("proyecciones/_run_block error en bloque %s: %s", idx, e)
+        try: conn.rollback()
+        except Exception: pass
+        app.logger.exception("proyecciones/run_block error: %s", e)
+    dt = (time.perf_counter() - t0) * 1000
+    app.logger.info("proyecciones/bloque #%d -> filas:%d, total:$%.2f, %.1fms", idx, len(rows_out), total, dt)
+    return total, rows_out
 
-    dt = (time.perf_counter() - t0) * 1000.0
-    app.logger.info("proyecciones/bloque %d -> filas:%d tiempo:%.1f ms", idx, len(rows_out), dt)
-    return ingresos, rows_out
-
-
-def _procesar_bloques(conn, bloques: list[dict], start: date, end: date) -> tuple[float, list, list]:
-    """
-    Procesa todos los bloques:
-    retorna (ingresos_totales, resultados_por_bloque, clientes_a_cobrar)
-    """
+def _procesar_bloques(conn, bloques: list[dict], start_date: date, end_date: date):
     ingresos_totales = 0.0
-    resultados = []
-    clientes = []
-    t0 = time.perf_counter()
-
+    resultados_por_bloque = []
+    clientes_a_cobrar = []
+    seen = set()
+    T0 = time.perf_counter()
     for i, b in enumerate(bloques):
-        inc, rows = _run_block(conn, b, i)
-        ingresos_totales += inc
-        resultados.append({'bloque_index': i, 'ingresos_bloque': inc, 'n': len(rows)})
-        clientes.extend(rows)
-
-    dt = (time.perf_counter() - t0) * 1000.0
-    app.logger.info("proyecciones/total -> bloques:%d filas:%d tiempo:%.1f ms",
-                    len(bloques), len(clientes), dt)
-    return ingresos_totales, resultados, clientes
-
-
+        subtot, rows = _run_block(conn, b, i, start_date, end_date)
+        ingresos_totales += subtot
+        resultados_por_bloque.append({'bloque_index': i, 'ingresos_usd': subtot, 'filas': len(rows)})
+        for it in rows:
+            key = (it.get('cliente_id'), it.get('numero_cuota'), it.get('fecha_pago'))
+            if key in seen:  # evita duplicados entre bloques
+                continue
+            seen.add(key)
+            clientes_a_cobrar.append(it)
+    app.logger.info("proyecciones/total -> bloques:%d, filas:%d, total:$%.2f, %.1fms",
+                    len(bloques), len(clientes_a_cobrar), ingresos_totales, (time.perf_counter() - T0)*1000)
+    return ingresos_totales, resultados_por_bloque, clientes_a_cobrar
 
 # ---------------------------------------------------------------------
-# Ruta /reportes/proyecciones (contrato estable)
+# Ruta /reportes/proyecciones
 # ---------------------------------------------------------------------
 
 @app.route('/reportes/proyecciones', methods=['GET', 'POST'])
@@ -4763,272 +5023,45 @@ def reporte_proyecciones():
             start = __month_add(end, -1) + _timedelta(days=1)
         return (start, end)
 
-    def __hascol(table: str, col: str, schema: str = 'public') -> bool:
-        try:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    SELECT EXISTS(
-                      SELECT 1 FROM information_schema.columns
-                      WHERE table_schema=%s AND table_name=%s AND column_name=%s
-                    ) AS ok
-                """, (schema, table, col))
-                row = cur.fetchone()
-                return bool(row[0] if not isinstance(row, dict) else (row.get('ok') or row.get('exists')))
-        except Exception:
-            try: conn.rollback()
-            except Exception: pass
-            return False
-
-    def __collect_union(specs, upper: bool = True) -> list[str]:
-        # specs: [(table, column[, schema])]
-        norm = [(t, c, (s or 'public') if len(x)==3 else 'public')
-                for x in specs for t,c,*s in [x]]
-        selects = []
-        for t, c, sch in norm:
-            if __hascol(t, c, sch):
-                expr = f"TRIM({c})"
-                if upper: expr = f"UPPER({expr})"
-                selects.append(f"SELECT {expr} AS v FROM {sch}.{t} WHERE {c} IS NOT NULL AND TRIM({c})<>''")
-        if not selects: return []
-        sql = "SELECT DISTINCT v FROM (" + " UNION ALL ".join(selects) + ") u WHERE v IS NOT NULL AND v<>'' ORDER BY 1"
-        with conn.cursor() as cur:
-            cur.execute(sql)
-            rows = cur.fetchall() or []
-        return [r[0] if not isinstance(r, dict) else list(r.values())[0] for r in rows]
-
-    def __estatus_normalize_case(base_expr: str) -> str:
-        return (
-            "CASE "
-            f"WHEN {base_expr} IS NULL OR {base_expr}='' THEN NULL "
-            f"WHEN regexp_replace({base_expr}, '\\s+', ' ', 'g') IN "
-            "('ENTREGA PENDIENTE','PENDIENTE DE ENTREGA','PENDIENTE ENTREGA','PENDIEN POR ENTREGA') "
-            f"OR ({base_expr} LIKE '%PENDIENT%' AND {base_expr} LIKE '%ENTREG%') "
-            "THEN 'PENDIENTE POR ENTREGA' "
-            f"ELSE regexp_replace({base_expr}, '\\s+', ' ', 'g') END"
-        )
-
-    def __selector_opciones(conn) -> tuple[list[str], list[str], list[str], list[str]]:
-        empresas  = __collect_union([('clientes','empresa')], upper=False)
-        estados   = __collect_union([('clientes','estado_del_plan'), ('clientes','estado_plan')], upper=True)
-        condicion = __collect_union([('clientes','condicion_pago'), ('clientes','condicion'),
-                                     ('cuotas','condicion'), ('planes','condicion')], upper=True) or ['SIN CONDICION']
-        # Estatus
-        with conn.cursor() as cur:
-            parts = []
-            for table,col in [('clientes','estatus_cliente'),('clientes','estatus')]:
-                if __hascol(table,col):
-                    base = f"TRIM(UPPER({col}))"
-                    parts.append(f"SELECT {__estatus_normalize_case(base)} AS v FROM public.{table}")
-            parts.append("SELECT 'PENDIENTE POR ENTREGA' AS v")
-            sql = "SELECT DISTINCT v FROM (" + " UNION ALL ".join(parts) + ") z WHERE v IS NOT NULL AND v<>'' ORDER BY 1"
-            cur.execute(sql)
-            rows = cur.fetchall() or []
-            estatus = [r[0] if not isinstance(r, dict) else list(r.values())[0] for r in rows]
-        app.logger.info("proyecciones/selects -> empresas:%d estados:%d condicion:%d estatus:%d",
-                        len(empresas),len(estados),len(condicion),len(estatus))
-        return empresas, estados, condicion, estatus
-
-    def __parse_bloques_local(src_mapping) -> list[dict]:
-        raw = src_mapping.get('bloques_json') if hasattr(src_mapping,'get') else None
-        if not raw: return []
-        try:
-            arr = json.loads(raw)
-            out = []
-            for b in arr if isinstance(arr,list) else []:
-                if not isinstance(b, dict): continue
-                out.append({
-                    'empresa': b.get('empresa') or [],
-                    'estado_plan': b.get('estado_plan') or b.get('estados') or [],
-                    'condicion': b.get('condicion') or [],
-                    'estatus_cliente': b.get('estatus_cliente') or [],
-                    'fecha_inicio': b.get('fecha_inicio') or None,
-                    'fecha_fin':    b.get('fecha_fin')    or None,
-                    'excluir_rc':   bool(b.get('excluir_rc')),
-                })
-            return out
-        except Exception as e:
-            app.logger.exception("proyecciones/parse_bloques error: %s", e)
-            return []
-
-    def __norm_list(xs):
-        if not xs: return []
-        if isinstance(xs, str): xs = [xs]
-        return [ (x or '').strip().upper() for x in xs if (x or '').strip() ]
-
-    # Construye WHERE y params por bloque
-    def __build_block_where(b, default_start: _date, default_end: _date):
-        has_estado_del_plan = __hascol('clientes','estado_del_plan')
-        has_estado_plan     = __hascol('clientes','estado_plan')
-        estado_col = "COALESCE(cl.estado_del_plan, cl.estado_plan)" if (has_estado_del_plan and has_estado_plan) \
-                     else ("cl.estado_del_plan" if has_estado_del_plan else "cl.estado_plan")
-
-        has_cond_pago = __hascol('clientes','condicion_pago')
-        has_cond      = __hascol('clientes','condicion')
-        condicion_col = "COALESCE(cl.condicion_pago, cl.condicion)" if (has_cond_pago and has_cond) \
-                        else ("cl.condicion_pago" if has_cond_pago else "cl.condicion")
-
-        has_est_cli = __hascol('clientes','estatus_cliente')
-        has_est     = __hascol('clientes','estatus')
-        estatus_col = "COALESCE(cl.estatus_cliente, cl.estatus)" if (has_est_cli and has_est) \
-                      else ("cl.estatus_cliente" if has_est_cli else "cl.estatus")
-
-        where = []
-        params = []
-
-        # fechas (bloque o global)
-        fi = __parse_date(b.get('fecha_inicio')) or default_start
-        ff = __parse_date(b.get('fecha_fin'))    or default_end
-        where.append("c.fecha_pago BETWEEN %s AND %s"); params += [fi, ff]
-
-        emp = __norm_list(b.get('empresa'))
-        if emp:
-            where.append("UPPER(TRIM(cl.empresa)) = ANY(%s)"); params.append(emp)
-
-        estados = __norm_list(b.get('estado_plan'))
-        if estados and estado_col:
-            where.append(f"UPPER(TRIM({estado_col})) = ANY(%s)"); params.append(estados)
-
-        conds = __norm_list(b.get('condicion'))
-        if conds and condicion_col:
-            where.append(f"UPPER(TRIM({condicion_col})) = ANY(%s)"); params.append(conds)
-
-        ests = __norm_list(b.get('estatus_cliente'))
-        if ests and estatus_col:
-            # normalizar "pendiente por entrega"
-            where.append(
-                f"""CASE 
-                       WHEN {estatus_col} IS NULL THEN NULL
-                       WHEN regexp_replace(UPPER(TRIM({estatus_col})),'\\s+',' ','g') IN
-                            ('ENTREGA PENDIENTE','PENDIENTE DE ENTREGA','PENDIENTE ENTREGA','PENDIEN POR ENTREGA')
-                            OR (UPPER({estatus_col}) LIKE '%PENDIENT%' AND UPPER({estatus_col}) LIKE '%ENTREG%')
-                       THEN 'PENDIENTE POR ENTREGA'
-                       ELSE regexp_replace(UPPER(TRIM({estatus_col})),'\\s+',' ','g')
-                    END = ANY(%s)"""
-            ); params.append([ 'PENDIENTE POR ENTREGA' if 'PENDIENTE' in s and 'ENTREGA' in s else s for s in ests ])
-
-        if b.get('excluir_rc'):
-            if estado_col:
-                where.append(f"UPPER(TRIM({estado_col})) NOT IN ('RETIRADO','COMPLETADO')")
-
-        return " AND ".join(where) if where else "TRUE", params
-
-    def __run_block(conn, bloque: dict, idx: int, start_date: _date, end_date: _date):
-        where, params = __build_block_where(bloque, start_date, end_date)
-        sql = f"""
-            SELECT
-                cl.id AS cliente_id,
-                cl.nombre, cl.apellido, cl.cedula, cl.empresa,
-                {("UPPER(TRIM(COALESCE(cl.estado_del_plan, cl.estado_plan)))" if (__hascol('clientes','estado_del_plan') and __hascol('clientes','estado_plan'))
-                    else ("UPPER(TRIM(cl.estado_del_plan))" if __hascol('clientes','estado_del_plan') else "UPPER(TRIM(cl.estado_plan))"))} AS estado_plan,
-                UPPER(TRIM(COALESCE(cl.condicion_pago, cl.condicion))) AS condicion,
-                c.numero_cuota, c.fecha_pago, c.monto_usd
-            FROM cuotas c
-            JOIN clientes cl ON c.cliente_id = cl.id
-            WHERE {where}
-            ORDER BY c.fecha_pago
-            LIMIT 500
-        """
-        t0 = time.perf_counter()
-        total = 0.0
-        rows = []
-        try:
-            with conn.cursor() as cur:
-                cur.execute(sql, params)
-                for r in cur.fetchall() or []:
-                    # soporta dict o tuple
-                    if isinstance(r, dict):
-                        monto = float(r.get('monto_usd') or 0)
-                        item = {
-                            'cliente_id': r.get('cliente_id'),
-                            'nombre': r.get('nombre'), 'apellido': r.get('apellido'),
-                            'cedula': r.get('cedula'), 'empresa': r.get('empresa'),
-                            'estado_del_plan': r.get('estado_plan'),
-                            'condicion': r.get('condicion'),
-                            'numero_cuota': r.get('numero_cuota'),
-                            'fecha_pago': r.get('fecha_pago'),
-                            'monto_usd': monto,
-                            'bloque_index': idx,
-                        }
-                    else:
-                        # tuple order
-                        (cliente_id, nombre, apellido, cedula, empresa,
-                         estado_plan, condicion, numero_cuota, fecha_pago, monto_usd) = r
-                        monto = float(monto_usd or 0)
-                        item = {
-                            'cliente_id': cliente_id, 'nombre': nombre, 'apellido': apellido,
-                            'cedula': cedula, 'empresa': empresa,
-                            'estado_del_plan': estado_plan, 'condicion': condicion,
-                            'numero_cuota': numero_cuota, 'fecha_pago': fecha_pago,
-                            'monto_usd': monto, 'bloque_index': idx,
-                        }
-                    total += monto
-                    rows.append(item)
-        except Exception as e:
-            try: conn.rollback()
-            except Exception: pass
-            app.logger.exception("proyecciones/run_block error: %s", e)
-        dt = (time.perf_counter() - t0) * 1000
-        app.logger.info("proyecciones/bloque #%d -> filas:%d, total:$%.2f, %.1fms", idx, len(rows), total, dt)
-        return total, rows
-
-    def __procesar_bloques(conn, bloques: list[dict], start_date: _date, end_date: _date):
-        ingresos_totales = 0.0
-        resultados_por_bloque = []
-        clientes_a_cobrar = []
-        seen = set()  # dedupe por (cliente_id, numero_cuota, fecha_pago)
-
-        T0 = time.perf_counter()
-        for i, b in enumerate(bloques):
-            subtot, rows = __run_block(conn, b, i, start_date, end_date)
-            ingresos_totales += subtot
-            resultados_por_bloque.append({'bloque_index': i, 'ingresos_usd': subtot, 'filas': len(rows)})
-            for it in rows:
-                key = (it.get('cliente_id'), it.get('numero_cuota'), it.get('fecha_pago'))
-                if key in seen:  # evita duplicados entre bloques
-                    continue
-                seen.add(key)
-                clientes_a_cobrar.append(it)
-
-        app.logger.info("proyecciones/total -> bloques:%d, filas:%d, total:$%.2f, %.1fms",
-                        len(bloques), len(clientes_a_cobrar), ingresos_totales,
-                        (time.perf_counter() - T0)*1000)
-        return ingresos_totales, resultados_por_bloque, clientes_a_cobrar
-
-    # ----------------- Parámetros -----------------
+    # ----------------- Parámetros del request -----------------
     src = request.form if request.method == 'POST' else request.args
-    hoy = get_venezuela_current_date()
+
+    # Fecha de referencia (usa helper global si existe; si no, date.today)
+    _get_today = globals().get('get_venezuela_current_date', None)
+    hoy = _get_today() if callable(_get_today) else _date.today()
 
     period_mode = (src.get('period_mode') or 'auto').lower()
     start_s = (src.get('start_date') or '').strip()
     end_s   = (src.get('end_date') or '').strip()
     dev_target_pct = src.get('dev_target_pct')
-    fijada         = src.get('fijada')
+    fijada_flag    = (src.get('fijada') or '') == '1'
 
-    bloques_iniciales = __parse_bloques_local(src)
+    bloques_iniciales = _parse_bloques(src)
     simulacion_realizada = bool(bloques_iniciales)
 
     # Período 13→12 o manual
     start_date, end_date = __compute_period(hoy, period_mode, start_s, end_s)
     period_key = f"{start_date.isoformat()}_{end_date.isoformat()}"
 
-    # Tasas (si tus funciones globales existen, úsalas; si no, 0)
-    try:
-        tasas_anchor = globals().get('_fetch_bcv_anchor', lambda *_: {'usd': 0.0, 'fecha': start_date})(conn, start_date)
-    except Exception:
-        try: conn.rollback()
-        except Exception: pass
-        tasas_anchor = {'usd': 0.0, 'fecha': start_date}
+    # Tasas
+    tasas_anchor = _fetch_bcv_anchor(conn, start_date)
+    tasas_now    = _fetch_tasas_now(conn)
 
-    try:
-        tasas_now = globals().get('_fetch_tasas_now', lambda *_: {'usd': 0.0, 'fecha': None})(conn)
-    except Exception:
-        try: conn.rollback()
-        except Exception: pass
-        tasas_now = {'usd': 0.0, 'fecha': None}
+    # -------- FX params (flexibles) --------
+    params_map = get_params_map(conn)
+    SLIPPAGE_PCT         = float(params_map.get('SLIPPAGE_PCT', 0.006))
+    COLCHON_LIQUIDEZ_PCT = float(params_map.get('COLCHON_LIQUIDEZ_PCT', 0.07))
+    FACT_CONDICION = params_map.get('FACT_CONDICION', {'SOLVENTE':1.0,'NORMAL':0.98,'MOROSO':0.90,'EN GESTIÓN':0.85})
+    FACT_ESTATUS  = params_map.get('FACT_ESTATUS',  {'ACTIVO':1.0,'PENDIENTE POR ENTREGA':0.95,'SUSPENDIDO':0.80})
+    DEPRECIACION_MENSUAL = float(params_map.get('DEPRECIACION_MENSUAL_USD', 0.0))
+
+    bcv_anchor = (tasas_anchor or {}).get('usd') or 0.0
+    bcv_now    = (tasas_now    or {}).get('usd') or 0.0
+    tasa_bin   = (tasas_now    or {}).get('tasa_binance') or 0.0
 
     # Selectores
     try:
-        empresas_opciones, estados_opciones, condicion_opciones, estatus_opciones = __selector_opciones(conn)
+        empresas_opciones, estados_opciones, condicion_opciones, estatus_opciones = _selector_opciones(conn)
     except Exception as e:
         try: conn.rollback()
         except Exception: pass
@@ -5041,28 +5074,103 @@ def reporte_proyecciones():
 
     if simulacion_realizada:
         try:
-            ingresos_totales, resultados_por_bloque, clientes_a_cobrar = __procesar_bloques(
+            ingresos_totales, resultados_por_bloque, clientes_a_cobrar = _procesar_bloques(
                 conn, bloques_iniciales, start_date, end_date
             )
             try:
-                g = globals().get('_get_egresos_totales_periodo', lambda *_: {'totales': {'programado': 0.0}})(conn, start_date, end_date)
-                if isinstance(g, dict):
-                    gastos = g
+                gastos = _get_egresos_totales_periodo(conn, start_date, end_date) or {'totales': {'programado': 0.0}}
             except Exception as e:
                 try: conn.rollback()
                 except Exception: pass
                 app.logger.exception("proyecciones/egresos error: %s", e)
 
-            balance = float(ingresos_totales or 0) - float(((gastos or {}).get('totales') or {}).get('programado') or 0)
+            # --- Ingresos ajustados con haircut + colchón y exposición VES ---
+            fx_aplicada = _fx_rate_effective(bcv_anchor, bcv_now, tasa_bin, SLIPPAGE_PCT, fijada_flag)
+
+            ingresos_ajustados = 0.0
+            exposicion_ves     = 0.0
+            for it in clientes_a_cobrar or []:
+                monto = float(it.get('monto_usd') or 0)
+                factor = _haircut_row(it.get('condicion'), it.get('estado_del_plan'), FACT_CONDICION, FACT_ESTATUS)
+                monto_aj = monto * factor
+                ingresos_ajustados += monto_aj
+                exposicion_ves     += (monto_aj * fx_aplicada)
+
+            colchon_liquidez = ingresos_ajustados * COLCHON_LIQUIDEZ_PCT
+            ingreso_caja_proyectado = max(0.0, ingresos_ajustados - colchon_liquidez)
+
+            gastos_programados = float(((gastos or {}).get('totales') or {}).get('programado') or 0)
+            balance = ingreso_caja_proyectado - gastos_programados
+
             proyecciones = {
                 'resumen': {
-                    'ingresos_totales_proyectados': float(ingresos_totales or 0),
-                    'balance_neto_proyectado': float(balance),
+                    'ingresos_totales_proyectados': round(ingreso_caja_proyectado, 2),
+                    'balance_neto_proyectado': round(balance, 2),
                     'period_key': period_key,
+                    'fx_rate_aplicada': round(fx_aplicada, 4),
+                    'colchon_liquidez': round(colchon_liquidez, 2),
+                    'exposicion_ves': round(exposicion_ves, 2),
+                    'depreciacion_contable': round(DEPRECIACION_MENSUAL, 2),
                 },
                 'resultados_por_bloque': resultados_por_bloque,
                 'clientes_a_cobrar': clientes_a_cobrar,
             }
+
+            # --- Egresos valorados + plan de cobertura contra saldos de caja ---
+            egresos_val = []
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT id, categoria, descripcion, moneda_origen, monto_origen, moneda_pago, corredor_fx,
+                               tasa_param, prioridad, obligatoriedad, recurrencia, fecha_compromiso, cartera_preferida, activo
+                        FROM egresos_programados
+                        WHERE activo = true
+                          AND fecha_compromiso BETWEEN %s AND %s
+                    """, (start_date, end_date))
+                    rows = cur.fetchall() or []
+                    cols = [d[0] for d in cur.description]
+                    egresos_raw = [dict(zip(cols, r)) for r in rows]
+
+                tasas_map = {'bcv_anchor': bcv_anchor, 'bcv_now': bcv_now, 'binance': tasa_bin}
+                for e in egresos_raw:
+                    v = valorar_egreso(e, tasas_map, SLIPPAGE_PCT, fijada_global=fijada_flag)
+                    v.update({
+                        'id': e.get('id'),
+                        'categoria': e.get('categoria'),
+                        'descripcion': e.get('descripcion'),
+                        'prioridad': e.get('prioridad'),
+                        'obligatoriedad': e.get('obligatoriedad'),
+                        'fecha_compromiso': e.get('fecha_compromiso'),
+                        'cartera_preferida': e.get('cartera_preferida'),
+                        'fx_corredor': e.get('corredor_fx')
+                    })
+                    egresos_val.append(v)
+
+                # saldos del día
+                saldos = {'VES_BANCOS':0.0,'USD_EFECTIVO':0.0,'USDT_BINANCE':0.0}
+                with conn.cursor() as cur:
+                    cur.execute("SELECT cartera, monto FROM caja_saldos WHERE fecha = CURRENT_DATE")
+                    for cartera, monto in cur.fetchall() or []:
+                        saldos[cartera] = float(monto or 0)
+
+                plan = cubrir_egresos(egresos_val, saldos, tasas_map, SLIPPAGE_PCT)
+
+                usd_sum = sum(e['usd_equivalente'] for e in egresos_val) or 0.0
+                ves_sum = sum(e['ves_equivalente'] for e in egresos_val) or 0.0
+                fx_blend = round((ves_sum / usd_sum), 4) if usd_sum > 0 else 0.0
+                costo_rebalanceo_total = round(sum(m.get('costo',0) for m in plan.get('rebalanceos',[])), 2)
+
+                proyecciones['egresos'] = {
+                    'valorados': egresos_val,
+                    'fx_blend_egresos': fx_blend,
+                    'costo_rebalanceo_total': costo_rebalanceo_total,
+                    'plan_cobertura': plan
+                }
+            except Exception as e:
+                try: conn.rollback()
+                except Exception: pass
+                app.logger.exception("proyecciones/egresos cobertura error: %s", e)
+
         except Exception as e:
             try: conn.rollback()
             except Exception: pass
@@ -5072,7 +5180,7 @@ def reporte_proyecciones():
                 'resultados_por_bloque': [], 'clientes_a_cobrar': [],
             }
 
-    # =============== NUEVO: Proyección financiera (escenarios) ===============
+    # =============== Proyección financiera (escenarios) ===============
     def __to_float(v, default=0.0) -> float:
         try:
             if v is None or (isinstance(v, str) and not v.strip()):
@@ -5088,8 +5196,11 @@ def reporte_proyecciones():
     proyeccion_error = None
 
     try:
+        # Solo corre si tienes implementado calcular_proyeccion
+        _calc = globals().get('calcular_proyeccion', None)
+
         # 1) Ingresos
-        ingresos = {
+        ingresos_pf = {
             "solv_imp": {
                 "efectivo": __to_float(src.get("ing_efectivo", 0)),
                 "euro":     __to_float(src.get("ing_euro", 0)),
@@ -5106,18 +5217,16 @@ def reporte_proyecciones():
         }
 
         # 2) Egresos en USD por clave:
-        egresos_divisas = {}
-        # Opción A: JSON en oculto
+        egresos_divisas_pf = {}
         eg_json = src.get("eg_divisas_json")
         if eg_json:
             try:
                 parsed = json.loads(eg_json)
                 if isinstance(parsed, dict):
-                    egresos_divisas = {str(k): __to_float(v, 0.0) for k, v in parsed.items()}
+                    egresos_divisas_pf = {str(k): __to_float(v, 0.0) for k, v in parsed.items()}
             except Exception:
                 pass
-        # Opción B: pares clave/monto
-        if not egresos_divisas:
+        if not egresos_divisas_pf:
             keys = __getlist("eg_div_key[]")
             vals = __getlist("eg_div_monto[]")
             for i, k in enumerate(keys or []):
@@ -5126,9 +5235,9 @@ def reporte_proyecciones():
                     continue
                 v = __to_float(vals[i]) if i < len(vals) else 0.0
                 if v != 0.0:
-                    egresos_divisas[k] = v
+                    egresos_divisas_pf[k] = v
 
-        # 3) Ítems del carril 225→247 (preferir JSON oculto `carril_json`)
+        # 3) Ítems del carril 225→247
         carril_items = []
         carril_raw = (src.get("carril_json") or "").strip()
         if carril_raw:
@@ -5147,11 +5256,9 @@ def reporte_proyecciones():
                                 "concepto": concepto, "monto_usd": monto, "venta": venta, "recompra": recompra
                             })
             except Exception:
-                # si hay error en JSON, caemos al modo arrays
                 carril_items = []
 
         if not carril_items:
-            # fallback arrays del form
             carril_conceptos = __getlist("carril_concepto[]")
             carril_montos    = __getlist("carril_monto_usd[]")
             carril_ventas    = __getlist("carril_venta[]")
@@ -5169,9 +5276,9 @@ def reporte_proyecciones():
                     })
 
         # 4) Egresos en Bs directos (USD-eq)
-        egresos = {
-            "divisas": egresos_divisas,
-            "carril_225_247_items": carril_items,  # modo MANUAL (lista de items)
+        egresos_pf = {
+            "divisas": egresos_divisas_pf,
+            "carril_225_247_items": carril_items,
             "bs_bcv":      __to_float(src.get("eg_bs_bcv", 0)),
             "bs_euro_bcv": __to_float(src.get("eg_bs_euro_bcv", 0)),
             "variables_bs": {
@@ -5183,22 +5290,21 @@ def reporte_proyecciones():
             },
         }
 
-        # 5) Tasas del mes
-        usd_bcv = __to_float(src.get("usd_bcv", None), tasas_now.get('usd') or tasas_anchor.get('usd') or 0.0)
-        eur_bcv = __to_float(src.get("eur_bcv", None), usd_bcv)  # fallback simple si no envías EUR
-        tasas = {
-            "usd_bcv": usd_bcv,
-            "eur_bcv": eur_bcv,
-            "binance_actual": __to_float(src.get("binance_actual", None), tasas_now.get('usd') or 0.0),
+        # 5) Tasas del mes (escenarios)
+        usd_bcv = float((tasas_now.get('usd') or tasas_anchor.get('usd') or 0.0))
+        eur_bcv = float(usd_bcv)
+        tasas_pf = {
+            "usd_bcv": __to_float(src.get("usd_bcv", usd_bcv), usd_bcv),
+            "eur_bcv": __to_float(src.get("eur_bcv", eur_bcv), eur_bcv),
+            "binance_actual": __to_float(src.get("binance_actual", tasas_now.get('tasa_binance') or 0.0), 0.0),
             "binance_prevision": __to_float(src.get("binance_prevision", 0), 0.0),
             "venta_usd": __to_float(src.get("venta_usd_global", 0)),
             "recompra_usd": __to_float(src.get("recompra_usd_global", 0)),
         }
 
         # 6) Parámetros de la proyección
-        parametros = {
+        parametros_pf = {
             "colchon_pct": __to_float(src.get("colchon_pct", 0.20), 0.20),
-            # Estas listas se mantienen por compatibilidad; tu lógica manual ignora 'pagan_por_225_247_keys'
             "bloque_directo_keys": [x.strip() for x in __getlist("bloque_directo_keys[]") if (x or "").strip()],
             "pagan_por_225_247_keys": [x.strip() for x in __getlist("pagan_por_225_247_keys[]") if (x or "").strip()],
         }
@@ -5207,28 +5313,28 @@ def reporte_proyecciones():
         has_any_input = any([
             src.get("ing_efectivo"), src.get("ing_usdt"), src.get("ing_bs_sc"), src.get("mora_efectivo"),
             src.get("eg_dev_usd"), src.get("eg_bs_bcv"), src.get("venta_usd_global"),
-            egresos_divisas, carril_items
+            egresos_divisas_pf, carril_items
         ])
         force_run = (src.get("run_proyeccion") == "1")
 
-        if has_any_input or force_run:
-            proyeccion_financiera = calcular_proyeccion(ingresos, egresos, tasas, parametros)
+        if (has_any_input or force_run) and callable(_calc):
+            proyeccion_financiera = _calc(ingresos_pf, egresos_pf, tasas_pf, parametros_pf)
 
     except Exception as e:
         proyeccion_error = str(e)
         app.logger.exception("proyecciones/proyeccion_financiera error: %s", e)
-    # =============== FIN NUEVO bloque ===============
+    # =============== FIN bloque de escenarios ===============
 
     # Empaquetado para Jinja
-    tasas = _ns({'bcv_anchor': tasas_anchor, 'bcv_now': tasas_now})
+    tasas_ns = _ns({'bcv_anchor': tasas_anchor, 'bcv_now': tasas_now})
     proyecciones_ns = _ns(proyecciones) if proyecciones else None
     gastos_ns = _ns(gastos)
-    parametros = {
+    parametros_view = {
         'period_mode': period_mode,
         'start_date': start_date.isoformat(),
         'end_date': end_date.isoformat(),
         'dev_target_pct': dev_target_pct,
-        'fijada': fijada,
+        'fijada': '1' if fijada_flag else '0',
         'period_key': period_key,
     }
 
@@ -5236,15 +5342,14 @@ def reporte_proyecciones():
         'reporte_proyecciones.html',
         proyecciones=proyecciones_ns,
         gastos=gastos_ns,
-        tasas=tasas,
+        tasas=tasas_ns,
         empresas_opciones=empresas_opciones,
         estados_opciones=estados_opciones,
         condicion_opciones=condicion_opciones,
         estatus_opciones=estatus_opciones,
         simulacion_realizada=simulacion_realizada,
-        parametros=parametros,
+        parametros=parametros_view,
         bloques_iniciales=bloques_iniciales,
-        # -------- NUEVO: salida de escenarios ----------
         proyeccion_financiera=proyeccion_financiera,
         proyeccion_error=proyeccion_error,
     )
@@ -8515,7 +8620,6 @@ def cambiar_estado_usuario(user_type, user_id):
         flash(f"Error al cambiar el estado del usuario: {e}", "danger")
         
     return redirect(url_for('gestion_usuarios'))
-
 
 @app.route('/admin/editar_usuario/<string:user_type>/<int:user_id>', methods=['POST'])
 @admin_required

@@ -1,6 +1,6 @@
 {% extends "base_sidebar.html" %}
 
-{# -- MACROS Y BLOQUES DE CABECERA (SIN CAMBIOS) -- #}
+{# -- MACROS -- #}
 {% macro pill_status(estatus) -%}
     {% set e = (estatus or '')|upper %}
     {% set cls = {
@@ -19,99 +19,33 @@
 {% block head_extra %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
 <style>
-/*
--- GUÍA DE TOKENS DE DISEÑO --
-
-Espacios:
---space-1: 0.25rem; (4px)
---space-2: 0.5rem;  (8px)
---space-3: 0.75rem; (12px)
---space-4: 1rem;    (16px)
---space-6: 1.5rem;  (24px)
---space-8: 2rem;    (32px)
-
-Radios de Borde:
---radius-md: 0.5rem;   (8px)
---radius-lg: 0.75rem;  (12px)
---radius-xl: 1rem;     (16px)
---radius-full: 9999px;
-
-Sombras:
---shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
---shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
---shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-
-Colores de Rol (usando clases de Tailwind para consistencia):
---brand-primary: #2563eb; (blue-600)
---success-primary: #16a34a; (green-600)
---warning-primary: #f59e0b; (amber-500)
---danger-primary: #dc2626; (red-600)
---info-primary: #0ea5e9; (sky-500)
-
---text-primary: #1e293b; (slate-800)
---text-secondary: #64748b; (slate-500)
---surface-primary: #ffffff;
---surface-secondary: #f8fafc; (slate-50)
---border-default: #e2e8f0; (slate-200)
---focus-ring-color: #dbeafe; (blue-200)
-*/
-
-:root {
-  /* Offset para el header de la tabla pegajoso, debe coincidir con la altura del header principal */
-  --header-height: 5rem; /* h-20 */
-  --sticky-offset: var(--header-height);
-}
-
-/* -- ESTILOS BASE Y OVERRIDES PARA LIBRERÍAS -- */
-
-/* Estilo base para todos los inputs, textareas, selects */
+:root { --header-height: 5rem; --sticky-offset: var(--header-height); }
+/* Inputs / selects */
 .form-input, .form-select, .form-textarea, .choices__inner {
   @apply w-full rounded-lg border-slate-300 bg-white text-sm text-slate-800 shadow-sm transition-colors duration-200 placeholder:text-slate-400;
   @apply focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20;
   @apply dark:border-slate-600 dark:bg-slate-900/50 dark:text-slate-200 dark:placeholder:text-slate-500;
-  @apply dark:focus:border-blue-500 dark:focus:ring-blue-500/20;
 }
-.form-checkbox {
-  @apply rounded border-slate-300 text-blue-600 shadow-sm;
-  @apply focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0;
-  @apply dark:border-slate-600 dark:bg-slate-700 dark:checked:bg-blue-500;
-}
-
-/* Override para Choices.js */
+.form-checkbox { @apply rounded border-slate-300 text-blue-600 shadow-sm focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-0 dark:border-slate-600 dark:bg-slate-700 dark:checked:bg-blue-500; }
+/* Choices.js */
 .choices__inner { @apply min-h-[42px] p-0; }
 .choices__list--single { @apply p-0; }
 .choices[data-type*="select-multiple"] .choices__inner,
 .choices[data-type*="text"] .choices__inner { @apply px-2 py-1; }
-
-.choices__list--multiple .choices__item {
-  @apply m-0.5 rounded-md border-0 bg-blue-100 text-sm font-medium text-blue-800;
-  @apply dark:bg-blue-900/50 dark:text-blue-200;
-}
-.choices__list--multiple .choices__item.is-highlighted {
-  @apply bg-blue-200 dark:bg-blue-800/50;
-}
-.choices__button {
-  @apply ml-1.5 h-4 w-4 bg-center bg-no-repeat opacity-75 transition-opacity;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%233b82f6'%3e%3cpath d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z'/%3e%3c/svg%3e");
-}
+.choices__list--multiple .choices__item { @apply m-0.5 rounded-md border-0 bg-blue-100 text-sm font-medium text-blue-800 dark:bg-blue-900/50 dark:text-blue-200; }
+.choices__list--multiple .choices__item.is-highlighted { @apply bg-blue-200 dark:bg-blue-800/50; }
+.choices__button { @apply ml-1.5 h-4 w-4 bg-center bg-no-repeat opacity-75 transition-opacity; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%233b82f6'%3e%3cpath d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z'/%3e%3c/svg%3e"); }
 .choices__button:hover, .choices__button:focus { @apply opacity-100; }
-
-/* Tabla Sticky Header */
+/* Tabla sticky */
 .table-container { position: relative; }
-.thead-clone {
-  position: sticky; top: var(--sticky-offset); z-index: 15;
-  @apply shadow-md;
-}
-
-/* Estilos para tablas anidadas */
+.thead-clone { position: sticky; top: var(--sticky-offset); z-index: 15; @apply shadow-md; }
+/* mini tablas */
 .mini-table th, .mini-table td { @apply px-2 py-1.5; }
 .mini-table th { @apply font-semibold text-slate-500 dark:text-slate-400; }
 .mini-table td { @apply text-slate-700 dark:text-slate-300; }
 </style>
 {% endblock %}
 
-
-{# -- CUERPO DE LA PÁGINA (REDISEÑADO) -- #}
 {% block body %}
 <div class="max-w-7xl mx-auto space-y-8 lg:space-y-12">
 
@@ -187,9 +121,7 @@ Colores de Rol (usando clases de Tailwind para consistencia):
         </h2>
         <p class="text-sm text-slate-500 dark:text-slate-400">Puedes añadir varios bloques para combinar escenarios.</p>
       </div>
-      <div id="simulation-blocks-container" class="space-y-4">
-        <!-- Los bloques se insertarán aquí -->
-      </div>
+      <div id="simulation-blocks-container" class="space-y-4"></div>
       <div class="mt-4">
           <button type="button" id="add-block-btn" class="text-sm font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors focus:outline-none focus:ring-4 focus:ring-blue-500/50 rounded-lg">
               <i class="bi bi-plus-circle-fill mr-1"></i> Agregar Bloque de Filtros
@@ -210,13 +142,166 @@ Colores de Rol (usando clases de Tailwind para consistencia):
         </label>
       </div>
       
-      <div class="p-6 space-y-6">
-        <!-- ... (Contenido de proyección financiera con clases actualizadas) ... -->
+      <div class="p-6 space-y-8">
+        <!-- Ingresos -->
+        <section class="space-y-4">
+          <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200">Ingresos proyectados</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-3">
+              <p class="text-xs font-medium text-slate-500">Solvente / Imputables</p>
+              <div class="grid grid-cols-2 gap-3">
+                <div><label class="text-xs block mb-1">Efectivo USD</label><input type="number" step="0.01" name="ing_efectivo" class="form-input" placeholder="0.00"></div>
+                <div><label class="text-xs block mb-1">Euro</label><input type="number" step="0.01" name="ing_euro" class="form-input" placeholder="0.00"></div>
+                <div><label class="text-xs block mb-1">USDT</label><input type="number" step="0.01" name="ing_usdt" class="form-input" placeholder="0.00"></div>
+                <div><label class="text-xs block mb-1">Nequi</label><input type="number" step="0.01" name="ing_nequi" class="form-input" placeholder="0.00"></div>
+                <div><label class="text-xs block mb-1">Bs. SC</label><input type="number" step="0.01" name="ing_bs_sc" class="form-input" placeholder="0.00"></div>
+                <div><label class="text-xs block mb-1">Bs. CC</label><input type="number" step="0.01" name="ing_bs_cc" class="form-input" placeholder="0.00"></div>
+              </div>
+            </div>
+            <div class="space-y-3">
+              <p class="text-xs font-medium text-slate-500">Mora</p>
+              <div class="grid grid-cols-3 gap-3">
+                <div><label class="text-xs block mb-1">Efectivo USD</label><input type="number" step="0.01" name="mora_efectivo" class="form-input" placeholder="0.00"></div>
+                <div><label class="text-xs block mb-1">Bs. SC</label><input type="number" step="0.01" name="mora_bs_sc" class="form-input" placeholder="0.00"></div>
+                <div><label class="text-xs block mb-1">Bs. CC</label><input type="number" step="0.01" name="mora_bs_cc" class="form-input" placeholder="0.00"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Egresos en Divisas -->
+        <section class="space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200">Egresos en divisas (USD/USDT)</h3>
+            <button type="button" class="text-sm text-blue-600 hover:text-blue-800" id="btn-add-egdiv"><i class="bi bi-plus-circle"></i> Añadir egreso</button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm mini-table" id="tbl-egdiv">
+              <thead class="bg-slate-50 dark:bg-slate-900/50">
+                <tr>
+                  <th class="text-left">Clave/Concepto</th>
+                  <th class="text-right">Monto (USD)</th>
+                  <th class="w-10"></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p class="text-xs text-slate-500">Estas filas generan pares <code>eg_div_key[]</code> y <code>eg_div_monto[]</code>.</p>
+        </section>
+
+        <!-- Egresos en Bs + Variables -->
+        <section class="space-y-4">
+          <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200">Egresos en Bs y variables</h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="space-y-3">
+              <p class="text-xs font-medium text-slate-500">Directos en Bs (convertidos en USD-eq por BCV)</p>
+              <div><label class="text-xs block mb-1">Bs (BCV)</label><input type="number" step="0.01" name="eg_bs_bcv" class="form-input" placeholder="0.00"></div>
+              <div><label class="text-xs block mb-1">€ a BCV</label><input type="number" step="0.01" name="eg_bs_euro_bcv" class="form-input" placeholder="0.00"></div>
+            </div>
+            <div class="space-y-3">
+              <p class="text-xs font-medium text-slate-500">Variables Bs</p>
+              <div><label class="text-xs block mb-1">Devoluciones (Bs)</label><input type="number" step="0.01" name="eg_dev_bs" class="form-input" placeholder="0.00"></div>
+              <div><label class="text-xs block mb-1">Registro (Bs)</label><input type="number" step="0.01" name="eg_registro_bs" class="form-input" placeholder="0.00"></div>
+            </div>
+            <div class="space-y-3">
+              <p class="text-xs font-medium text-slate-500">Variables USD</p>
+              <div><label class="text-xs block mb-1">Devoluciones (USD)</label><input type="number" step="0.01" name="eg_dev_usd" class="form-input" placeholder="0.00"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Carril 225→247 -->
+        <section class="space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200">Carril 225 → 247 (venta y recompra)</h3>
+            <button type="button" class="text-sm text-blue-600 hover:text-blue-800" id="btn-add-carril"><i class="bi bi-plus-circle"></i> Añadir ítem</button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm mini-table" id="tbl-carril">
+              <thead class="bg-slate-50 dark:bg-slate-900/50">
+                <tr>
+                  <th class="text-left">Concepto</th>
+                  <th class="text-right">Monto USD</th>
+                  <th class="text-right">Venta</th>
+                  <th class="text-right">Recompra</th>
+                  <th class="w-10"></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p class="text-xs text-slate-500">Se serializa a <code>carril_json</code> (lista de objetos).</p>
+        </section>
+
+        <!-- Tasas del período / escenario -->
+        <section class="space-y-4">
+          <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200">Tasas del período / escenario</h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="space-y-3">
+              <div><label class="text-xs block mb-1">USD BCV</label>
+                <input type="number" step="0.0001" name="usd_bcv" class="form-input"
+                       value="{{ (tasas.bcv_now.usd or tasas.bcv_anchor.usd or 0) | float }}">
+              </div>
+              <div><label class="text-xs block mb-1">EUR BCV</label>
+                <input type="number" step="0.0001" name="eur_bcv" class="form-input"
+                       placeholder="Opcional (usa USD si vacío)">
+              </div>
+            </div>
+            <div class="space-y-3">
+              <div><label class="text-xs block mb-1">Binance actual</label>
+                <input type="number" step="0.0001" name="binance_actual" class="form-input"
+                       value="{{ (tasas.bcv_now.tasa_binance or 0) | float }}">
+              </div>
+              <div><label class="text-xs block mb-1">Binance previsión</label>
+                <input type="number" step="0.0001" name="binance_prevision" class="form-input" placeholder="0.00">
+              </div>
+            </div>
+            <div class="space-y-3">
+              <div><label class="text-xs block mb-1">Venta USD (global)</label>
+                <input type="number" step="0.0001" name="venta_usd_global" class="form-input" placeholder="0.00">
+              </div>
+              <div><label class="text-xs block mb-1">Recompra USD (global)</label>
+                <input type="number" step="0.0001" name="recompra_usd_global" class="form-input" placeholder="0.00">
+              </div>
+            </div>
+          </div>
+          <div class="mt-2">
+            <label class="inline-flex items-center gap-2 text-sm">
+              <input type="checkbox" name="fijada" value="1" class="form-checkbox">
+              <span>Usar **bcv_anchor** (fijada) para valuación de egresos</span>
+            </label>
+          </div>
+        </section>
+
+        <!-- Parámetros adicionales -->
+        <section class="space-y-4">
+          <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200">Parámetros</h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label class="text-xs block mb-1">Colchón de liquidez (%)</label>
+              <input type="number" step="0.0001" name="colchon_pct" class="form-input" value="0.20">
+            </div>
+            <div>
+              <label class="text-xs block mb-1">Bloque directo (keys)</label>
+              <div id="bdk-wrap" class="space-y-2">
+                <!-- inputs name="bloque_directo_keys[]" -->
+              </div>
+              <button type="button" id="btn-add-bdk" class="mt-2 text-xs text-blue-600 hover:text-blue-800"><i class="bi bi-plus"></i> Añadir</button>
+            </div>
+            <div>
+              <label class="text-xs block mb-1">Pagan por 225→247 (keys)</label>
+              <div id="p225-wrap" class="space-y-2">
+                <!-- inputs name="pagan_por_225_247_keys[]" -->
+              </div>
+              <button type="button" id="btn-add-p225" class="mt-2 text-xs text-blue-600 hover:text-blue-800"><i class="bi bi-plus"></i> Añadir</button>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   </form>
 
-  
   {% if simulacion_realizada %}
   <div class="space-y-8 lg:space-y-12">
     <header>
@@ -226,182 +311,150 @@ Colores de Rol (usando clases de Tailwind para consistencia):
     
     <!-- KPIs -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md p-5 flex items-center gap-5">
-            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
-              <i class="bi bi-graph-up-arrow text-2xl text-green-600 dark:text-green-400"></i>
-            </div>
-            <div>
-              <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Ingreso Proyectado</p>
-              <p class="text-2xl font-bold text-slate-800 dark:text-slate-100">${{ "{:,.2f}".format((proyecciones.resumen.ingresos_totales_proyectados or 0) | float) }}</p>
-            </div>
+      <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md p-5 flex items-center gap-5">
+        <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+          <i class="bi bi-graph-up-arrow text-2xl text-green-600 dark:text-green-400"></i>
         </div>
-        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md p-5 flex items-center gap-5">
-            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-sky-100 dark:bg-sky-900/50">
-              <i class="bi bi-people-fill text-2xl text-sky-600 dark:text-sky-400"></i>
-            </div>
-            <div>
-              <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Clientes a Cobrar</p>
-              <p class="text-2xl font-bold text-slate-800 dark:text-slate-100">{{ proyecciones.clientes_a_cobrar|length }}</p>
-            </div>
+        <div>
+          <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Ingreso Proyectado</p>
+          <p class="text-2xl font-bold text-slate-800 dark:text-slate-100">${{ "{:,.2f}".format((proyecciones.resumen.ingresos_totales_proyectados or 0) | float) }}</p>
         </div>
-        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md p-5 flex items-center gap-5">
-            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-rose-100 dark:bg-rose-900/50">
-              <i class="bi bi-graph-down-arrow text-2xl text-rose-600 dark:text-rose-400"></i>
-            </div>
-            <div>
-              <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Gastos Programados</p>
-              <p class="text-2xl font-bold text-slate-800 dark:text-slate-100">${{ "{:,.2f}".format((gastos.totales.programado or 0) | float) }}</p>
-            </div>
+      </div>
+      <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md p-5 flex items-center gap-5">
+        <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-sky-100 dark:bg-sky-900/50">
+          <i class="bi bi-people-fill text-2xl text-sky-600 dark:text-sky-400"></i>
         </div>
-        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md p-5 flex items-center gap-5">
-            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/50">
-              <i class="bi bi-bank text-2xl text-indigo-600 dark:text-indigo-400"></i>
-            </div>
-            <div>
-              <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Balance Neto</p>
-              <p class="text-2xl font-bold text-slate-800 dark:text-slate-100">${{ "{:,.2f}".format((proyecciones.resumen.balance_neto_proyectado or 0) | float) }}</p>
-            </div>
+        <div>
+          <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Clientes a Cobrar</p>
+          <p class="text-2xl font-bold text-slate-800 dark:text-slate-100">{{ proyecciones.clientes_a_cobrar|length }}</p>
         </div>
+      </div>
+      <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md p-5 flex items-center gap-5">
+        <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-rose-100 dark:bg-rose-900/50">
+          <i class="bi bi-graph-down-arrow text-2xl text-rose-600 dark:text-rose-400"></i>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Gastos Programados</p>
+          <p class="text-2xl font-bold text-slate-800 dark:text-slate-100">${{ "{:,.2f}".format((gastos.totales.programado or 0) | float) }}</p>
+        </div>
+      </div>
+      <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md p-5 flex items-center gap-5">
+        <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/50">
+          <i class="bi bi-bank text-2xl text-indigo-600 dark:text-indigo-400"></i>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Balance Neto</p>
+          <p class="text-2xl font-bold text-slate-800 dark:text-slate-100">${{ "{:,.2f}".format((proyecciones.resumen.balance_neto_proyectado or 0) | float) }}</p>
+        </div>
+      </div>
     </div>
 
     <!-- Tabla de Resultados -->
     <div class="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl shadow-md table-container overflow-hidden" id="table-container">
-        <div class="overflow-x-auto" id="table-scroll-wrapper">
-          <table class="min-w-full text-sm">
-            <thead class="bg-slate-50 dark:bg-slate-900/50 thead-clone" id="original-thead">
-              <tr>
-                <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-200">Cliente</th>
-                <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-200">Cédula</th>
-                <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-200">Estado / Condición</th>
-                <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-200"># Cuota</th>
-                <th scope="col" class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-200">Fecha Pago</th>
-                <th scope="col" class="py-3.5 px-4 text-right font-semibold text-slate-700 dark:text-slate-200">Monto USD</th>
+      <div class="overflow-x-auto" id="table-scroll-wrapper">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-50 dark:bg-slate-900/50 thead-clone" id="original-thead">
+            <tr>
+              <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-200">Cliente</th>
+              <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-200">Cédula</th>
+              <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-200">Estado / Condición</th>
+              <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-200"># Cuota</th>
+              <th class="py-3.5 px-4 text-left font-semibold text-slate-700 dark:text-slate-200">Fecha Pago</th>
+              <th class="py-3.5 px-4 text-right font-semibold text-slate-700 dark:text-slate-200">Monto USD</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+            {% set lista = proyecciones.clientes_a_cobrar if proyecciones else [] %}
+            {% if lista %}
+              {% for r in lista %}
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100 whitespace-nowrap">{{ r.nombre }} {{ r.apellido }}</td>
+                <td class="px-4 py-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">{{ r.cedula }}</td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-2">
+                    {{ pill_status(r.estado_del_plan) }}
+                    {% if r.condicion %}<span class="text-xs text-slate-500">{{ r.condicion | title }}</span>{% endif %}
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-slate-500 dark:text-slate-400 text-center">{{ r.numero_cuota }}</td>
+                <td class="px-4 py-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">{{ r.fecha_pago | format_date if r.fecha_pago else '—' }}</td>
+                <td class="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                  ${{ "{:,.2f}".format((r.monto_usd or 0) | float) }}
+                </td>
               </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-              {% set lista = proyecciones.clientes_a_cobrar if proyecciones else [] %}
-              {% if lista %}
-                {% for r in lista %}
-                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-                  <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100 whitespace-nowrap">{{ r.nombre }} {{ r.apellido }}</td>
-                  <td class="px-4 py-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">{{ r.cedula }}</td>
-                  <td class="px-4 py-3">
-                    <div class="flex items-center gap-2">
-                      {{ pill_status(r.estado_del_plan) }}
-                      {% if r.condicion %}<span class="text-xs text-slate-500">{{ r.condicion | title }}</span>{% endif %}
-                    </div>
-                  </td>
-                  <td class="px-4 py-3 text-slate-500 dark:text-slate-400 text-center">{{ r.numero_cuota }}</td>
-                  <td class="px-4 py-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">{{ r.fecha_pago | format_date if r.fecha_pago else '—' }}</td>
-                  <td class="px-4 py-3 text-right font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">
-                    ${{ "{:,.2f}".format((r.monto_usd or 0) | float) }}
-                  </td>
-                </tr>
-                {% endfor %}
-              {% else %}
-                <tr>
-                  <td colspan="6" class="text-center py-16 px-6 text-slate-500 dark:text-slate-400">
-                    <div class="inline-block bg-slate-100 dark:bg-slate-700 p-5 rounded-full mb-4">
-                      <i class="bi bi-table text-4xl text-slate-400 dark:text-slate-500"></i>
-                    </div>
-                    <p class="font-semibold">No hay resultados para esta simulación</p>
-                    <p class="text-sm">Intenta ajustar los filtros o el período de proyección.</p>
-                  </td>
-                </tr>
-              {% endif %}
-            </tbody>
-          </table>
-        </div>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="6" class="text-center py-16 px-6 text-slate-500 dark:text-slate-400">
+                  <div class="inline-block bg-slate-100 dark:bg-slate-700 p-5 rounded-full mb-4">
+                    <i class="bi bi-table text-4xl text-slate-400 dark:text-slate-500"></i>
+                  </div>
+                  <p class="font-semibold">No hay resultados para esta simulación</p>
+                  <p class="text-sm">Intenta ajustar los filtros o el período de proyección.</p>
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
       </div>
+    </div>
   </div>
   {% endif %}
-
-  <!-- ... (Resultados de proyección financiera con el nuevo diseño) ... -->
-
 </div>
 
 <!-- Plantilla para Bloques de Simulación -->
 <template id="block-template">
-    <div class="block-item bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg relative transition-all hover:border-slate-300 dark:hover:border-slate-600">
-        <div class="p-4 space-y-4">
-            <div class="flex items-center justify-between">
-                <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">Filtros del Bloque</p>
-                <button type="button" class="remove-block-btn text-slate-400 hover:text-red-500 transition-colors" title="Quitar Bloque">
-                    <i class="bi bi-trash3-fill"></i>
-                </button>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                    <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Empresa</label>
-                    <select name="empresa" multiple class="form-select-choices">
-                        {% for opt in empresas_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Estado del Plan</label>
-                    <select name="estado_plan" multiple class="form-select-choices">
-                        {% for opt in estados_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Condición del Plan</label>
-                    <select name="condicion" multiple class="form-select-choices">
-                        {% for opt in condicion_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Estatus Cliente</label>
-                    <select name="estatus_cliente" multiple class="form-select-choices">
-                        {% for opt in estatus_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Desde (opcional)</label>
-                    <input type="date" name="fecha_inicio" class="form-input">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Hasta (opcional)</o=>
-                    <input type="date" name="fecha_fin" class="form-input">
-                </div>
-            </div>
+  <div class="block-item bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg relative transition-all hover:border-slate-300 dark:hover:border-slate-600">
+    <div class="p-4 space-y-4">
+      <div class="flex items-center justify-between">
+        <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">Filtros del Bloque</p>
+        <button type="button" class="remove-block-btn text-slate-400 hover:text-red-500 transition-colors" title="Quitar Bloque">
+          <i class="bi bi-trash3-fill"></i>
+        </button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Empresa</label>
+          <select name="empresa" multiple class="form-select-choices">
+            {% for opt in empresas_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
+          </select>
         </div>
-        <div class="px-4 py-3 bg-white/50 dark:bg-black/10 border-t border-slate-200 dark:border-slate-700">
-            <label class="inline-flex items-center gap-2.5">
-                <input type="checkbox" class="form-checkbox" name="excluir_rc">
-                <span class="text-sm text-slate-700 dark:text-slate-300">Excluir Retirado/Completado</span>
-            </label>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Estado del Plan</label>
+          <select name="estado_plan" multiple class="form-select-choices">
+            {% for opt in estados_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
+          </select>
         </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Condición del Plan</label>
+          <select name="condicion" multiple class="form-select-choices">
+            {% for opt in condicion_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Estatus Cliente</label>
+          <select name="estatus_cliente" multiple class="form-select-choices">
+            {% for opt in estatus_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Desde (opcional)</label>
+          <input type="date" name="fecha_inicio" class="form-input">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Hasta (opcional)</label>
+          <input type="date" name="fecha_fin" class="form-input">
+        </div>
+      </div>
     </div>
+    <div class="px-4 py-3 bg-white/50 dark:bg-black/10 border-t border-slate-200 dark:border-slate-700">
+      <label class="inline-flex items-center gap-2.5">
+        <input type="checkbox" class="form-checkbox" name="excluir_rc">
+        <span class="text-sm text-slate-700 dark:text-slate-300">Excluir Retirado/Completado</span>
+      </label>
+    </div>
+  </div>
 </template>
-
-<!--
--- LISTA DE CAMBIOS VISUALES --
-1.  **Estructura y Layout:**
-    * Se añadió un header de página coherente con título, subtítulo y acciones principales.
-    * Todos los paneles de configuración y resultados se han rediseñado como "tarjetas" con borde, sombra y radio consistentes.
-    * Mejora general del espaciado y alineación usando Tailwind CSS para una apariencia más limpia y aireada.
-    * Diseño "mobile-first" implementado en todos los componentes para correcta visualización en dispositivos pequeños.
-
-2.  **Componentes de Formulario:**
-    * Estilos unificados para todos los inputs de texto, fecha y selects.
-    * El selector de período ("Auto" / "Manual") se transformó en un "segmented control" visualmente más atractivo.
-    * Choices.js (multiselect) fue re-estilizado con chips más limpios y consistentes con el diseño.
-    * Los botones tienen estados hover, focus y active claros y transiciones suaves. El botón primario ("Simular") tiene más peso visual.
-
-3.  **Tarjetas de Información (KPIs):**
-    * Rediseñadas para ser más legibles, quitando los gradientes y usando un layout con icono, etiqueta y valor numérico grande y claro.
-
-4.  **Tabla de Resultados:**
-    * El encabezado fijo (sticky header) fue re-estilizado para ser menos intrusivo y más coherente con el nuevo tema. Se corrigió el posicionamiento.
-    * Aumento de padding en celdas y alineación de números a la derecha para mejorar la legibilidad.
-    * El estado vacío de la tabla ahora es más informativo y visualmente más agradable.
-
-5.  **Accesibilidad (Checklist AA):**
-    * [x] **Contraste de Color:** Se han utilizado combinaciones de colores que cumplen con el ratio de contraste mínimo AA.
-    * [x] **Foco Visible:** Todos los elementos interactivos (botones, inputs, selects, links) tienen un "focus ring" claro y visible al navegar con teclado.
-    * [x] **Etiquetas:** Se conservaron todas las etiquetas `for` y se mejoró la jerarquía de títulos (`h1`, `h2`, etc.).
-    * [x] **Tamaño de Objetivos:** Los botones y otros elementos táctiles tienen un tamaño adecuado para interacción en móviles.
--->
 {% endblock %}
 
 {% block scripts_extra %}
@@ -410,115 +463,171 @@ Colores de Rol (usando clases de Tailwind para consistencia):
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const container = document.getElementById('simulation-blocks-container');
-    const template = document.getElementById('block-template');
-    const addBtn = document.getElementById('add-block-btn');
-    const hiddenBloques = document.getElementById('bloques_json');
-    const form = document.getElementById('simulation-form');
-    const carrilHidden = document.getElementById('carril_json');
+  const container     = document.getElementById('simulation-blocks-container');
+  const template      = document.getElementById('block-template');
+  const addBtn        = document.getElementById('add-block-btn');
+  const hiddenBloques = document.getElementById('bloques_json');
+  const form          = document.getElementById('simulation-form');
+  const carrilHidden  = document.getElementById('carril_json');
 
-    // -- Lógica para Choices.js (sin cambios funcionales) --
-    function initChoices(element) {
-        element.querySelectorAll('.form-select-choices').forEach(select => {
-            if (!select.choices) {
-                select.choices = new Choices(select, {
-                    removeItemButton: true,
-                    placeholder: true,
-                    placeholderValue: 'Seleccionar...',
-                    allowHTML: false,
-                    searchPlaceholderValue: 'Buscar...',
-                    searchResultLimit: 50,
-                    shouldSort: false,
-                    noChoicesText: 'No hay más opciones',
-                    itemSelectText: 'Presiona para seleccionar',
-                });
-            }
+  // ---------- Choices init ----------
+  function initChoices(scope) {
+    scope.querySelectorAll('.form-select-choices').forEach(select => {
+      if (!select.choices) {
+        select.choices = new Choices(select, {
+          removeItemButton: true, placeholder: true, placeholderValue: 'Seleccionar...',
+          allowHTML: false, searchPlaceholderValue: 'Buscar...', searchResultLimit: 50, shouldSort: false,
+          noChoicesText: 'No hay más opciones', itemSelectText: 'Presiona para seleccionar',
         });
-    }
-
-    function setSelectValue(select, value) {
-        if (!select) return;
-        if (select.choices) {
-            try { select.choices.removeActiveItems(); } catch(e){}
-            if (Array.isArray(value)) {
-                if (value.length) select.choices.setChoiceByValue(value.map(v => String(v)));
-            } else if (value !== null && value !== undefined && value !== '') {
-                select.choices.setChoiceByValue(String(value));
-            }
-        } else {
-            if (Array.isArray(value)) {
-                for (const opt of select.options) opt.selected = value.includes(opt.value);
-            } else {
-                select.value = value || '';
-            }
-        }
-    }
-
-    // -- Lógica de Bloques (sin cambios funcionales) --
-    function addNewBlock(data = null) {
-        const clone = template.content.cloneNode(true);
-        container.appendChild(clone);
-        const newBlock = container.lastElementChild;
-        initChoices(newBlock);
-
-        if (data && typeof data === 'object') {
-            setSelectValue(newBlock.querySelector('select[name="empresa"]'), data.empresa || []);
-            setSelectValue(newBlock.querySelector('select[name="estado_plan"]'), data.estado_plan || data.estados || []);
-            setSelectValue(newBlock.querySelector('select[name="condicion"]'), data.condicion || []);
-            setSelectValue(newBlock.querySelector('select[name="estatus_cliente"]'), data.estatus_cliente || []);
-            if (data.fecha_inicio) newBlock.querySelector('input[name="fecha_inicio"]').value = data.fecha_inicio;
-            if (data.fecha_fin)    newBlock.querySelector('input[name="fecha_fin"]').value = data.fecha_fin;
-            if (data.excluir_rc)   newBlock.querySelector('input[name="excluir_rc"]').checked = !!data.excluir_rc;
-        }
-
-        newBlock.querySelector('.remove-block-btn').addEventListener('click', () => {
-            newBlock.remove();
-        });
-    }
-
-    function buildBloquesJSON() {
-        // ... (lógica original sin cambios)
-        return "[]"; // Placeholder, la lógica original se mantiene.
-    }
-
-    const bloquesIniciales = {{ (bloques_iniciales or []) | tojson }};
-    if (Array.isArray(bloquesIniciales) && bloquesIniciales.length) {
-        bloquesIniciales.forEach(b => addNewBlock(b));
-    } else {
-        addNewBlock(); // Iniciar siempre con un bloque
-    }
-
-    addBtn.addEventListener('click', () => addNewBlock());
-
-    // -- Lógica de Tablas Anidadas (sin cambios funcionales) --
-    // ...
-
-    // -- Lógica de Submit (sin cambios funcionales) --
-    form.addEventListener('submit', () => {
-        hiddenBloques.value = buildBloquesJSON();
-        // ... (resto de la lógica original)
+      }
     });
-
-    // -- Lógica de Sticky Header (sin cambios funcionales, solo ajuste de offset) --
-    const tableContainer  = document.getElementById('table-container');
-    if (tableContainer) {
-        const theadOrig  = document.getElementById('original-thead');
-        const scroller   = document.getElementById('table-scroll-wrapper');
-        
-        // No es necesario clonar el nodo con position: sticky
-        // Tailwind y CSS se encargan de todo.
-        // Solo necesitamos sincronizar el scroll horizontal si es necesario,
-        // pero la solución moderna es más simple.
-
-        // El thead original ya tiene la clase 'thead-clone' que lo hace 'sticky'.
-        // Ya no se requiere JS complejo para esta funcionalidad.
+  }
+  function getChoicesValues(select) {
+    if (select && select.choices) {
+      const items = select.choices.getValue(true);
+      return Array.isArray(items) ? items.map(String) : (items ? [String(items)] : []);
     }
+    return Array.from(select?.selectedOptions || []).map(o => o.value);
+  }
+  function setSelectValue(select, value) {
+    if (!select) return;
+    if (select.choices) {
+      try { select.choices.removeActiveItems(); } catch(e){}
+      if (Array.isArray(value) && value.length)      select.choices.setChoiceByValue(value.map(String));
+      else if (value !== null && value !== undefined && value !== '') select.choices.setChoiceByValue(String(value));
+    } else {
+      if (Array.isArray(value)) { for (const opt of select.options) opt.selected = value.includes(opt.value); }
+      else { select.value = value || ''; }
+    }
+  }
+
+  // ---------- Bloques ----------
+  function addNewBlock(data = null) {
+    const clone = template.content.cloneNode(true);
+    container.appendChild(clone);
+    const newBlock = container.lastElementChild;
+    initChoices(newBlock);
+
+    if (data && typeof data === 'object') {
+      setSelectValue(newBlock.querySelector('select[name="empresa"]'), data.empresa || []);
+      setSelectValue(newBlock.querySelector('select[name="estado_plan"]'), data.estado_plan || data.estados || []);
+      setSelectValue(newBlock.querySelector('select[name="condicion"]'), data.condicion || []);
+      setSelectValue(newBlock.querySelector('select[name="estatus_cliente"]'), data.estatus_cliente || []);
+      if (data.fecha_inicio) newBlock.querySelector('input[name="fecha_inicio"]').value = data.fecha_inicio;
+      if (data.fecha_fin)    newBlock.querySelector('input[name="fecha_fin"]').value = data.fecha_fin;
+      if (data.excluir_rc)   newBlock.querySelector('input[name="excluir_rc"]').checked = !!data.excluir_rc;
+    }
+
+    newBlock.querySelector('.remove-block-btn').addEventListener('click', () => { newBlock.remove(); });
+  }
+  function buildBloquesJSON() {
+    const blocks = Array.from(container.querySelectorAll('.block-item'));
+    const out = blocks.map(b => {
+      const empresaSel = b.querySelector('select[name="empresa"]');
+      const estadoSel  = b.querySelector('select[name="estado_plan"]');
+      const condSel    = b.querySelector('select[name="condicion"]');
+      const estSel     = b.querySelector('select[name="estatus_cliente"]');
+      const fi         = b.querySelector('input[name="fecha_inicio"]')?.value || null;
+      const ff         = b.querySelector('input[name="fecha_fin"]')?.value || null;
+      const excluir    = !!b.querySelector('input[name="excluir_rc"]')?.checked;
+
+      return {
+        empresa: getChoicesValues(empresaSel),
+        estado_plan: getChoicesValues(estadoSel),
+        condicion: getChoicesValues(condSel),
+        estatus_cliente: getChoicesValues(estSel),
+        fecha_inicio: fi || null, fecha_fin: ff || null, excluir_rc: excluir,
+      };
+    });
+    const cleaned = out.filter(b => (b.empresa?.length || b.estado_plan?.length || b.condicion?.length || b.estatus_cliente?.length || b.fecha_inicio || b.fecha_fin || b.excluir_rc));
+    return JSON.stringify(cleaned);
+  }
+
+  const bloquesIniciales = {{ (bloques_iniciales or []) | tojson }};
+  if (Array.isArray(bloquesIniciales) && bloquesIniciales.length) { bloquesIniciales.forEach(b => addNewBlock(b)); }
+  else { addNewBlock(); }
+  addBtn.addEventListener('click', () => addNewBlock());
+
+  // ---------- Egresos en divisas (tabla dinámica) ----------
+  const tblEgDiv = document.getElementById('tbl-egdiv').querySelector('tbody');
+  document.getElementById('btn-add-egdiv').addEventListener('click', () => addEgDivRow());
+  function addEgDivRow(k = '', v = '') {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="py-2">
+        <input type="text" name="eg_div_key[]" class="form-input" placeholder="Ej: PROVEEDORES" value="${k}">
+      </td>
+      <td class="py-2 text-right">
+        <input type="number" step="0.01" name="eg_div_monto[]" class="form-input text-right" placeholder="0.00" value="${v}">
+      </td>
+      <td class="py-2 text-center">
+        <button type="button" class="text-rose-600 hover:text-rose-800 rm-row"><i class="bi bi-x-circle-fill"></i></button>
+      </td>`;
+    tr.querySelector('.rm-row').addEventListener('click', () => tr.remove());
+    tblEgDiv.appendChild(tr);
+  }
+
+  // ---------- Carril 225→247 (tabla dinámica) ----------
+  const tblCarril = document.getElementById('tbl-carril').querySelector('tbody');
+  document.getElementById('btn-add-carril').addEventListener('click', () => addCarrilRow());
+  function addCarrilRow(c = '', m = '', v = '', r = '') {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="py-2"><input type="text" class="form-input" data-field="concepto" placeholder="Concepto" value="${c}"></td>
+      <td class="py-2 text-right"><input type="number" step="0.01" class="form-input text-right" data-field="monto_usd" placeholder="0.00" value="${m}"></td>
+      <td class="py-2 text-right"><input type="number" step="0.0001" class="form-input text-right" data-field="venta" placeholder="0.00" value="${v}"></td>
+      <td class="py-2 text-right"><input type="number" step="0.0001" class="form-input text-right" data-field="recompra" placeholder="0.00" value="${r}"></td>
+      <td class="py-2 text-center"><button type="button" class="text-rose-600 hover:text-rose-800 rm-row"><i class="bi bi-x-circle-fill"></i></button></td>
+    `;
+    tr.querySelector('.rm-row').addEventListener('click', () => tr.remove());
+    tblCarril.appendChild(tr);
+  }
+  function buildCarrilJSON() {
+    const rows = Array.from(tblCarril.querySelectorAll('tr'));
+    const items = [];
+    rows.forEach(tr => {
+      const item = {};
+      tr.querySelectorAll('input[data-field]').forEach(inp => { item[inp.dataset.field] = inp.value; });
+      const concepto = String(item.concepto || '').trim();
+      const monto    = parseFloat(item.monto_usd || '0') || 0;
+      const venta    = parseFloat(item.venta || '0') || 0;
+      const recompra = parseFloat(item.recompra || '0') || 0;
+      if (concepto && monto > 0 && venta > 0 && recompra > 0) {
+        items.push({ concepto, monto_usd: monto, venta, recompra });
+      }
+    });
+    return JSON.stringify(items);
+  }
+
+  // ---------- Keys (bloque_directo / pagan_por_225_247) ----------
+  const bdkWrap  = document.getElementById('bdk-wrap');
+  const p225Wrap = document.getElementById('p225-wrap');
+  document.getElementById('btn-add-bdk').addEventListener('click', () => addKeyInput(bdkWrap, 'bloque_directo_keys[]'));
+  document.getElementById('btn-add-p225').addEventListener('click', () => addKeyInput(p225Wrap, 'pagan_por_225_247_keys[]'));
+  function addKeyInput(container, name, val='') {
+    const div = document.createElement('div');
+    div.className = 'flex items-center gap-2';
+    div.innerHTML = `
+      <input type="text" name="${name}" class="form-input" placeholder="Ej: NOMINA" value="${val}">
+      <button type="button" class="text-rose-600 hover:text-rose-800 rm-key"><i class="bi bi-x-circle-fill"></i></button>
+    `;
+    div.querySelector('.rm-key').addEventListener('click', () => div.remove());
+    container.appendChild(div);
+  }
+  // añade una fila base por UX
+  addEgDivRow(); addCarrilRow(); addKeyInput(bdkWrap, 'bloque_directo_keys[]'); addKeyInput(p225Wrap, 'pagan_por_225_247_keys[]');
+
+  // ---------- Submit ----------
+  form.addEventListener('submit', () => {
+    hiddenBloques.value = buildBloquesJSON();
+    carrilHidden.value  = buildCarrilJSON();
+  });
 });
 
 document.addEventListener('alpine:init', () => {
-    Alpine.data('simulationController', () => ({
-        period_mode: '{{ (parametros.period_mode or "auto") | lower }}',
-    }));
+  Alpine.data('simulationController', () => ({
+    period_mode: '{{ (parametros.period_mode or "auto") | lower }}',
+  }));
 });
 </script>
 {% endblock %}
