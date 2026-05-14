@@ -49,7 +49,13 @@
                                 <p class="text-slate-600"><strong>Último Pago:</strong> 
                                     {% if cliente.ultimo_pago_fecha %}{{ cliente.ultimo_pago_fecha.strftime('%d/%m/%Y') }}{% else %}<span class="text-slate-400">Sin pagos</span>{% endif %}
                                 </p>
-                                <p class="text-slate-600"><strong>Valor Cuota:</strong> ${{ "{:,.2f}".format(cliente.valor_cuota) }}</p>
+                                <p class="text-slate-600"><strong>Valor Cuota:</strong> 
+                                    ${% if cliente.valor_cuota %}
+                                        {{ "{:,.2f}".format(cliente.valor_cuota) }}
+                                    {% else %}
+                                        0.00
+                                    {% endif %}
+                                </p>
                             </div>
                         </div>
                         <a href="{{ url_for('perfil_cliente', cliente_id=cliente.id) }}" class="text-sm bg-slate-700 text-white font-semibold py-2 px-3 rounded-lg hover:bg-slate-800 flex-shrink-0">
