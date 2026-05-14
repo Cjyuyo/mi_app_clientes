@@ -3814,7 +3814,7 @@ def reporte_morosidad():
                 first_day_of_month = today.replace(day=1)
                 
                 query_morosos = """
-                    SELECT c.id, c.nombre, c.apellido, c.cedula, c.telefono, c.valor_cuota, c.gestor_id,
+                    SELECT c.id, c.nombre, c.apellido, c.cedula, c.numero_telefono, c.valor_cuota, c.gestor_id,
                            a.usuario as gestor_asignado,
                            (SELECT MAX(p.fecha_pago) FROM pagos p WHERE p.cliente_id = c.id AND p.estado_pago = 'Conciliado') as ultimo_pago_fecha
                     FROM clientes c LEFT JOIN administradores a ON c.gestor_id = a.id
