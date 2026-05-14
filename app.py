@@ -1659,7 +1659,7 @@ def reportes_por_revisar():
                     c.nombre,
                     c.apellido,
                     c.cedula,
-                    c.inscripcion as monto_esperado_usd -- CORREGIDO: Se usa 'inscripcion'
+                    c.inscripcion_monto as monto_esperado_usd -- CORREGIDO: Se usa 'inscripcion_monto'
                 FROM pagos p
                 JOIN clientes c ON p.cliente_id = c.id
                 WHERE p.tipo_pago = 'Inscripción' 
