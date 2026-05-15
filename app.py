@@ -1682,8 +1682,6 @@ def reportes_por_revisar():
     return render_template('reportes_por_revisar.html', reportes=reportes_categorizados)
 
  # --- INICIO DE LA CORRECCIÓN ---
-# Esta es una función auxiliar que contiene la lógica pura de conciliación.
-# La usamos para evitar repetir código.
 def _conciliar_pago_logica(pago_id, cur):
     """
     Ejecuta la lógica de base de datos para conciliar un pago.
@@ -1714,16 +1712,15 @@ def _conciliar_pago_logica(pago_id, cur):
         updated_cliente = cur.fetchone()
         
         if updated_cliente['inscripcion_pagada'] >= updated_cliente['inscripcion_monto']:
+            # CORRECCIÓN: Se actualiza 'proceso' a 'INSCRITO' y se activa oficialmente al cliente
             cur.execute(
-                "UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente['id'],)
+                "UPDATE clientes SET proceso = 'INSCRITO', estatus_cliente = 'Activo' WHERE id = %s", (cliente['id'],)
             )
-            flash_msg = f"¡Pago de inscripción conciliado y el cliente ahora está INSCRITO!"
+            flash_msg = f"¡Pago de inscripción conciliado y el cliente ahora está ACTIVO!"
         else:
             flash_msg = f"¡Abono de inscripción de ${pago['monto']} conciliado exitosamente!"
     
     elif pago['tipo_pago'] == 'Cuota':
-        # Aquí iría la lógica completa para conciliar una cuota
-        # (actualizar cuotas pagadas, balance, etc.)
         cur.execute(
             "UPDATE pagos SET estado_pago = 'Conciliado', conciliado_por_id = %s, fecha_conciliacion = NOW() WHERE id = %s",
             (admin_id, pago_id)
