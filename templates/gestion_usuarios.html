@@ -74,11 +74,10 @@
                                     <i class="bi bi-currency-dollar"></i>
                                 </button>
                             </form>
-                            <form action="{{ url_for('resetear_password', user_type='admin', user_id=admin.id) }}" method="POST" class="inline-block" onsubmit="return confirm('¿Estás seguro de que deseas resetear la contraseña de este usuario? Se generará una nueva contraseña temporal.');">
-                                <button type="submit" class="text-red-600 hover:text-red-900" title="Resetear Contraseña">
-                                    <i class="bi bi-key-fill"></i>
-                                </button>
-                            </form>
+                            
+                            <button type="button" onclick="abrirModalReset('admin', {{ admin.id }}, '{{ admin.usuario }}')" class="text-amber-600 hover:text-amber-900" title="Restablecer Contraseña">
+                                <i class="bi bi-key-fill"></i>
+                            </button>
                         
                             <div id="modalEditAdmin{{ admin.id }}" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
                                 <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
@@ -135,11 +134,10 @@
                                     <i class="bi {{ 'bi-toggle-on' if contador.estatus == 'Activo' else 'bi-toggle-off' }}"></i>
                                 </button>
                             </form>
-                            <form action="{{ url_for('resetear_password', user_type='contador', user_id=contador.id) }}" method="POST" class="inline-block" onsubmit="return confirm('¿Estás seguro de que deseas resetear la contraseña de este usuario? Se generará una nueva contraseña temporal.');">
-                                <button type="submit" class="text-red-600 hover:text-red-900" title="Resetear Contraseña">
-                                    <i class="bi bi-key-fill"></i>
-                                </button>
-                            </form>
+                            
+                            <button type="button" onclick="abrirModalReset('contador', {{ contador.id }}, '{{ contador.usuario }}')" class="text-amber-600 hover:text-amber-900" title="Restablecer Contraseña">
+                                <i class="bi bi-key-fill"></i>
+                            </button>
                         
                             <div id="modalEditContador{{ contador.id }}" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
                                 <div class="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
@@ -215,4 +213,84 @@
         </div>
     </div>
 </div>
+
+<div id="modalResetPassword" class="fixed inset-0 bg-slate-900 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center">
+    <div class="relative p-6 border w-96 shadow-2xl rounded-xl bg-white">
+        <div class="text-center">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-amber-100 mb-4">
+                <i class="bi bi-key-fill text-xl text-amber-600"></i>
+            </div>
+            <h3 class="text-xl font-bold text-slate-800">Restablecer Contraseña</h3>
+            <p class="text-sm text-slate-500 mt-1">Nueva clave para: <span id="resetUserName" class="font-bold text-slate-700"></span></p>
+            
+            <form id="formResetPassword" class="mt-5 text-left">
+                <input type="hidden" id="resetUserId">
+                <input type="hidden" id="resetUserRole">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Escriba la nueva contraseña</label>
+                    <input type="password" id="newPassword" required minlength="4" class="block w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="mt-6 flex space-x-3">
+                    <button type="button" onclick="cerrarModalReset()" class="w-full bg-white text-slate-700 border border-slate-300 py-2 rounded-lg hover:bg-slate-50 font-medium">Cancelar</button>
+                    <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 font-medium shadow-sm">
+                        <i class="bi bi-check-circle"></i> Guardar Clave
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Funciones para Restablecer Contraseña
+function abrirModalReset(role, id, username) {
+    document.getElementById('resetUserId').value = id;
+    document.getElementById('resetUserRole').value = role;
+    document.getElementById('resetUserName').innerText = username;
+    document.getElementById('newPassword').value = '';
+    document.getElementById('modalResetPassword').classList.remove('hidden');
+}
+
+function cerrarModalReset() {
+    document.getElementById('modalResetPassword').classList.add('hidden');
+}
+
+document.getElementById('formResetPassword').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const id = document.getElementById('resetUserId').value;
+    const role = document.getElementById('resetUserRole').value;
+    const newPassword = document.getElementById('newPassword').value;
+
+    Swal.fire({
+        title: 'Actualizando clave...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    fetch('/reset_password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: id, rol: role, new_password: newPassword })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: '¡Clave Actualizada!',
+                text: 'La contraseña ha sido cambiada exitosamente.',
+                timer: 2000,
+                showConfirmButton: false
+            });
+            cerrarModalReset();
+        } else {
+            Swal.fire('Error', data.error || 'No se pudo actualizar la contraseña.', 'error');
+        }
+    })
+    .catch(error => {
+        Swal.fire('Error', 'Hubo un problema de conexión con el servidor.', 'error');
+    });
+});
+</script>
+
 {% endblock %}
