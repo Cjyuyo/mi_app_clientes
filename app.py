@@ -8583,18 +8583,19 @@ def reset_password():
     if not new_password:
         return jsonify({'success': False, 'error': 'La contraseña no puede estar vacía'})
 
-    # Generamos el hash usando werkzeug (ya lo tienes importado en la línea 3)
     hashed_password = generate_password_hash(new_password)
     
     conn = get_db()
     try:
         with conn.cursor() as cur:
             if rol == 'admin':
-                cur.execute("UPDATE administradores SET password = %s WHERE id = %s", (hashed_password, user_id))
+                # CORREGIDO: Usando password_hash
+                cur.execute("UPDATE administradores SET password_hash = %s WHERE id = %s", (hashed_password, user_id))
             elif rol == 'contador':
-                cur.execute("UPDATE contabilidad_usuarios SET password = %s WHERE id = %s", (hashed_password, user_id))
+                # CORREGIDO: Usando password_hash
+                cur.execute("UPDATE contabilidad_usuarios SET password_hash = %s WHERE id = %s", (hashed_password, user_id))
             elif rol == 'cliente':
-                # Según tu lógica de portal_login en la línea 763
+                # Los clientes usan portal_password
                 cur.execute("UPDATE clientes SET portal_password = %s WHERE id = %s", (hashed_password, user_id))
             else:
                 return jsonify({'success': False, 'error': 'Rol de usuario inválido'})
