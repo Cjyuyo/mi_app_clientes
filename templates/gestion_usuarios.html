@@ -4,6 +4,14 @@
     Gestión de Usuarios
 {% endblock %}
 
+{% block title %}
+    Gestión de Usuarios
+{% endblock %}
+
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% endblock %}
+{% block body %}
 {% block body %}
 <div x-data="{ tab: 'admins' }">
     <div class="bg-white p-6 rounded-xl shadow-sm mb-6">
@@ -223,7 +231,7 @@
             <h3 class="text-xl font-bold text-slate-800">Restablecer Contraseña</h3>
             <p class="text-sm text-slate-500 mt-1">Nueva clave para: <span id="resetUserName" class="font-bold text-slate-700"></span></p>
             
-            <form id="formResetPassword" class="mt-5 text-left">
+            <form id="formResetPassword" class="mt-5 text-left" onsubmit="enviarNuevaClave(event)">
                 <input type="hidden" id="resetUserId">
                 <input type="hidden" id="resetUserRole">
                 <div>
@@ -255,19 +263,25 @@ function cerrarModalReset() {
     document.getElementById('modalResetPassword').classList.add('hidden');
 }
 
-document.getElementById('formResetPassword').addEventListener('submit', function(e) {
-    e.preventDefault();
+// Nueva función de envío a prueba de errores
+function enviarNuevaClave(e) {
+    e.preventDefault(); // Evita que la página recargue
+    
     const id = document.getElementById('resetUserId').value;
     const role = document.getElementById('resetUserRole').value;
     const newPassword = document.getElementById('newPassword').value;
 
-    Swal.fire({
-        title: 'Actualizando clave...',
-        allowOutsideClick: false,
-        didOpen: () => { Swal.showLoading(); }
-    });
+    // Mostrar alerta de carga
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            title: 'Actualizando clave...',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+    }
 
-    fetch('/reset_password', {
+    // Petición al servidor usando ruta segura de Flask
+    fetch("{{ url_for('reset_password') }}", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: id, rol: role, new_password: newPassword })
@@ -275,22 +289,29 @@ document.getElementById('formResetPassword').addEventListener('submit', function
     .then(response => response.json())
     .then(data => {
         if(data.success) {
-            Swal.fire({
-                icon: 'success',
-                title: '¡Clave Actualizada!',
-                text: 'La contraseña ha sido cambiada exitosamente.',
-                timer: 2000,
-                showConfirmButton: false
-            });
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Clave Actualizada!',
+                    text: 'La contraseña ha sido cambiada exitosamente.',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } else {
+                alert('¡Clave Actualizada exitosamente!');
+            }
             cerrarModalReset();
         } else {
-            Swal.fire('Error', data.error || 'No se pudo actualizar la contraseña.', 'error');
+            if (typeof Swal !== 'undefined') Swal.fire('Error', data.error || 'No se pudo actualizar.', 'error');
+            else alert('Error: ' + (data.error || 'No se pudo actualizar la contraseña.'));
         }
     })
     .catch(error => {
-        Swal.fire('Error', 'Hubo un problema de conexión con el servidor.', 'error');
+        console.error("Error en fetch:", error);
+        if (typeof Swal !== 'undefined') Swal.fire('Error', 'Problema de conexión con el servidor.', 'error');
+        else alert('Error de conexión con el servidor.');
     });
-});
+}
 </script>
 
 {% endblock %}
