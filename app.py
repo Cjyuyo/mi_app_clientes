@@ -8471,16 +8471,13 @@ def ver_reporte(pago_id):
 # =================================================================================
 def actualizar_estatus_automatico_cliente(cur, cliente_id):
     """
-    Evalúa y actualiza el estatus del cliente según sus pagos aprobados y cuotas:
-    - 0% inscripción: Pendiente por formalización
-    - Entre 0% y 100% inscripción: Reserva
-    - 100% inscripción y 0 cuotas: Inscrito y pendiente de activación
-    - 100% inscripción y 1 cuota: Activo
-    - 100% inscripción y >= 2 cuotas: Ahorrador
+    Organiza y actualiza automáticamente los términos del cliente según sus pagos:
+    - estado_del_plan: Formalizado -> Reserva -> Inscrito -> Activo
+    - estatus_cliente: Pendiente por activación -> Ahorrador (Sustituible por Congelado o Retiro)
     """
-    # 1. Obtener los datos del plan y los contadores de cuotas del cliente
+    # 1. Obtener los datos actuales del contrato y contadores
     cur.execute("""
-        SELECT inscripcion, cuotas_pagadas_progresivas, cuotas_pagadas_regresivas, estatus
+        SELECT inscripcion, cuotas_pagadas_progresivas, cuotas_pagadas_regresivas, estado_del_plan, estatus_cliente
         FROM clientes WHERE id = %s FOR UPDATE;
     """, (cliente_id,))
     cliente = cur.fetchone()
@@ -8492,30 +8489,42 @@ def actualizar_estatus_automatico_cliente(cur, cliente_id):
     cuotas_regresivas = int(cliente.get('cuotas_pagadas_regresivas') or 0)
     total_cuotas_pagadas = cuotas_progresivas + cuotas_regresivas
 
-    # 2. Sumar todos los pagos de inscripción aprobados hasta la fecha
+    # 2. Sumar todos los pagos de inscripción aprobados
     cur.execute("""
         SELECT COALESCE(SUM(monto), 0) FROM pagos 
         WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_reporte = 'Aprobado';
     """, (cliente_id,))
     inscripcion_pagada = Decimal(str(cur.fetchone()[0] or 0))
 
-    # 3. Determinar el estatus correspondiente según las reglas del negocio
+    # Mantener los estados actuales como base de comparación
+    nuevo_estado_plan = cliente.get('estado_del_plan')
+    nuevo_estatus_cliente = cliente.get('estatus_cliente')
+
+    # 3. Aplicar las reglas de negocio en base a la matemática de pagos
     if inscripcion_pagada == 0:
-        nuevo_estatus = 'Pendiente por formalización'
+        nuevo_estado_plan = 'Formalizado'
+        nuevo_estatus_cliente = 'Pendiente por activación'
     elif 0 < inscripcion_pagada < inscripcion_total:
-        nuevo_estatus = 'Reserva'
-    else:  # Inscripción pagada al 100%
+        nuevo_estado_plan = 'Reserva'
+        nuevo_estatus_cliente = 'Pendiente por activación'
+    else:  # 100% de la inscripción cubierto
         if total_cuotas_pagadas == 0:
-            nuevo_estatus = 'Inscrito y pendiente de activación'
-        elif total_cuotas_pagadas == 1:
-            nuevo_estatus = 'Activo'
-        else:
-            nuevo_estatus = 'Ahorrador'
+            nuevo_estado_plan = 'Inscrito'
+            nuevo_estatus_cliente = 'Pendiente por activación'
+        else:  # Tiene al menos 1 cuota paga
+            nuevo_estado_plan = 'Activo'
+            # Si la administración lo cambió a Congelado o Retiro de forma manual, se respeta.
+            # De lo contrario, su estado comercial activo es 'Ahorrador'.
+            if cliente.get('estatus_cliente') not in ['Congelado', 'Retiro']:
+                nuevo_estatus_cliente = 'Ahorrador'
 
-    # 4. Modificar la base de datos únicamente si el estado cambia
-    if nuevo_estatus != cliente.get('estatus'):
-        cur.execute("UPDATE clientes SET estatus = %s WHERE id = %s", (nuevo_estatus, cliente_id))
-
+    # 4. Impactar la base de datos únicamente si alguna columna cambió
+    if nuevo_estado_plan != cliente.get('estado_del_plan') or nuevo_estatus_cliente != cliente.get('estatus_cliente'):
+        cur.execute("""
+            UPDATE clientes 
+            SET estado_del_plan = %s, estatus_cliente = %s 
+            WHERE id = %s
+        """, (nuevo_estado_plan, nuevo_estatus_cliente, cliente_id))
 
 @app.route('/admin/pagos/validar/<int:pago_id>', methods=['POST'])
 @admin_required
