@@ -8783,6 +8783,19 @@ def resetear_password(user_type, user_id):
 # touch: invalidate template cache 2025-09-07
 # --- FIN DEL NUEVO MÓDULO ---
 
+@app.route('/arreglar_base_datos')
+@admin_required
+def arreglar_base_datos():
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            # Agregamos la columna faltante a la tabla caja_inscripciones
+            cur.execute("ALTER TABLE public.caja_inscripciones ADD COLUMN IF NOT EXISTS numero_contrato VARCHAR(100);")
+        conn.commit()
+        return "<h3>¡Éxito! La columna 'numero_contrato' ha sido agregada a la caja. Ya puedes registrar clientes.</h3>"
+    except Exception as e:
+        if conn: conn.rollback()
+        return f"<h3>Error intentando agregar la columna:</h3> <p>{str(e)}</p>"
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
