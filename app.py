@@ -5680,6 +5680,39 @@ def calcular_y_guardar_comisiones(conn, cliente_info):
                 pct_comision, pct_split, P, monto, moneda,
                 fecha_dia, f"Escenario={escenario}; {etiqueta}"
             ))
+def resolver_beneficiarios(conn, asesor_id=None):
+    """
+    Resuelve y retorna los IDs de los beneficiarios por defecto (gerente, presidencia)
+    para el registro de comisiones en base a los administradores activos.
+    """
+    beneficiarios = {
+        'gerente_id': None,
+        'presidencia_a_id': None,
+        'presidencia_b_id': None
+    }
+    
+    try:
+        with conn.cursor() as cur:
+            # Buscar el ID del gerente activo
+            cur.execute("SELECT id FROM administradores WHERE rol = 'gerente' AND estatus = 'Activo' LIMIT 1")
+            gerente = cur.fetchone()
+            if gerente:
+                beneficiarios['gerente_id'] = gerente['id']
+                
+            # Buscar los IDs para Presidencia A y B (generalmente son los 'superadmin')
+            cur.execute("SELECT id FROM administradores WHERE rol = 'superadmin' AND estatus = 'Activo' ORDER BY id ASC LIMIT 2")
+            superadmins = cur.fetchall()
+            
+            if len(superadmins) > 0:
+                beneficiarios['presidencia_a_id'] = superadmins[0]['id']
+            if len(superadmins) > 1:
+                beneficiarios['presidencia_b_id'] = superadmins[1]['id']
+                
+    except Exception as e:
+        import logging
+        logging.error(f"Error resolviendo beneficiarios: {e}")
+        
+    return beneficiarios
 
 # ================== FIN COMISIONES (GLOBAL) ===================================
 
