@@ -8783,20 +8783,6 @@ def resetear_password(user_type, user_id):
 # touch: invalidate template cache 2025-09-07
 # --- FIN DEL NUEVO MÓDULO ---
 
-@app.route('/arreglar_base_datos')
-@admin_required
-def arreglar_base_datos():
-    conn = get_db()
-    try:
-        with conn.cursor() as cur:
-            # Ampliamos la capacidad a NUMERIC(10,2) para que soporte hasta 99999999.99
-            cur.execute("ALTER TABLE public.comisiones ALTER COLUMN pct_comision TYPE NUMERIC(10,2);")
-            cur.execute("ALTER TABLE public.comisiones ALTER COLUMN pct_split TYPE NUMERIC(10,2);")
-        conn.commit()
-        return "<h3>¡Éxito! Las columnas de comisiones han sido ampliadas. Ya puedes registrar clientes.</h3>"
-    except Exception as e:
-        if conn: conn.rollback()
-        return f"<h3>Error intentando ampliar las columnas:</h3> <p>{str(e)}</p>"
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
