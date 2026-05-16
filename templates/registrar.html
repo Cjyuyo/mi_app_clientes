@@ -516,7 +516,7 @@
         lista.forEach(function(admin) {
           const opt = document.createElement('option');
           opt.value = admin.id;
-          opt.textContent = admin.nombre;
+          opt.textContent = admin.nombre_completo || admin.nombre;
           duenoSelect.appendChild(opt);
         });
       } else {
