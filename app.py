@@ -5714,6 +5714,53 @@ def resolver_beneficiarios(conn, asesor_id=None):
         
     return beneficiarios
 
+def actualizar_estatus_automatico_cliente(cur, cliente_id):
+    """
+    Evalúa y actualiza el estatus del cliente según sus pagos aprobados y cuotas:
+    - 0% inscripción: Pendiente por formalización
+    - Entre 0% y 100% inscripción: Reserva
+    - 100% inscripción y 0 cuotas: Inscrito y pendiente de activación
+    - 100% inscripción y 1 cuota: Activo
+    - 100% inscripción y >= 2 cuotas: Ahorrador
+    """
+    # 1. Obtener la inscripción requerida y el conteo de cuotas del cliente
+    cur.execute("""
+        SELECT inscripcion, cuotas_pagadas_progresivas, cuotas_pagadas_regresivas, estatus
+        FROM clientes WHERE id = %s FOR UPDATE;
+    """, (cliente_id,))
+    cliente = cur.fetchone()
+    if not cliente:
+        return
+
+    inscripcion_total = Decimal(str(cliente.get('inscripcion') or 0))
+    cuotas_progresivas = int(cliente.get('cuotas_pagadas_progresivas') or 0)
+    cuotas_regresivas = int(cliente.get('cuotas_pagadas_regresivas') or 0)
+    total_cuotas_pagadas = cuotas_progresivas + cuotas_regresivas
+
+    # 2. Calcular la sumatoria real de lo aprobado por concepto de Inscripción
+    cur.execute("""
+        SELECT COALESCE(SUM(monto), 0) FROM pagos 
+        WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_reporte = 'Aprobado';
+    """, (cliente_id,))
+    inscripcion_pagada = Decimal(str(cur.fetchone()[0] or 0))
+
+    # 3. Mapear las reglas de transición del negocio
+    if inscripcion_pagada == 0:
+        nuevo_estatus = 'Pendiente por formalización'
+    elif 0 < inscripcion_pagada < inscripcion_total:
+        nuevo_estatus = 'Reserva'
+    else:  # Alcanzó el 100% de la inscripción
+        if total_cuotas_pagadas == 0:
+            nuevo_estatus = 'Inscrito y pendiente de activación'
+        elif total_cuotas_pagadas == 1:
+            nuevo_estatus = 'Activo'
+        else:
+            nuevo_estatus = 'Ahorrador'
+
+    # 4. Impactar la base de datos únicamente si hay un cambio de estado
+    if nuevo_estatus != cliente.get('estatus'):
+        cur.execute("UPDATE clientes SET estatus = %s WHERE id = %s", (nuevo_estatus, cliente_id))
+
 # ================== FIN COMISIONES (GLOBAL) ===================================
 
 @app.route('/finalizar_registro', methods=['POST'])
@@ -7849,7 +7896,6 @@ def portal_pagar_inscripcion():
                 flash('No se pudo encontrar tu perfil de cliente.', 'error')
                 return redirect(url_for('portal_logout'))
             
-            # CAMBIO: Usa la columna estandarizada 'inscripcion'
             inscripcion_total = cliente.get('inscripcion', Decimal('0.0')) or Decimal('0.0')
             inscripcion_pagada = cliente.get('inscripcion_pagada', Decimal('0.0')) or Decimal('0.0')
             monto_restante = inscripcion_total - inscripcion_pagada
@@ -7858,7 +7904,6 @@ def portal_pagar_inscripcion():
                 flash('Tu inscripción ya ha sido pagada en su totalidad.', 'info')
                 return redirect(url_for('portal_dashboard'))
 
-            # ... (el resto de la función se mantiene igual, ya que la lógica interna no cambia)
             concepto_pago = "Abono a Inscripción" if inscripcion_pagada > 0 else "Pago de Inscripción"
 
             today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
@@ -7889,6 +7934,8 @@ def portal_pagar_inscripcion():
                     tasa_bcv_calculo = None
                     currency_bulk = 'USD'
                     referencia_final = pago_form.get('referencia_usdt')
+                    # CORREGIDO: El lote espera exactamente lo que el cliente va a abonar
+                    expected_amount_for_bulk = monto_usd_a_guardar
                 else: 
                     pago_en_final = 'Dolar/BCV'
                     monto_bs_str = pago_form.get('monto_bs', '0.00').replace(',', '.')
@@ -7901,9 +7948,10 @@ def portal_pagar_inscripcion():
                     banco_final = pago_form.get('banco')
                     currency_bulk = 'VES'
                     referencia_final = pago_form.get('referencia')
+                    # CORREGIDO: El lote espera exactamente los Bolívares que el cliente va a transferir
+                    expected_amount_for_bulk = monto_reportado_bs
 
-                expected_amount_for_bulk = monto_restante if currency_bulk == 'USD' else monto_a_pagar_bs
-                
+                # Creación del lote con el monto real de la transacción
                 cur.execute("""
                     INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified)
                     VALUES (%s, %s, %s, 'OPEN', 0) RETURNING id
@@ -7924,6 +7972,10 @@ def portal_pagar_inscripcion():
                     get_venezuela_current_datetime(),
                     new_bulk_id
                 ))
+                
+                # REGLA DE NEGOCIO: Si el cliente abona (mayor a 0) y estaba 'Pendiente por formalización', cambia a 'Reserva'
+                if monto_usd_a_guardar > 0 and cliente.get('estatus') == 'Pendiente por formalización':
+                    cur.execute("UPDATE clientes SET estatus = 'Reserva' WHERE id = %s", (cliente['id'],))
                 
                 conn.commit()
                 flash('✅ ¡Pago de inscripción reportado! Será verificado por un administrador.', 'success')
@@ -8417,6 +8469,54 @@ def ver_reporte(pago_id):
 # =================================================================================
 # ===== RUTA 3: NUEVA RUTA PARA VALIDAR PAGOS INDIVIDUALES DENTRO DE UN BULK =====
 # =================================================================================
+def actualizar_estatus_automatico_cliente(cur, cliente_id):
+    """
+    Evalúa y actualiza el estatus del cliente según sus pagos aprobados y cuotas:
+    - 0% inscripción: Pendiente por formalización
+    - Entre 0% y 100% inscripción: Reserva
+    - 100% inscripción y 0 cuotas: Inscrito y pendiente de activación
+    - 100% inscripción y 1 cuota: Activo
+    - 100% inscripción y >= 2 cuotas: Ahorrador
+    """
+    # 1. Obtener los datos del plan y los contadores de cuotas del cliente
+    cur.execute("""
+        SELECT inscripcion, cuotas_pagadas_progresivas, cuotas_pagadas_regresivas, estatus
+        FROM clientes WHERE id = %s FOR UPDATE;
+    """, (cliente_id,))
+    cliente = cur.fetchone()
+    if not cliente:
+        return
+
+    inscripcion_total = Decimal(str(cliente.get('inscripcion') or 0))
+    cuotas_progresivas = int(cliente.get('cuotas_pagadas_progresivas') or 0)
+    cuotas_regresivas = int(cliente.get('cuotas_pagadas_regresivas') or 0)
+    total_cuotas_pagadas = cuotas_progresivas + cuotas_regresivas
+
+    # 2. Sumar todos los pagos de inscripción aprobados hasta la fecha
+    cur.execute("""
+        SELECT COALESCE(SUM(monto), 0) FROM pagos 
+        WHERE cliente_id = %s AND tipo_pago = 'Inscripción' AND estado_reporte = 'Aprobado';
+    """, (cliente_id,))
+    inscripcion_pagada = Decimal(str(cur.fetchone()[0] or 0))
+
+    # 3. Determinar el estatus correspondiente según las reglas del negocio
+    if inscripcion_pagada == 0:
+        nuevo_estatus = 'Pendiente por formalización'
+    elif 0 < inscripcion_pagada < inscripcion_total:
+        nuevo_estatus = 'Reserva'
+    else:  # Inscripción pagada al 100%
+        if total_cuotas_pagadas == 0:
+            nuevo_estatus = 'Inscrito y pendiente de activación'
+        elif total_cuotas_pagadas == 1:
+            nuevo_estatus = 'Activo'
+        else:
+            nuevo_estatus = 'Ahorrador'
+
+    # 4. Modificar la base de datos únicamente si el estado cambia
+    if nuevo_estatus != cliente.get('estatus'):
+        cur.execute("UPDATE clientes SET estatus = %s WHERE id = %s", (nuevo_estatus, cliente_id))
+
+
 @app.route('/admin/pagos/validar/<int:pago_id>', methods=['POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')
@@ -8445,9 +8545,12 @@ def validar_pago_individual(pago_id):
             recalcular_totales_bulk(bulk_id)
             # --- FIN DE LA CORRECCIÓN ---
             
+            # >>> NUEVO: Evaluación y transición automática de estados del cliente <<<
+            actualizar_estatus_automatico_cliente(cur, pago['cliente_id'])
+            
             registrar_accion_auditoria('VALIDACION_PAGO_INDIVIDUAL', f"Validó el reporte de pago #{pago_id} del proceso #{bulk_id}.", pago['cliente_id'])
             conn.commit()
-            flash(f"Pago #{pago_id} validado correctamente. El total del bulk ha sido actualizado.", "success")
+            flash(f"Pago #{pago_id} validado correctamente. El total del lote y el estatus del cliente han sido actualizados en tiempo real.", "success")
 
     except psycopg2.Error as e:
         conn.rollback()
