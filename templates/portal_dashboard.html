@@ -143,8 +143,11 @@
                     </div>
                     {% endif %}
                     
-                    {# Ocultamos el aviso de ciclo de cobranza si el cliente aún no termina de pagar la inscripción #}
-                    {% if ciclo_cobranza_activo and cliente.estatus not in ['Pendiente por formalización', 'Reserva'] %}
+                    {# --- INICIO DE CORRECCIÓN: Aviso azul oculto para inscripciones --- #}
+                    {% set estatus_cliente = cliente.estatus|default('')|string|lower %}
+                    {% set is_inscripcion_pendiente = ('reserva' in estatus_cliente or 'formaliz' in estatus_cliente) %}
+                    
+                    {% if ciclo_cobranza_activo and not is_inscripcion_pendiente %}
                     <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-800 p-4 rounded-lg">
                         <h3 class="font-bold text-md flex items-center gap-2"><i class="bi bi-info-circle-fill"></i> Ciclo de Cobranza Activo</h3>
                         <p class="mt-2 mb-3 text-sm">Nuestro ciclo de cobranza ha comenzado. Realiza tus pagos para mantenerte al día.</p>
@@ -153,6 +156,7 @@
                         </a>
                     </div>
                     {% endif %}
+                    {# --- FIN DE CORRECCIÓN: Aviso azul --- #}
 
                     {% if cita_confirmada %}
                     <div class="bg-white p-4 rounded-lg border">
@@ -203,13 +207,13 @@
                 </div>
             </div>
              
-            {# --- NUEVA LÓGICA INTELIGENTE DEL BOTÓN DE PAGO --- #}
-            {% if cliente.estatus in ['Pendiente por formalización', 'Reserva'] or ciclo_cobranza_activo %}
+            {# --- NUEVA LÓGICA INTELIGENTE DEL BOTÓN DE PAGO (CORREGIDA) --- #}
+            {% if is_inscripcion_pendiente or ciclo_cobranza_activo %}
             <div class="p-5 border-t border-slate-200 bg-slate-50/50 rounded-b-xl">
-                 <a href="{{ url_for('portal_pagar_inscripcion') if cliente.estatus in ['Pendiente por formalización', 'Reserva'] else url_for('portal_reportar_pago') }}" 
-                    class="w-full text-center inline-block text-sm text-white font-semibold py-3 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if hay_pago_pendiente_general %}opacity-50 cursor-not-allowed pointer-events-none{% endif %}">
+                 <a href="{{ url_for('portal_pagar_inscripcion') if is_inscripcion_pendiente else url_for('portal_reportar_pago') }}" 
+                    class="w-full text-center inline-block text-sm text-white font-semibold py-3 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if hay_pago_pendiente_general and not is_inscripcion_pendiente %}opacity-50 cursor-not-allowed pointer-events-none{% endif %}">
                     
-                    {% if cliente.estatus in ['Pendiente por formalización', 'Reserva'] %}
+                    {% if is_inscripcion_pendiente %}
                         <i class="bi bi-cash-coin mr-1"></i> Abonar/Pagar Inscripción
                     {% else %}
                         <i class="bi bi-send-plus-fill mr-1"></i> Reportar un Pago
