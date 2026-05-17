@@ -5535,19 +5535,17 @@ def registrar():
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
             # 1. GENERADOR AUTOMÁTICO DE CONTRATO
-            # Busca el número más alto en la base de datos para sugerir el siguiente
             cur.execute("SELECT numero_contrato FROM public.clientes WHERE numero_contrato ~ '^[0-9]+$' ORDER BY CAST(numero_contrato AS INTEGER) DESC LIMIT 1;")
             ultimo_contrato = cur.fetchone()
             if ultimo_contrato and ultimo_contrato['numero_contrato']:
                 numero_contrato_siguiente_sugerido = str(int(ultimo_contrato['numero_contrato']) + 1)
             else:
-                numero_contrato_siguiente_sugerido = "1001" # Número inicial si la base de datos está vacía
+                numero_contrato_siguiente_sugerido = "1001"
 
-            # 2. Carga de Administradores / Asesores
+            # 2. Carga de Administradores / Asesores (CORREGIDO: Sin la columna es_comercial)
             cur.execute("""
-                SELECT id, nombre_completo, rol, es_comercial
+                SELECT id, nombre_completo, rol
                 FROM public.administradores
-                WHERE es_comercial = TRUE
                 ORDER BY nombre_completo
             """)
             filas = cur.fetchall()
@@ -5572,7 +5570,7 @@ def registrar():
         admins_por_rol=admins_por_rol,
         todos_los_admins=todos_los_admins,
         asesores=asesores,
-        numero_contrato_siguiente_sugerido=numero_contrato_siguiente_sugerido # Sent a la vista
+        numero_contrato_siguiente_sugerido=numero_contrato_siguiente_sugerido
     )
 
 # ---------- COMISIONES (helpers y lógica) ----------
