@@ -7235,20 +7235,40 @@ def portal_reportar_pago():
     
     try:
         with conn.cursor() as cur:
-            # ... (Lógica del método GET) ...
+            # 1. Cargar datos del cliente
             cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (session['cliente_id'],))
             cliente = cur.fetchone()
             if not cliente:
                 flash('No se pudo encontrar tu perfil de cliente.', 'error')
                 return redirect(url_for('portal_logout'))
 
-            monto_a_pagar_usd = cliente.get('valor_cuota') or Decimal('0.0')
+            # 2. EVALUACIÓN DINÁMICA: ¿Le corresponde pagar Inscripción o Cuota?
+            # Verificamos si ya tiene algún pago de inscripción registrado que no esté anulado
+            cur.execute("""
+                SELECT COUNT(*) FROM pagos 
+                WHERE cliente_id = %s 
+                  AND (tipo_pago ILIKE 'Inscripción%' OR tipo_pago = 'Inscripción Finalizada')
+                  AND estado_pago != 'Anulado';
+            """, (session['cliente_id'],))
+            tiene_inscripcion = cur.fetchone()[0] > 0
             
-            cur.execute("SELECT COUNT(*) FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND estado_pago = 'Conciliado'", (session['cliente_id'],))
-            cuotas_pagadas_conciliadas = cur.fetchone()[0]
+            estado_plan_upper = (cliente.get('estado_del_plan') or '').strip().upper()
+            
+            # Es pago de inscripción si el plan está Formalizado o si no registra ningún pago de inscripción anterior
+            is_enrollment_payment = (estado_plan_upper == 'FORMALIZADO') or (not tiene_inscripcion)
 
-            concepto_pago = "Pago de Cuota de Activación" if cuotas_pagadas_conciliadas == 0 else "Pago de Cuota Mensual"
+            if is_enrollment_payment:
+                monto_a_pagar_usd = cliente.get('inscripcion_monto') or Decimal('0.0')
+                concepto_pago = "Pago de Inscripción"
+                tipo_pago_db = "Inscripción"
+            else:
+                monto_a_pagar_usd = cliente.get('valor_cuota') or Decimal('0.0')
+                cur.execute("SELECT COUNT(*) FROM pagos WHERE cliente_id = %s AND tipo_pago = 'Cuota' AND estado_pago = 'Conciliado'", (session['cliente_id'],))
+                cuotas_pagadas_conciliadas = cur.fetchone()[0]
+                concepto_pago = "Pago de Cuota de Activación" if cuotas_pagadas_conciliadas == 0 else "Pago de Cuota Mensual"
+                tipo_pago_db = "Cuota"
 
+            # 3. Cálculo de la Tasa BCV del día
             today_str = get_venezuela_current_date().strftime('%Y-%m-%d')
             cur.execute("SELECT tasa FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (today_str,))
             tasa_hoy = cur.fetchone()
@@ -7256,6 +7276,7 @@ def portal_reportar_pago():
             monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv_calculo).quantize(Decimal('0.01'))
 
 
+            # 4. PROCESAMIENTO DEL REPORTE (POST)
             if request.method == 'POST':
                 pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
                 
@@ -7263,7 +7284,7 @@ def portal_reportar_pago():
                 monto_reportado_bs = Decimal('0.0')
                 monto_usd_a_guardar = Decimal('0.0')
                 forma_pago_final = None
-                referencia_final = None # Inicializado en None
+                referencia_final = None 
                 banco_final = None
                 fecha_pago_final = pago_form.get('fecha_pago')
                 currency_bulk = ''
@@ -7278,41 +7299,37 @@ def portal_reportar_pago():
                     pago_en_final = 'Dolar/BCV'
                     monto_bs_str = pago_form.get('monto_bs', '0.00').replace(',', '.')
                     monto_reportado_bs = Decimal(monto_bs_str).quantize(Decimal('0.02'))
-                    monto_usd_a_guardar = cliente.get('valor_cuota') or Decimal('0.0') 
+                    # CORREGIDO: Guarda el monto correcto correspondiente (Inscripción o Cuota)
+                    monto_usd_a_guardar = monto_a_pagar_usd 
                     forma_pago_final = pago_form.get('forma_pago_bs')
                     banco_final = pago_form.get('banco')
                     currency_bulk = 'VES'
                     referencia_final = pago_form.get('referencia')
 
-                # --- INICIO DE LA CORRECCIÓN ---
-                # Se selecciona el monto ESPERADO correcto según la moneda del proceso (bulk).
-                # Para Bolívares (VES), usamos el monto calculado por el sistema (monto_a_pagar_bs).
-                # Para Dólares (USD), usamos el valor de la cuota (monto_a_pagar_usd).
-                # Esto replica la lógica de USDT para los pagos en Bs.
                 expected_amount_for_bulk = monto_a_pagar_bs if currency_bulk == 'VES' else monto_a_pagar_usd
                 
                 cur.execute("""
                     INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified)
                     VALUES (%s, %s, %s, 'OPEN', 0) RETURNING id
                 """, (cliente['id'], currency_bulk, expected_amount_for_bulk))
-                # --- FIN DE LA CORRECCIÓN ---
                 
                 new_bulk_id = cur.fetchone()[0]
 
+                # CORREGIDO: tipo_pago dinámico en el INSERT (%s en lugar de 'Cuota' quemado)
                 pago_query = """
                     INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
                                     estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, pago_en, cuotas_cubiertas, bulk_id, estado_pago)
-                    VALUES (%s, %s, %s, 'Cuota', %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, 1, %s, 'Pendiente');
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, 1, %s, 'Pendiente');
                 """
                 cur.execute(pago_query, (
                     cliente['id'], monto_usd_a_guardar, monto_reportado_bs,
-                    forma_pago_final, fecha_pago_final, referencia_final, 
+                    tipo_pago_db, forma_pago_final, fecha_pago_final, referencia_final, 
                     banco_final, tasa_bcv_calculo,
                     get_venezuela_current_datetime(), concepto_pago, pago_en_final,
                     new_bulk_id
                 ))
                 
-                flash('✅ ¡Pago de cuota reportado! Será verificado por un administrador.', 'success')
+                flash(f'✅ ¡{concepto_pago} reportado! Será verificado por un administrador.', 'success')
                 conn.commit()
                 return redirect(url_for('portal_dashboard'))
 
@@ -7322,13 +7339,14 @@ def portal_reportar_pago():
         traceback.print_exc()
         return redirect(url_for('portal_dashboard'))
 
+    # CORREGIDO: Transmite los flags dinámicos correctos a la vista unificada de Alpine.js
     return render_template('portal_pago_unificado.html', 
                            cliente=cliente, 
                            tasa_hoy=tasa_hoy, 
                            monto_a_pagar_usd=monto_a_pagar_usd,
                            monto_a_pagar_bs=monto_a_pagar_bs,
                            concepto_pago=concepto_pago,
-                           is_enrollment_payment=False,
+                           is_enrollment_payment=is_enrollment_payment,
                            monto_restante=Decimal('0.0'))
 
 # NUEVO: Esta es la nueva ruta completa para manejar el pago de diferencias.
