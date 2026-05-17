@@ -559,12 +559,29 @@
     const cuotaInput = document.getElementById('valor_cuota');
     const cuotaLabel = document.querySelector('label[for="valor_cuota"]');
 
-    const planMontos = [1400,1500,1600,1700,1800,1900,2000,2100,2300,2400,2500,2700,2800,2900,3200,3300,3500,3800,4500,5200,5600,5900,6300];
-    planMontos.forEach(monto => {
-      const option = document.createElement('option');
-      option.value = monto;
-      option.textContent = `$${monto.toLocaleString('es-CO')}`;
-      planSelect.appendChild(option);
+    function calcularYActualizarCuota() {
+      const montoPlan = parseFloat(planSelect.value);
+      const plazo = parseInt(plazoSelect.value, 10);
+      const tipoMoneda = monedaSelect.value;
+      cuotaLabel.textContent = `Cuota Mensual (${tipoMoneda === 'USD' ? 'USD' : 'Bs'})`;
+      
+      if (isNaN(montoPlan) || ![24,36,48].includes(plazo)) {
+        cuotaInput.value = ''; return;
+      }
+      const base = (tipoMoneda === 'USD') ? 0.0496 : 0.0557;
+      const factorCuota = base * (24 / plazo);
+      const cuota = montoPlan * factorCuota;
+      cuotaInput.value = cuota.toFixed(2);
+      cuotaInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    planSelect.addEventListener('change', function() {
+      const valorPlan = parseFloat(this.value);
+      if (!isNaN(valorPlan)) {
+        inscripcionInput.value = (valorPlan * 0.16).toFixed(2);
+        inscripcionInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      calcularYActualizarCuota();
     });
 
     function calcularYActualizarCuota() {
