@@ -5542,10 +5542,25 @@ def registrar():
             else:
                 numero_contrato_siguiente_sugerido = "1001"
 
-            # 2. Carga de Administradores / Asesores (CORREGIDO: Sin la columna es_comercial)
+            # 2. CONTROL AUTOMÁTICO DE LA BASE DE DATOS (Evita caídas del servidor)
+            # Crea la columna si no existe en producción
             cur.execute("""
-                SELECT id, nombre_completo, rol
+                ALTER TABLE public.administradores 
+                ADD COLUMN IF NOT EXISTS es_comercial BOOLEAN DEFAULT FALSE;
+            """)
+            # Activa como comerciales a los roles de ventas por defecto si no estaban marcados
+            cur.execute("""
+                UPDATE public.administradores 
+                SET es_comercial = TRUE 
+                WHERE rol IN ('asesor', 'gerente') AND es_comercial = FALSE;
+            """)
+            conn.commit()
+
+            # 3. CARGA DE ASESORES FILTRADOS (Protege la estructura de comisiones)
+            cur.execute("""
+                SELECT id, nombre_completo, rol, es_comercial
                 FROM public.administradores
+                WHERE es_comercial = TRUE
                 ORDER BY nombre_completo
             """)
             filas = cur.fetchall()
@@ -5562,6 +5577,8 @@ def registrar():
                     })
 
     except psycopg2.Error as e:
+        if conn:
+            conn.rollback()
         logging.exception("Error al cargar datos de /registrar")
         flash(f"Error al cargar los datos para el formulario: {e}", "error")
 
