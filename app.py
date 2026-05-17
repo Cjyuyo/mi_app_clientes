@@ -5868,10 +5868,10 @@ def finalizar_registro():
                 'firma_digital': firma_cliente,
                 'firma_empresa': firma_empresa,
                 'fecha_firma': datetime.now(VENEZUELA_TZ),
-                'estado_del_plan': 'RESERVA',
+                'estado_del_plan': 'Formalizado',               # <--- CAMBIO AQUÍ
                 'ruta_foto_cliente_s3': ruta_s3_cliente,
                 'ruta_foto_cedula_s3': ruta_s3_cedula,
-                'estatus_cliente': 'ACTIVO',
+                'estatus_cliente': 'Pendiente por activación',  # <--- CAMBIO AQUÍ
                 'beneficiario_nombre': beneficiario_nombre,
                 'beneficiario_apellido': beneficiario_apellido,
                 'numero_contrato': form_data.get('numero_contrato'),
@@ -5942,7 +5942,7 @@ def finalizar_registro():
 
         # Commit final (cliente + comisiones + caja + auditoría)
         conn.commit()
-        flash(f"¡Cliente {form_data.get('nombre_apellido')} registrado exitosamente como RESERVA!", 'success')
+        flash(f"¡Cliente {form_data.get('nombre_apellido')} registrado exitosamente como Formalizado!", 'success')
         return redirect(url_for('consulta', busqueda=form_data.get('cedula')))
 
     except psycopg2.IntegrityError:
