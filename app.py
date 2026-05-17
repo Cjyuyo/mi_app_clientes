@@ -5527,29 +5527,34 @@ def registrar():
         flash('Error de conexión a la base de datos.', 'error')
         return redirect(url_for('hub'))
 
-    # Defaults seguros
     admins_por_rol = {'superadmin': [], 'gerente': [], 'asesor': []}
     todos_los_admins = []
     asesores = []
+    numero_contrato_siguiente_sugerido = ""
 
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            # 1. GENERADOR AUTOMÁTICO DE CONTRATO
+            # Busca el número más alto en la base de datos para sugerir el siguiente
+            cur.execute("SELECT numero_contrato FROM public.clientes WHERE numero_contrato ~ '^[0-9]+$' ORDER BY CAST(numero_contrato AS INTEGER) DESC LIMIT 1;")
+            ultimo_contrato = cur.fetchone()
+            if ultimo_contrato and ultimo_contrato['numero_contrato']:
+                numero_contrato_siguiente_sugerido = str(int(ultimo_contrato['numero_contrato']) + 1)
+            else:
+                numero_contrato_siguiente_sugerido = "1001" # Número inicial si la base de datos está vacía
+
+            # 2. Carga de Administradores / Asesores
             cur.execute("""
                 SELECT id, nombre_completo, rol, es_comercial
                 FROM public.administradores
                 WHERE es_comercial = TRUE
                 ORDER BY nombre_completo
             """)
-            filas = cur.fetchall()  # <- este es el origen canónico
+            filas = cur.fetchall()
 
-            # Lista “asesores” (para selects simples)
             asesores = [{'id': r['id'], 'nombre': r['nombre_completo']} for r in filas]
-
-            # Lista “todos_los_admins” para compatibilidad con otras plantillas
             todos_los_admins = [{'id': r['id'], 'nombre': r['nombre_completo']} for r in filas]
 
-            # Agrupación por rol (solo roles reconocidos)
-            admins_por_rol = {'superadmin': [], 'gerente': [], 'asesor': []}
             for r in filas:
                 rol = (r['rol'] or '').strip().lower()
                 if rol in admins_por_rol:
@@ -5566,7 +5571,8 @@ def registrar():
         'registrar.html',
         admins_por_rol=admins_por_rol,
         todos_los_admins=todos_los_admins,
-        asesores=asesores  # <- expone la lista para el selector
+        asesores=asesores,
+        numero_contrato_siguiente_sugerido=numero_contrato_siguiente_sugerido # Sent a la vista
     )
 
 # ---------- COMISIONES (helpers y lógica) ----------

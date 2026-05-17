@@ -141,22 +141,23 @@
       </h3>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div>
-          <label for="contrato_nro" class="block text-sm font-medium text-slate-700">Número Contrato</label>
-          <input type="text" id="contrato_nro" name="contrato_nro" required
-                 class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-        </div>
+            <label for="numero_contrato" class="block text-sm font-medium text-slate-700 mb-1">Número de Contrato</label>
+            <input type="text" id="numero_contrato" name="numero_contrato" 
+                   value="{{ numero_contrato_siguiente_sugerido or '' }}"
+                   class="w-full border border-slate-300 rounded-lg p-2.5 bg-slate-50 font-mono text-slate-700 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" 
+                   readonly placeholder="Se generará al guardar">
+          </div>
         <div>
           <label for="grupo" class="block text-sm font-medium text-slate-700">Número Grupo</label>
           <input type="text" id="grupo" name="grupo"
                  class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
         </div>
         <div>
-          <label for="plan_contratado" class="block text-sm font-medium text-slate-700">Plan Contratado (Valor USD)</label>
-          <select id="plan_contratado" name="plan_contratado" required
-                  class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-            <option value="" disabled selected>-- Seleccione --</option>
-          </select>
-        </div>
+            <label for="plan" class="block text-sm font-medium text-slate-700 mb-1">Monto Contratado ($)</label>
+            <input type="number" step="0.01" id="plan" name="plan" 
+                   class="w-full border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" 
+                   required placeholder="0.00">
+          </div>
         <div>
           <label for="inscripcion_monto" class="block text-sm font-medium text-slate-700">Monto Inscripción (16%)</label>
           <input type="number" step="0.01" id="inscripcion_monto" name="inscripcion_monto" required readonly

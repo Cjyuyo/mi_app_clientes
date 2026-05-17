@@ -26,16 +26,31 @@
                 </div>
                 <h1 class="text-2xl font-bold text-slate-800 tracking-tight">{{ cliente.nombre_apellido }}</h1>
                 <p class="text-slate-500 font-mono text-sm">C.I: {{ cliente.cedula }}</p>
-                <div class="mt-3 flex justify-center items-center gap-2">
-                    <span class="text-xs font-semibold py-1 px-3 rounded-full bg-blue-100 text-blue-800">{{ cliente.proceso }}</span>
-                    <span class="text-xs font-semibold py-1 px-3 rounded-full
-                        {% set estatus = cliente.estatus | upper if cliente.estatus else '' %}
-                        {% if estatus == 'ACTIVO' or estatus == 'AHORRADOR' or estatus == 'ADJUDICADO' %} bg-green-100 text-green-800
-                        {% elif estatus == 'INACTIVO' or estatus == 'RETIRO' %} bg-red-100 text-red-800
-                        {% else %} bg-yellow-100 text-yellow-800
+                <div class="mt-3 flex flex-wrap justify-center items-center gap-2">
+                    
+                    {# --- NUEVA ETIQUETA: Estado del Plan Comercial --- #}
+                    {% set estado_plan = cliente.estado_del_plan | upper if cliente.estado_del_plan else 'FORMALIZADO' %}
+                    <span class="text-xs font-semibold py-1 px-3 rounded-full shadow-sm
+                        {% if estado_plan == 'ACTIVO' %} bg-green-100 text-green-800
+                        {% elif estado_plan == 'INSCRITO' %} bg-blue-100 text-blue-800
+                        {% elif estado_plan == 'RESERVA' %} bg-purple-100 text-purple-800
+                        {% else %} bg-slate-100 text-slate-800
                         {% endif %}">
-                        {{ cliente.estatus }}
+                        {{ cliente.estado_del_plan or 'Formalizado' }}
                     </span>
+
+                    {# --- NUEVA ETIQUETA: Estatus Administrativo del Cliente --- #}
+                    {% set estatus_cliente = cliente.estatus_cliente | upper if cliente.estatus_cliente else 'PENDIENTE POR ACTIVACIÓN' %}
+                    <span class="text-xs font-semibold py-1 px-3 rounded-full shadow-sm
+                        {% if estatus_cliente == 'AHORRADOR' %} bg-emerald-100 text-emerald-800
+                        {% elif 'PENDIENTE' in estatus_cliente %} bg-yellow-100 text-yellow-800
+                        {% elif estatus_cliente == 'CONGELADO' %} bg-orange-100 text-orange-800
+                        {% elif estatus_cliente == 'RETIRO' %} bg-red-100 text-red-800
+                        {% else %} bg-gray-100 text-gray-800
+                        {% endif %}">
+                        {{ cliente.estatus_cliente or 'Pendiente por activación' }}
+                    </span>
+
                 </div>
             </div>
             
