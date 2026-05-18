@@ -186,7 +186,7 @@
               </select>
           </div>
           <div>
-            <label for="inscripcion_monto" class="block text-sm font-medium text-slate-700">Monto Inscripción (16%)</label>
+            <label for="inscripcion_monto" class="block text-sm font-medium text-slate-700">Monto Inscripción (13.93%)</label>
             <input type="number" step="0.01" id="inscripcion_monto" name="inscripcion_monto" required readonly
                    class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-100 text-slate-700 focus:ring-brand-500 focus:border-brand-500">
           </div>
@@ -604,8 +604,23 @@
     function actualizarMontoInscripcion() {
       const valorPlan = parseFloat(planSelect.value);
       if (!isNaN(valorPlan)) {
-        // Ejecuta el cálculo del 16% de la inscripción
-        inscripcionInput.value = (valorPlan * 0.16).toFixed(2);
+        // 1. Cálculo exacto del 13.93%
+        const inscripcionBruta = +(valorPlan * 0.1393).toFixed(2);
+        
+        // 2. Separamos la parte entera de los centavos
+        const parteEntera = Math.floor(inscripcionBruta);
+        const parteDecimal = +(inscripcionBruta - parteEntera).toFixed(2);
+
+        // 3. Aplicamos la Regla de Carlos: > 0.30 sube, <= 0.30 se queda igual
+        let inscripcionRedondeada;
+        if (parteDecimal > 0.30) {
+          inscripcionRedondeada = parteEntera + 1;
+        } else {
+          inscripcionRedondeada = parteEntera;
+        }
+
+        // 4. Asignamos el valor formateado con .00
+        inscripcionInput.value = inscripcionRedondeada.toFixed(2);
         inscripcionInput.dispatchEvent(new Event('input', { bubbles: true }));
       } else {
         inscripcionInput.value = '';
