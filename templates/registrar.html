@@ -542,7 +542,7 @@
       }
     });
 
-    // --- NUEVO MOTOR MATEMÁTICO E INTELIGENTE ---
+    // --- NUEVO MOTOR MATEMÁTICO E INTELIGENTE (RECONSTRUCCIÓN DINÁMICA DE MENÚS) ---
     const planSelect = document.getElementById('plan_contratado');
     const inscripcionInput = document.getElementById('inscripcion_monto');
     const plazoSelect = document.getElementById('cuotas_totales');
@@ -550,47 +550,61 @@
     const cuotaInput = document.getElementById('valor_cuota');
     const cuotaLabel = document.querySelector('label[for="valor_cuota"]');
 
+    // Guardamos una copia exacta de las opciones originales del HTML al cargar la página
+    const opcionesPlanesOriginales = Array.from(planSelect.options).map(o => ({ value: o.value, text: o.text, disabled: o.disabled }));
+    const opcionesPlazosOriginales = Array.from(plazoSelect.options).map(o => ({ value: o.value, text: o.text }));
+
     function actualizarFiltrosMoneda() {
       const moneda = monedaSelect.value;
-      
-      // Filtrar Planes (Si es Bs, ocultamos los menores a 1800)
-      Array.from(planSelect.options).forEach(opt => {
-        if (!opt.value) return; // Saltamos el placeholder
-        const valor = parseInt(opt.value);
-        if (moneda === 'BsBCV' && valor < 1800) {
-          opt.hidden = true;
-          opt.disabled = true;
-        } else {
-          opt.hidden = false;
-          opt.disabled = false;
+      const planSeleccionadoPrevio = planSelect.value;
+      const plazoSeleccionadoPrevio = plazoSelect.value;
+
+      // 1. RECONSTRUIR DROPDOWN DE PLANES
+      planSelect.innerHTML = '';
+      opcionesPlanesOriginales.forEach(opt => {
+        if (opt.value === "") { // Mantenemos siempre el placeholder inicial
+          planSelect.appendChild(new Option(opt.text, opt.value, true, planSeleccionadoPrevio === ""));
+          return;
         }
+        const valorPlan = parseInt(opt.value, 10);
+        // Regla: Si es Bolívares, descartamos los planes menores a 1800
+        if (moneda === 'BsBCV' && valorPlan < 1800) {
+          return; 
+        }
+        const nuevaOpt = new Option(opt.text, opt.value);
+        if (opt.value === planSeleccionadoPrevio) nuevaOpt.selected = true;
+        planSelect.appendChild(nuevaOpt);
       });
 
-      // Resetear plan si el seleccionado quedó oculto por el filtro
-      if (planSelect.selectedOptions[0] && planSelect.selectedOptions[0].disabled) {
+      // 2. RECONSTRUIR DROPDOWN DE PLAZOS (CUOTAS)
+      plazoSelect.innerHTML = '';
+      opcionesPlazosOriginales.forEach(opt => {
+        const valorPlazo = parseInt(opt.value, 10);
+        // Regla: Si es Bolívares, descartamos plazos diferentes a 24
+        if (moneda === 'BsBCV' && valorPlazo !== 24) {
+          return; 
+        }
+        const nuevaOpt = new Option(opt.text, opt.value);
+        if (moneda === 'BsBCV' && valorPlazo === 24) {
+          nuevaOpt.selected = true;
+        } else if (opt.value === plazoSeleccionadoPrevio) {
+          nuevaOpt.selected = true;
+        }
+        plazoSelect.appendChild(nuevaOpt);
+      });
+
+      // 3. LIMPIEZA DE SEGURIDAD
+      // Si el plan que estaba seleccionado desapareció por el filtro, limpiamos los montos
+      if (moneda === 'BsBCV' && planSeleccionadoPrevio && parseInt(planSeleccionadoPrevio, 10) < 1800) {
         planSelect.value = "";
         inscripcionInput.value = "";
         cuotaInput.value = "";
       }
 
-      // Filtrar Plazos (Si es Bs, solo 24 meses)
-      Array.from(plazoSelect.options).forEach(opt => {
-        const valor = parseInt(opt.value);
-        if (moneda === 'BsBCV' && valor !== 24) {
-          opt.hidden = true;
-          opt.disabled = true;
-        } else {
-          opt.hidden = false;
-          opt.disabled = false;
-        }
-      });
+      calcularYActualizarCuota();
+    }
 
-      // Resetear cuota si la seleccionada quedó oculta
-      if (plazoSelect.selectedOptions[0] && plazoSelect.selectedOptions[0].disabled) {
-        plazoSelect.value = "24";
-      }
-
-      function calcularYActualizarCuota() {
+    function calcularYActualizarCuota() {
       const montoPlan = parseFloat(planSelect.value);
       const plazo = parseInt(plazoSelect.value, 10);
       const tipoMoneda = monedaSelect.value;
@@ -602,20 +616,17 @@
         return;
       }
 
-      // Base de Cálculo Matemática Exacta según plazos
+      // Factores de cálculo exactos según el plazo
       let factorCuota = 0;
       if (plazo === 24) factorCuota = 0.06458;
       else if (plazo === 36) factorCuota = 0.04306;
       else if (plazo === 48) factorCuota = 0.03229;
 
-      // 1. Calculamos la cuota con 2 decimales exactos
       const cuotaBruta = +(montoPlan * factorCuota).toFixed(2);
-      
-      // 2. Separamos la parte entera de los centavos
       const parteEntera = Math.floor(cuotaBruta);
       const parteDecimal = +(cuotaBruta - parteEntera).toFixed(2);
 
-      // 3. Aplicamos la regla: > 0.30 sube al siguiente entero, <= 0.30 se queda en el entero base
+      // Regla de Redondeo Carlos: > 0.30 sube, <= 0.30 se mantiene abajo
       let cuotaRedondeada;
       if (parteDecimal > 0.30) {
         cuotaRedondeada = parteEntera + 1;
@@ -623,7 +634,6 @@
         cuotaRedondeada = parteEntera;
       }
 
-      // 4. Asignamos el valor con .00 para que la BD lo reciba perfecto
       cuotaInput.value = cuotaRedondeada.toFixed(2);
       cuotaInput.dispatchEvent(new Event('input', { bubbles: true }));
     }
@@ -640,9 +650,9 @@
     plazoSelect.addEventListener('change', calcularYActualizarCuota);
     monedaSelect.addEventListener('change', actualizarFiltrosMoneda);
 
-    // Inicializar los filtros al cargar la página por primera vez
+    // Inicializamos el comportamiento forzado en la carga inicial de la página
     actualizarFiltrosMoneda();
-    // ----------------------------------------------------
+    // -------------------------------------------------------------------------------
 
     // --- Cámara (flip + espejado en selfie) ---
     const cameraModalEl  = document.getElementById('cameraModal');
