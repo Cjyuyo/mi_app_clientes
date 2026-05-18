@@ -542,7 +542,7 @@
       }
     });
 
-    // --- NUEVO MOTOR MATEMÁTICO E INTELIGENTE (RECONSTRUCCIÓN DINÁMICA DE MENÚS) ---
+    // --- NUEVO MOTOR MATEMÁTICO E INTELIGENTE (FILTROS NATIVOS Y TRABAJO AUTOMÁTICO) ---
     const planSelect = document.getElementById('plan_contratado');
     const inscripcionInput = document.getElementById('inscripcion_monto');
     const plazoSelect = document.getElementById('cuotas_totales');
@@ -550,58 +550,66 @@
     const cuotaInput = document.getElementById('valor_cuota');
     const cuotaLabel = document.querySelector('label[for="valor_cuota"]');
 
-    // Guardamos una copia exacta de las opciones originales del HTML al cargar la página
-    const opcionesPlanesOriginales = Array.from(planSelect.options).map(o => ({ value: o.value, text: o.text, disabled: o.disabled }));
-    const opcionesPlazosOriginales = Array.from(plazoSelect.options).map(o => ({ value: o.value, text: o.text }));
+    // Guardamos los elementos option nativos del HTML original para manipularlos con seguridad
+    const originalesPlanes = Array.from(planSelect.options);
+    const originalesPlazos = Array.from(plazoSelect.options);
 
     function actualizarFiltrosMoneda() {
       const moneda = monedaSelect.value;
-      const planSeleccionadoPrevio = planSelect.value;
-      const plazoSeleccionadoPrevio = plazoSelect.value;
+      const planPrevia = planSelect.value;
+      const plazoPrevia = plazoSelect.value;
 
-      // 1. RECONSTRUIR DROPDOWN DE PLANES
+      // 1. FILTRAR Y DEPURAR PLANES
       planSelect.innerHTML = '';
-      opcionesPlanesOriginales.forEach(opt => {
-        if (opt.value === "") { // Mantenemos siempre el placeholder inicial
-          planSelect.appendChild(new Option(opt.text, opt.value, true, planSeleccionadoPrevio === ""));
-          return;
+      originalesPlanes.forEach(opt => {
+        if (opt.value !== "") {
+          const valor = parseInt(opt.value, 10);
+          // Si es Bolívares, descartamos físicamente los planes menores a 1800
+          if (moneda === 'BsBCV' && valor < 1800) return;
         }
-        const valorPlan = parseInt(opt.value, 10);
-        // Regla: Si es Bolívares, descartamos los planes menores a 1800
-        if (moneda === 'BsBCV' && valorPlan < 1800) {
-          return; 
-        }
-        const nuevaOpt = new Option(opt.text, opt.value);
-        if (opt.value === planSeleccionadoPrevio) nuevaOpt.selected = true;
-        planSelect.appendChild(nuevaOpt);
+        planSelect.appendChild(opt);
       });
 
-      // 2. RECONSTRUIR DROPDOWN DE PLAZOS (CUOTAS)
+      // 2. FILTRAR Y DEPURAR PLAZOS (CUOTAS)
       plazoSelect.innerHTML = '';
-      opcionesPlazosOriginales.forEach(opt => {
-        const valorPlazo = parseInt(opt.value, 10);
-        // Regla: Si es Bolívares, descartamos plazos diferentes a 24
-        if (moneda === 'BsBCV' && valorPlazo !== 24) {
-          return; 
+      originalesPlazos.forEach(opt => {
+        if (opt.value !== "") {
+          const valor = parseInt(opt.value, 10);
+          // Si es Bolívares, descartamos plazos diferentes a 24
+          if (moneda === 'BsBCV' && valor !== 24) return;
         }
-        const nuevaOpt = new Option(opt.text, opt.value);
-        if (moneda === 'BsBCV' && valorPlazo === 24) {
-          nuevaOpt.selected = true;
-        } else if (opt.value === plazoSeleccionadoPrevio) {
-          nuevaOpt.selected = true;
-        }
-        plazoSelect.appendChild(nuevaOpt);
+        plazoSelect.appendChild(opt);
       });
 
-      // 3. LIMPIEZA DE SEGURIDAD
-      // Si el plan que estaba seleccionado desapareció por el filtro, limpiamos los montos
-      if (moneda === 'BsBCV' && planSeleccionadoPrevio && parseInt(planSeleccionadoPrevio, 10) < 1800) {
+      // 3. RESTAURAR SELECCIONES O REAJUSTAR VALORES
+      if (planPrevia && planSelect.querySelector(`option[value="${planPrevia}"]`)) {
+        planSelect.value = planPrevia;
+      } else {
         planSelect.value = "";
-        inscripcionInput.value = "";
-        cuotaInput.value = "";
       }
 
+      if (moneda === 'BsBCV') {
+        plazoSelect.value = "24";
+      } else if (plazoPrevia && plazoSelect.querySelector(`option[value="${plazoPrevia}"]`)) {
+        plazoSelect.value = plazoPrevia;
+      } else {
+        plazoSelect.value = "24";
+      }
+
+      // 4. FORZAR CÁLCULOS EN VIVO INMEDIATOS
+      actualizarMontoInscripcion();
       calcularYActualizarCuota();
+    }
+
+    function actualizarMontoInscripcion() {
+      const valorPlan = parseFloat(planSelect.value);
+      if (!isNaN(valorPlan)) {
+        // Ejecuta el cálculo del 16% de la inscripción
+        inscripcionInput.value = (valorPlan * 0.16).toFixed(2);
+        inscripcionInput.dispatchEvent(new Event('input', { bubbles: true }));
+      } else {
+        inscripcionInput.value = '';
+      }
     }
 
     function calcularYActualizarCuota() {
@@ -616,7 +624,7 @@
         return;
       }
 
-      // Factores de cálculo exactos según el plazo
+      // Factores de cálculo exactos según el plazo seleccionado
       let factorCuota = 0;
       if (plazo === 24) factorCuota = 0.06458;
       else if (plazo === 36) factorCuota = 0.04306;
@@ -626,7 +634,7 @@
       const parteEntera = Math.floor(cuotaBruta);
       const parteDecimal = +(cuotaBruta - parteEntera).toFixed(2);
 
-      // Regla de Redondeo Carlos: > 0.30 sube, <= 0.30 se mantiene abajo
+      // Regla de Redondeo: > 0.30 sube al entero, <= 0.30 se queda abajo
       let cuotaRedondeada;
       if (parteDecimal > 0.30) {
         cuotaRedondeada = parteEntera + 1;
@@ -638,19 +646,16 @@
       cuotaInput.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
+    // OYENTES DE EVENTOS NATIVOS
     planSelect.addEventListener('change', function() {
-      const valorPlan = parseFloat(this.value);
-      if (!isNaN(valorPlan)) {
-        inscripcionInput.value = (valorPlan * 0.16).toFixed(2);
-        inscripcionInput.dispatchEvent(new Event('input', { bubbles: true }));
-      }
+      actualizarMontoInscripcion();
       calcularYActualizarCuota();
     });
 
     plazoSelect.addEventListener('change', calcularYActualizarCuota);
     monedaSelect.addEventListener('change', actualizarFiltrosMoneda);
 
-    // Inicializamos el comportamiento forzado en la carga inicial de la página
+    // Inicialización obligatoria al cargar la página por primera vez
     actualizarFiltrosMoneda();
     // -------------------------------------------------------------------------------
 
