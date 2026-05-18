@@ -354,6 +354,7 @@
 {% endblock %}
 
 {% block scripts_extra %}
+{{ super() }}
 <script src="//unpkg.com/alpinejs" defer></script>
 <script>
     document.addEventListener('alpine:init', () => {
@@ -434,4 +435,41 @@
 
     document.getElementById('fecha_pago').valueAsDate = new Date();
 </script>
+
+{# ========================================================================= #}
+{# --- BLOQUEO INTELIGENTE DEL MENÚ LATERAL DURANTE LA INSCRIPCIÓN       --- #}
+{# ========================================================================= #}
+{% set estado_actual = cliente.estado_del_plan|default('')|string|lower %}
+{% set is_inscripcion_pendiente = ('reserva' in estado_actual or 'formaliz' in estado_actual) %}
+
+{% if is_inscripcion_pendiente %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Buscamos los botones del menú lateral que disparan modales restringidos
+        const restrictedSelectors = [
+            '[data-bs-target="#ofertaModal"]', 
+            '[data-bs-target="#congelamientoModal"]', 
+            '[data-bs-target="#retiroModal"]'
+        ];
+        
+        restrictedSelectors.forEach(selector => {
+            document.querySelectorAll(selector).forEach(el => {
+                // 1. Apagamos visualmente el botón
+                el.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+                
+                // 2. Agregamos un tooltip explicando el porqué
+                el.setAttribute('title', 'Acción bloqueada: Debes completar el pago de tu inscripción primero.');
+                
+                // 3. Destruimos la capacidad de abrir cualquier cosa
+                el.removeAttribute('data-bs-toggle');
+                el.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }, true);
+            });
+        });
+    });
+</script>
+{% endif %}
 {% endblock %}
