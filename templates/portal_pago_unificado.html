@@ -17,8 +17,8 @@
 
     <div x-data="paymentController({
          isEnrollment: {{ is_enrollment_payment|tojson }},
-         montoRestante: {{ monto_restante|float }},
-         montoAPagar: {{ monto_a_pagar_usd|float }},
+         montoRestante: {% if is_enrollment_payment %}{{ cliente.inscripcion_monto|default(0, true)|float }}{% else %}{{ monto_restante|default(0, true)|float }}{% endif %},
+         montoAPagar: {% if is_enrollment_payment %}{{ cliente.inscripcion_monto|default(0, true)|float }}{% else %}{{ monto_a_pagar_usd|default(0, true)|float }}{% endif %},
          tasaBcv: {{ (tasa_hoy.tasa if tasa_hoy else 0)|float }},
          monedaContrato: '{{ cliente.moneda_pago }}',
          isModalOpen: false
@@ -68,7 +68,17 @@
                 <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
                     <p class="text-sm font-medium text-slate-600">Monto Total Pendiente de Inscripción</p>
                     <div class="mt-2">
-                        <span class="text-3xl font-bold text-slate-800 tracking-tight">${{ "%.2f"|format(monto_restante|float) }}</span>
+                        <span class="text-3xl font-bold text-slate-800 tracking-tight" x-text="'$' + montoRestante.toFixed(2)"></span>
+                        <span class="text-lg text-slate-500">USD</span>
+                    </div>
+                </div>
+            </template>
+            
+            <template x-if="!isEnrollment">
+                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
+                    <p class="text-sm font-medium text-slate-600">Monto de la Cuota a Pagar</p>
+                    <div class="mt-2">
+                        <span class="text-3xl font-bold text-slate-800 tracking-tight" x-text="'$' + montoAPagar.toFixed(2)"></span>
                         <span class="text-lg text-slate-500">USD</span>
                     </div>
                 </div>
