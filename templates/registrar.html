@@ -6,7 +6,6 @@
 
 {% block head_extra %}
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- Tailwind (CDN) -->
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   // opcional: ajustes rápidos de Tailwind
@@ -23,9 +22,7 @@
     }
   }
 </script>
-<!-- Bootstrap 5 solo para el modal -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<!-- SweetAlert2 -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
 {% endblock %}
@@ -33,7 +30,6 @@
 {% block body %}
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
-  <!-- Encabezado -->
   <div class="bg-white/90 backdrop-blur p-6 rounded-2xl shadow ring-1 ring-slate-200 mb-6">
     <div class="flex items-center gap-4">
       <div class="p-3 rounded-xl bg-brand-50 ring-1 ring-brand-200">
@@ -47,11 +43,9 @@
   </div>
 
   <form id="registroForm" action="{{ url_for('finalizar_registro') }}" method="POST" class="space-y-6">
-    <!-- Hidden fotos (S3) -->
     <input type="hidden" name="foto_cliente" id="foto_cliente" required>
     <input type="hidden" name="foto_cedula" id="foto_cedula" required>
 
-    <!-- Flash messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
@@ -64,224 +58,221 @@
     
     <div id="seccion-datos" class="space-y-6">
 
-    <section class="bg-white p-6 rounded-2xl shadow ring-1 ring-slate-200">
-      <h3 class="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
-        <i class="bi bi-person-badge text-slate-500"></i> Información Personal y de Contacto
-      </h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label for="nombre_apellido" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label>
-          <input type="text" id="nombre_apellido" name="nombre_apellido" required
-                 class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-        </div>
-        <div>
-          <label for="cedula" class="block text-sm font-medium text-slate-700">Número Cédula</label>
-          <input type="text" id="cedula" name="cedula" required
-                 class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-        </div>
-        <div>
-          <label for="telefono" class="block text-sm font-medium text-slate-700">Teléfono</label>
-          <input type="text" id="telefono" name="telefono" required
-                 class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-        </div>
-        <div>
-          <label for="email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label>
-          <input type="email" id="email" name="email"
-                 class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-        </div>
-        <div class="md:col-span-2">
-          <label for="direccion" class="block text-sm font-medium text-slate-700">Dirección</label>
-          <textarea id="direccion" name="direccion" rows="2"
-                    class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500"></textarea>
-        </div>
-        <div>
-          <label for="fecha_ingreso" class="block text-sm font-medium text-slate-700">Fecha de Ingreso</label>
-          <input type="date" id="fecha_ingreso" name="fecha_ingreso" required
-                 class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-        </div>
-      </div>
-    </section>
-
-    <section class="bg-white p-6 rounded-2xl shadow ring-1 ring-slate-200">
-      <h3 class="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
-        <i class="bi bi-person-heart text-slate-500"></i> Beneficiario por Fallecimiento (Obligatorio)
-      </h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label for="beneficiario_nombre_apellido" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label>
-          <input type="text" id="beneficiario_nombre_apellido" name="beneficiario_nombre_apellido" required
-                 class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-        </div>
-        <div>
-          <label for="beneficiario_cedula" class="block text-sm font-medium text-slate-700">Número Cédula</label>
-          <input type="text" id="beneficiario_cedula" name="beneficiario_cedula" required
-                 class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-        </div>
-        <div>
-          <label for="beneficiario_telefono" class="block text-sm font-medium text-slate-700">Teléfono</label>
-          <input type="text" id="beneficiario_telefono" name="beneficiario_telefono" required
-                 class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-        </div>
-        <div>
-          <label for="beneficiario_email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label>
-          <input type="email" id="beneficiario_email" name="beneficiario_email" required
-                 class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-        </div>
-        <div class="md:col-span-2">
-          <label for="beneficiario_direccion" class="block text-sm font-medium text-slate-700">Dirección</label>
-          <textarea id="beneficiario_direccion" name="beneficiario_direccion" rows="2" required
-                    class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500"></textarea>
-        </div>
-      </div>
-    </section>
-
-    <section class="bg-white p-6 rounded-2xl shadow ring-1 ring-slate-200">
-      <h3 class="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
-        <i class="bi bi-file-earmark-text text-slate-500"></i> Detalles del Plan y Contrato
-      </h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div>
-            <label for="numero_contrato" class="block text-sm font-medium text-slate-700 mb-1">Número de Contrato</label>
-            <input type="text" id="numero_contrato" name="numero_contrato" 
-                   value="{{ numero_contrato_siguiente_sugerido or '' }}"
-                   class="w-full border border-slate-300 rounded-lg p-2.5 bg-slate-50 font-mono text-slate-700 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" 
-                   readonly placeholder="Se generará al guardar">
+      <section class="bg-white p-6 rounded-2xl shadow ring-1 ring-slate-200">
+        <h3 class="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
+          <i class="bi bi-person-badge text-slate-500"></i> Información Personal y de Contacto
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="nombre_apellido" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label>
+            <input type="text" id="nombre_apellido" name="nombre_apellido" required
+                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
           </div>
-        <div>
-          <label for="grupo" class="block text-sm font-medium text-slate-700">Número Grupo</label>
-          <input type="text" id="grupo" name="grupo"
-                 class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
+          <div>
+            <label for="cedula" class="block text-sm font-medium text-slate-700">Número Cédula</label>
+            <input type="text" id="cedula" name="cedula" required
+                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
+          </div>
+          <div>
+            <label for="telefono" class="block text-sm font-medium text-slate-700">Teléfono</label>
+            <input type="text" id="telefono" name="telefono" required
+                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
+          </div>
+          <div>
+            <label for="email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label>
+            <input type="email" id="email" name="email"
+                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
+          </div>
+          <div class="md:col-span-2">
+            <label for="direccion" class="block text-sm font-medium text-slate-700">Dirección</label>
+            <textarea id="direccion" name="direccion" rows="2"
+                      class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500"></textarea>
+          </div>
+          <div>
+            <label for="fecha_ingreso" class="block text-sm font-medium text-slate-700">Fecha de Ingreso</label>
+            <input type="date" id="fecha_ingreso" name="fecha_ingreso" required
+                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
+          </div>
         </div>
-        <div>
-            <label for="plan_contratado" class="block text-sm font-medium text-slate-700 mb-1">Monto Contratado ($)</label>
-            <select id="plan_contratado" name="plan_contratado" required
-                    class="w-full border border-slate-300 rounded-lg p-2.5 bg-white text-slate-700 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none cursor-pointer">
-                <option value="" disabled selected>-- Seleccione un Plan --</option>
-                <option value="1400">$1,400</option>
-                <option value="1500">$1,500</option>
-                <option value="1600">$1,600</option>
-                <option value="1700">$1,700</option>
-                <option value="1800">$1,800</option>
-                <option value="1900">$1,900</option>
-                <option value="2000">$2,000</option>
-                <option value="2200">$2,200</option>
-                <option value="2300">$2,300</option>
-                <option value="2400">$2,400</option>
-                <option value="2500">$2,500</option>
-                <option value="2600">$2,600</option>
-                <option value="2700">$2,700</option>
-                <option value="2800">$2,800</option>
-                <option value="2900">$2,900</option>
-                <option value="3200">$3,200</option>
-                <option value="3300">$3,300</option>
-                <option value="3500">$3,500</option>
-                <option value="3800">$3,800</option>
-                <option value="4500">$4,500</option>
-                <option value="5200">$5,200</option>
-                <option value="5600">$5,600</option>
-                <option value="5900">$5,900</option>
-                <option value="6300">$6,300</option>
+      </section>
+
+      <section class="bg-white p-6 rounded-2xl shadow ring-1 ring-slate-200">
+        <h3 class="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
+          <i class="bi bi-person-heart text-slate-500"></i> Beneficiario por Fallecimiento (Obligatorio)
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="beneficiario_nombre_apellido" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label>
+            <input type="text" id="beneficiario_nombre_apellido" name="beneficiario_nombre_apellido" required
+                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
+          </div>
+          <div>
+            <label for="beneficiario_cedula" class="block text-sm font-medium text-slate-700">Número Cédula</label>
+            <input type="text" id="beneficiario_cedula" name="beneficiario_cedula" required
+                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
+          </div>
+          <div>
+            <label for="beneficiario_telefono" class="block text-sm font-medium text-slate-700">Teléfono</label>
+            <input type="text" id="beneficiario_telefono" name="beneficiario_telefono" required
+                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
+          </div>
+          <div>
+            <label for="beneficiario_email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label>
+            <input type="email" id="beneficiario_email" name="beneficiario_email" required
+                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
+          </div>
+          <div class="md:col-span-2">
+            <label for="beneficiario_direccion" class="block text-sm font-medium text-slate-700">Dirección</label>
+            <textarea id="beneficiario_direccion" name="beneficiario_direccion" rows="2" required
+                      class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500"></textarea>
+          </div>
+        </div>
+      </section>
+
+      <section class="bg-white p-6 rounded-2xl shadow ring-1 ring-slate-200">
+        <h3 class="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
+          <i class="bi bi-file-earmark-text text-slate-500"></i> Detalles del Plan y Contrato
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div>
+              <label for="numero_contrato" class="block text-sm font-medium text-slate-700 mb-1">Número de Contrato</label>
+              <input type="text" id="numero_contrato" name="numero_contrato" 
+                     value="{{ numero_contrato_siguiente_sugerido or '' }}"
+                     class="w-full border border-slate-300 rounded-lg p-2.5 bg-slate-50 font-mono text-slate-700 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" 
+                     readonly placeholder="Se generará al guardar">
+          </div>
+          <div>
+            <label for="grupo" class="block text-sm font-medium text-slate-700">Número Grupo</label>
+            <input type="text" id="grupo" name="grupo"
+                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
+          </div>
+          <div>
+            <label for="moneda_pago" class="block text-sm font-medium text-slate-700">Moneda de Pago</label>
+            <select id="moneda_pago" name="moneda_pago" required
+                    class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
+              <option value="USD">Divisas (USD)</option>
+              <option value="BsBCV">Bolívares (Tasa BCV)</option>
             </select>
+          </div>
+          <div>
+              <label for="plan_contratado" class="block text-sm font-medium text-slate-700 mb-1">Monto Contratado ($)</label>
+              <select id="plan_contratado" name="plan_contratado" required
+                      class="w-full border border-slate-300 rounded-lg p-2.5 bg-white text-slate-700 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none cursor-pointer">
+                  <option value="" disabled selected>-- Seleccione un Plan --</option>
+                  <option value="1400">$1,400</option>
+                  <option value="1500">$1,500</option>
+                  <option value="1600">$1,600</option>
+                  <option value="1700">$1,700</option>
+                  <option value="1800">$1,800</option>
+                  <option value="1900">$1,900</option>
+                  <option value="2000">$2,000</option>
+                  <option value="2200">$2,200</option>
+                  <option value="2300">$2,300</option>
+                  <option value="2400">$2,400</option>
+                  <option value="2500">$2,500</option>
+                  <option value="2600">$2,600</option>
+                  <option value="2700">$2,700</option>
+                  <option value="2800">$2,800</option>
+                  <option value="2900">$2,900</option>
+                  <option value="3200">$3,200</option>
+                  <option value="3300">$3,300</option>
+                  <option value="3500">$3,500</option>
+                  <option value="3800">$3,800</option>
+                  <option value="4500">$4,500</option>
+                  <option value="5200">$5,200</option>
+                  <option value="5600">$5,600</option>
+                  <option value="5900">$5,900</option>
+                  <option value="6300">$6,300</option>
+              </select>
+          </div>
+          <div>
+            <label for="inscripcion_monto" class="block text-sm font-medium text-slate-700">Monto Inscripción (16%)</label>
+            <input type="number" step="0.01" id="inscripcion_monto" name="inscripcion_monto" required readonly
+                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-100 text-slate-700 focus:ring-brand-500 focus:border-brand-500">
+          </div>
+          <div>
+            <label for="cuotas_totales" class="block text-sm font-medium text-slate-700">Total de Cuotas</label>
+            <select id="cuotas_totales" name="cuotas_totales" required
+                    class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
+              <option value="24">24</option>
+              <option value="36">36</option>
+              <option value="48">48</option>
+            </select>
+          </div>
+          <div>
+            <label for="valor_cuota" class="block text-sm font-medium text-slate-700">Cuota Mensual</label>
+            <input type="number" step="0.01" id="valor_cuota" name="valor_cuota" required readonly
+                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-100 text-slate-700 focus:ring-brand-500 focus:border-brand-500">
+          </div>
         </div>
-        <div>
-          <label for="inscripcion_monto" class="block text-sm font-medium text-slate-700">Monto Inscripción (16%)</label>
-          <input type="number" step="0.01" id="inscripcion_monto" name="inscripcion_monto" required readonly
-                 class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-100 text-slate-700 focus:ring-brand-500 focus:border-brand-500">
-        </div>
-        <div>
-          <label for="cuotas_totales" class="block text-sm font-medium text-slate-700">Total de Cuotas</label>
-          <select id="cuotas_totales" name="cuotas_totales" required
-                  class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-            <option value="24">24</option>
-            <option value="36">36</option>
-            <option value="48">48</option>
-          </select>
-        </div>
-        <div>
-          <label for="valor_cuota" class="block text-sm font-medium text-slate-700">Cuota Mensual</label>
-          <input type="number" step="0.01" id="valor_cuota" name="valor_cuota" required readonly
-                 class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-100 text-slate-700 focus:ring-brand-500 focus:border-brand-500">
-        </div>
-        <div>
-          <label for="moneda_pago" class="block text-sm font-medium text-slate-700">Moneda de Pago</label>
-          <select id="moneda_pago" name="moneda_pago" required
-                  class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-            <option value="USD">Divisas (USD)</option>
-            <option value="BsBCV">Bolívares (Tasa BCV)</option>
-          </select>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Verificación de identidad -->
-    <section class="bg-white p-6 rounded-2xl shadow ring-1 ring-slate-200">
-      <h3 class="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
-        <i class="bi bi-camera text-slate-500"></i> Verificación de Identidad
-      </h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="text-center">
-          <h6 class="font-semibold text-slate-700 mb-2">Foto del Cliente</h6>
-          <img id="preview-cliente"
-               src="https://placehold.co/400x300/e2e8f0/94a3b8?text=Foto+Cliente"
-               class="w-full h-48 object-cover rounded-xl border-2 border-dashed border-slate-300 mb-3">
-          <button type="button"
-                  class="w-full inline-flex items-center justify-center gap-2 px-4 py-2 font-medium rounded-xl bg-brand-600 text-white shadow hover:bg-brand-700 transition"
-                  data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cliente">
-            <i class="bi bi-person-bounding-box"></i> Tomar Foto Cliente
-          </button>
+      <section class="bg-white p-6 rounded-2xl shadow ring-1 ring-slate-200">
+        <h3 class="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
+          <i class="bi bi-camera text-slate-500"></i> Verificación de Identidad
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="text-center">
+            <h6 class="font-semibold text-slate-700 mb-2">Foto del Cliente</h6>
+            <img id="preview-cliente"
+                 src="https://placehold.co/400x300/e2e8f0/94a3b8?text=Foto+Cliente"
+                 class="w-full h-48 object-cover rounded-xl border-2 border-dashed border-slate-300 mb-3">
+            <button type="button"
+                    class="w-full inline-flex items-center justify-center gap-2 px-4 py-2 font-medium rounded-xl bg-brand-600 text-white shadow hover:bg-brand-700 transition"
+                    data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cliente">
+              <i class="bi bi-person-bounding-box"></i> Tomar Foto Cliente
+            </button>
+          </div>
+          <div class="text-center">
+            <h6 class="font-semibold text-slate-700 mb-2">Foto de la Cédula</h6>
+            <img id="preview-cedula"
+                 src="https://placehold.co/400x300/e2e8f0/94a3b8?text=Foto+C%C3%A9dula"
+                 class="w-full h-48 object-cover rounded-xl border-2 border-dashed border-slate-300 mb-3">
+            <button type="button"
+                    class="w-full inline-flex items-center justify-center gap-2 px-4 py-2 font-medium rounded-xl bg-slate-800 text-white shadow hover:bg-black transition"
+                    data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cedula">
+              <i class="bi bi-credit-card-2-front"></i> Tomar Foto Cédula
+            </button>
+          </div>
         </div>
-        <div class="text-center">
-          <h6 class="font-semibold text-slate-700 mb-2">Foto de la Cédula</h6>
-          <img id="preview-cedula"
-               src="https://placehold.co/400x300/e2e8f0/94a3b8?text=Foto+C%C3%A9dula"
-               class="w-full h-48 object-cover rounded-xl border-2 border-dashed border-slate-300 mb-3">
-          <button type="button"
-                  class="w-full inline-flex items-center justify-center gap-2 px-4 py-2 font-medium rounded-xl bg-slate-800 text-white shadow hover:bg-black transition"
-                  data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cedula">
-            <i class="bi bi-credit-card-2-front"></i> Tomar Foto Cédula
-          </button>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Información administrativa -->
-    <section class="bg-white p-6 rounded-2xl shadow ring-1 ring-slate-200">
-      <h3 class="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
-        <i class="bi bi-briefcase text-slate-500"></i> Información Administrativa
-      </h3>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div>
-          <label for="escenario_dueño" class="block text-sm font-medium text-slate-700">1. Escenario de Cierre</label>
-          <select id="escenario_dueño" name="escenario_dueño" required
-                  class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-            <option value="">Seleccione un cargo...</option>
-            <option value="superadmin">Presidencia</option>
-            <option value="gerente">Gerencia</option>
-            <option value="asesor">Fuerza Comercial</option>
-          </select>
+      <section class="bg-white p-6 rounded-2xl shadow ring-1 ring-slate-200">
+        <h3 class="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
+          <i class="bi bi-briefcase text-slate-500"></i> Información Administrativa
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <label for="escenario_dueño" class="block text-sm font-medium text-slate-700">1. Escenario de Cierre</label>
+            <select id="escenario_dueño" name="escenario_dueño" required
+                    class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
+              <option value="">Seleccione un cargo...</option>
+              <option value="superadmin">Presidencia</option>
+              <option value="gerente">Gerencia</option>
+              <option value="asesor">Fuerza Comercial</option>
+            </select>
+          </div>
+          <div>
+            <label for="asesor_id" class="block text-sm font-medium text-slate-700">2. Asesor</label>
+            <select id="asesor_id" name="asesor_id" required disabled
+                    class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
+              <option value="">Primero seleccione un cargo...</option>
+            </select>
+          </div>
+          <div>
+            <label for="cerrado_por_id" class="block text-sm font-medium text-slate-700">3. Cerrador</label>
+            <select id="cerrado_por_id" name="cerrado_por_id" required
+                    class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
+              <option value="">Elige a un Cerrador</option>
+              {% for admin in todos_los_admins %}
+                <option value="{{ admin.id }}">{{ admin.nombre }}</option>
+              {% endfor %}
+            </select>
+          </div>
         </div>
-        <div>
-          <label for="asesor_id" class="block text-sm font-medium text-slate-700">2. Asesor</label>
-          <select id="asesor_id" name="asesor_id" required disabled
-                  class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-            <option value="">Primero seleccione un cargo...</option>
-          </select>
-        </div>
-        <div>
-          <label for="cerrado_por_id" class="block text-sm font-medium text-slate-700">3. Cerrador</label>
-          <select id="cerrado_por_id" name="cerrado_por_id" required
-                  class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-            <option value="">Elige a un Cerrador</option>
-            {% for admin in todos_los_admins %}
-              <option value="{{ admin.id }}">{{ admin.nombre }}</option>
-            {% endfor %}
-          </select>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Acciones -->
-   <div class="flex justify-end gap-4 pt-2">
+      <div class="flex justify-end gap-4 pt-2">
         <a href="{{ url_for('hub') }}"
            class="inline-flex items-center justify-center rounded-xl px-4 py-2 font-medium text-slate-700 bg-white ring-1 ring-slate-200 hover:bg-slate-50">
           Cancelar
@@ -294,6 +285,7 @@
       </div>
       
     </div> 
+
     <div id="seccion-contrato" class="hidden space-y-6">
       <section class="bg-white p-6 rounded-2xl shadow ring-1 ring-slate-200">
         <h3 class="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
@@ -389,7 +381,6 @@
   </form>
 </div>
 
-<!-- Modal de Cámara (Bootstrap, mismo id/estructura) -->
 <div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content rounded-2xl overflow-hidden">
@@ -428,7 +419,7 @@
 <script>
 // --- Funciones de Navegación y Firmas ---
   let padCliente, padEmpresa;
-
+  
   function inicializarFirmas() {
     if (padCliente) return; // Evita reinicializar si ya se abrieron
     
@@ -448,7 +439,7 @@
 
     padCliente = new SignaturePad(canvasC, { backgroundColor: 'rgb(255, 255, 255)' });
     padEmpresa = new SignaturePad(canvasE, { backgroundColor: 'rgb(255, 255, 255)' });
-
+    
     // Guardar los dibujos en los inputs ocultos cada vez que levantan el dedo
     padCliente.addEventListener("endStroke", () => {
       document.getElementById('firma_cliente').value = padCliente.toDataURL();
@@ -487,7 +478,7 @@
     document.getElementById('preview-nombre').innerText = document.getElementById('nombre_apellido').value || '________';
     document.getElementById('preview-cedula').innerText = document.getElementById('cedula').value || '________';
     document.getElementById('preview-direccion').innerText = document.getElementById('direccion').value || '________';
-
+    
     // 2. Lógica dinámica para la Cláusula de Moneda
     const monedaSeleccionada = document.getElementById('moneda_pago').value;
     if (monedaSeleccionada === 'BsBCV') {
@@ -506,7 +497,7 @@
     // 4. Cambiar de pantalla
     document.getElementById('seccion-datos').classList.add('hidden');
     document.getElementById('seccion-contrato').classList.remove('hidden');
-    window.scrollTo(0, 0); 
+    window.scrollTo(0, 0);
     
     // 5. Inicializar pads (permanecerán bloqueados hasta que marquen "Acepto")
     inicializarFirmas();
@@ -551,7 +542,7 @@
       }
     });
 
-   // --- Cálculo de inscripción (16%) y cuota ---
+    // --- NUEVO MOTOR MATEMÁTICO E INTELIGENTE ---
     const planSelect = document.getElementById('plan_contratado');
     const inscripcionInput = document.getElementById('inscripcion_monto');
     const plazoSelect = document.getElementById('cuotas_totales');
@@ -559,19 +550,81 @@
     const cuotaInput = document.getElementById('valor_cuota');
     const cuotaLabel = document.querySelector('label[for="valor_cuota"]');
 
-    function calcularYActualizarCuota() {
+    function actualizarFiltrosMoneda() {
+      const moneda = monedaSelect.value;
+      
+      // Filtrar Planes (Si es Bs, ocultamos los menores a 1800)
+      Array.from(planSelect.options).forEach(opt => {
+        if (!opt.value) return; // Saltamos el placeholder
+        const valor = parseInt(opt.value);
+        if (moneda === 'BsBCV' && valor < 1800) {
+          opt.hidden = true;
+          opt.disabled = true;
+        } else {
+          opt.hidden = false;
+          opt.disabled = false;
+        }
+      });
+
+      // Resetear plan si el seleccionado quedó oculto por el filtro
+      if (planSelect.selectedOptions[0] && planSelect.selectedOptions[0].disabled) {
+        planSelect.value = "";
+        inscripcionInput.value = "";
+        cuotaInput.value = "";
+      }
+
+      // Filtrar Plazos (Si es Bs, solo 24 meses)
+      Array.from(plazoSelect.options).forEach(opt => {
+        const valor = parseInt(opt.value);
+        if (moneda === 'BsBCV' && valor !== 24) {
+          opt.hidden = true;
+          opt.disabled = true;
+        } else {
+          opt.hidden = false;
+          opt.disabled = false;
+        }
+      });
+
+      // Resetear cuota si la seleccionada quedó oculta
+      if (plazoSelect.selectedOptions[0] && plazoSelect.selectedOptions[0].disabled) {
+        plazoSelect.value = "24";
+      }
+
+      function calcularYActualizarCuota() {
       const montoPlan = parseFloat(planSelect.value);
       const plazo = parseInt(plazoSelect.value, 10);
       const tipoMoneda = monedaSelect.value;
+
       cuotaLabel.textContent = `Cuota Mensual (${tipoMoneda === 'USD' ? 'USD' : 'Bs'})`;
-      
-      if (isNaN(montoPlan) || ![24,36,48].includes(plazo)) {
-        cuotaInput.value = ''; return;
+
+      if (isNaN(montoPlan) || isNaN(plazo)) {
+        cuotaInput.value = ''; 
+        return;
       }
-      const base = (tipoMoneda === 'USD') ? 0.0496 : 0.0557;
-      const factorCuota = base * (24 / plazo);
-      const cuota = montoPlan * factorCuota;
-      cuotaInput.value = cuota.toFixed(2);
+
+      // Base de Cálculo Matemática Exacta según plazos
+      let factorCuota = 0;
+      if (plazo === 24) factorCuota = 0.06458;
+      else if (plazo === 36) factorCuota = 0.04306;
+      else if (plazo === 48) factorCuota = 0.03229;
+
+      // 1. Calculamos la cuota con 2 decimales exactos
+      const cuotaBruta = +(montoPlan * factorCuota).toFixed(2);
+      
+      // 2. Separamos la parte entera de los centavos
+      const parteEntera = Math.floor(cuotaBruta);
+      const parteDecimal = +(cuotaBruta - parteEntera).toFixed(2);
+
+      // 3. Aplicamos la regla: > 0.30 sube al siguiente entero, <= 0.30 se queda en el entero base
+      let cuotaRedondeada;
+      if (parteDecimal > 0.30) {
+        cuotaRedondeada = parteEntera + 1;
+      } else {
+        cuotaRedondeada = parteEntera;
+      }
+
+      // 4. Asignamos el valor con .00 para que la BD lo reciba perfecto
+      cuotaInput.value = cuotaRedondeada.toFixed(2);
       cuotaInput.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
@@ -585,7 +638,11 @@
     });
 
     plazoSelect.addEventListener('change', calcularYActualizarCuota);
-    monedaSelect.addEventListener('change', calcularYActualizarCuota);
+    monedaSelect.addEventListener('change', actualizarFiltrosMoneda);
+
+    // Inicializar los filtros al cargar la página por primera vez
+    actualizarFiltrosMoneda();
+    // ----------------------------------------------------
 
     // --- Cámara (flip + espejado en selfie) ---
     const cameraModalEl  = document.getElementById('cameraModal');
@@ -595,7 +652,6 @@
     const retakeBtn      = document.getElementById('retake-btn');
     const savePhotoBtn   = document.getElementById('save-photo-btn');
     const flipCameraBtn  = document.getElementById('flip-camera-btn');
-
     let stream, currentCaptureType, capturedImageDataUrl;
     let currentFacingMode = 'user';
 
@@ -634,16 +690,16 @@
       toggleViews(false);
       await startCamera(currentFacingMode);
     });
-
+    
     cameraModalEl.addEventListener('hide.bs.modal', () => {
       if (stream) stream.getTracks().forEach(track => track.stop());
     });
-
+    
     flipCameraBtn.addEventListener('click', () => {
       currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
       startCamera(currentFacingMode);
     });
-
+    
     captureBtn.addEventListener('click', () => {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
@@ -657,7 +713,7 @@
       capturedImageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
       toggleViews(true);
     });
-
+    
     retakeBtn.addEventListener('click', () => toggleViews(false));
 
     savePhotoBtn.addEventListener('click', () => {
@@ -669,15 +725,14 @@
       }
       bootstrap.Modal.getInstance(cameraModalEl).hide();
     });
-
+    
     // --- Validación y submit con confirm ---
     const submitBtn = document.getElementById('submitBtn');
     const form = document.getElementById('registroForm');
-
+    
     const validateForm = () => {
       // Modificado para no exigir required en campos ocultos si estamos en la vista de datos
       const seccionDatosVisible = !document.getElementById('seccion-datos').classList.contains('hidden');
-      
       for (const field of form.querySelectorAll('[required]')) {
         // Si la sección de datos está visible, omitimos validar firmas por ahora
         if (seccionDatosVisible && (field.id === 'firma_cliente' || field.id === 'firma_empresa')) {
@@ -689,7 +744,6 @@
     };
     
     const updateButtonState = () => { submitBtn.disabled = !validateForm(); };
-
     form.addEventListener('input', updateButtonState);
     form.addEventListener('change', updateButtonState);
     updateButtonState();
