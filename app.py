@@ -5827,10 +5827,24 @@ def finalizar_registro():
             flash('Ambas firmas son obligatorias para registrar al cliente.', 'error')
             return redirect(url_for('registrar'))
 
-        # Helper: '1.400,00' -> Decimal('1400.00')
+        # Helper Inteligente y Universal para Decimales
         def to_decimal(s: str) -> Decimal:
             s = (s or '0').strip()
-            s = s.replace('.', '').replace(',', '.')
+            
+            # Caso 1: Tiene punto y coma mezclados
+            if ',' in s and '.' in s:
+                # Formato VET/EUR (ej. 1.400,50)
+                if s.rfind(',') > s.rfind('.'):
+                    s = s.replace('.', '').replace(',', '.')
+                # Formato USA (ej. 1,400.50)
+                else:
+                    s = s.replace(',', '')
+            # Caso 2: Solo tiene coma (ej. 195,50)
+            elif ',' in s:
+                s = s.replace(',', '.')
+            
+            # Caso 3: Si solo tiene punto (195.50) o es entero (1400), 
+            # no se toca porque Python lo entiende nativamente de forma perfecta.
             return Decimal(s)
 
         def to_int(s):
