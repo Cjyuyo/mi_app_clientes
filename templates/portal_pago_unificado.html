@@ -30,19 +30,31 @@
                 <i class="bi bi-box-arrow-up-right text-slate-500"></i>
             </button>
         </div>
-        {% if cliente.moneda_pago == 'BsBCV' %}
+        
+        {% if cliente.moneda_pago == 'BsBCV' or is_enrollment_payment %}
         <div class="p-2 bg-slate-50 border-x border-slate-200">
-            <nav class="flex space-x-2">
-                <button @click="pagoEn = 'Dolar/BCV'" 
+            <nav class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                {% if cliente.moneda_pago == 'BsBCV' %}
+                <button type="button" @click="pagoEn = 'Dolar/BCV'" 
                         :class="{ 'bg-orange-500 text-white': pagoEn === 'Dolar/BCV', 'text-slate-600 hover:bg-orange-100': pagoEn !== 'Dolar/BCV' }"
                         class="flex-1 text-sm font-semibold py-2 px-4 rounded-md transition-colors">
-                    Pagar en Bolívares (Bs.)
+                    Bolívares (Bs.)
                 </button>
-                <button @click="pagoEn = 'USDT'" 
+                {% endif %}
+                
+                <button type="button" @click="pagoEn = 'USDT'" 
                         :class="{ 'bg-orange-500 text-white': pagoEn === 'USDT', 'text-slate-600 hover:bg-orange-100': pagoEn !== 'USDT' }"
                         class="flex-1 text-sm font-semibold py-2 px-4 rounded-md transition-colors">
-                    Pagar con Cripto (USDT)
+                    Cripto (USDT)
                 </button>
+                
+                {% if is_enrollment_payment %}
+                <button type="button" @click="pagoEn = 'Efectivo'" 
+                        :class="{ 'bg-orange-500 text-white': pagoEn === 'Efectivo', 'text-slate-600 hover:bg-orange-100': pagoEn !== 'Efectivo' }"
+                        class="flex-1 text-sm font-semibold py-2 px-4 rounded-md transition-colors">
+                    Efectivo (Físico)
+                </button>
+                {% endif %}
             </nav>
         </div>
         {% endif %}
@@ -227,12 +239,30 @@
                             </div>
                         </div>
                     </template>
+                    
+                    <template x-if="pagoEn === 'Efectivo'">
+                        <div class="md:col-span-2 mt-2">
+                            <div class="bg-amber-50 border border-amber-200 rounded-lg p-5 text-amber-800 text-sm">
+                                <div class="flex items-start gap-4">
+                                    <i class="bi bi-info-circle-fill text-amber-500 text-2xl mt-0.5"></i>
+                                    <div>
+                                        <p class="font-bold text-base">Pago en Efectivo Físico</p>
+                                        <p class="mt-1">Has seleccionado reportar un pago en efectivo. Asegúrate de hacer la entrega física del dinero en nuestras oficinas.</p>
+                                        <p class="mt-1">Al reportarlo, el pago quedará <strong>"En Revisión"</strong> hasta que el departamento de caja confirme la recepción del dinero exacto.</p>
+                                        <div class="mt-4 font-bold bg-amber-100 py-2 px-4 rounded-md inline-block border border-amber-200 shadow-sm">
+                                            Monto a entregar en Caja: $<span x-text="montoFinalUSD.toFixed(2)"></span> USD
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
                 </div>
             </div>
     
             <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
                 <a href="{{ url_for('portal_dashboard') }}" class="text-sm bg-white text-slate-700 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50">Cancelar</a>
-                <<button type="submit" id="submit-button" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-colors flex justify-center items-center">
+                <button type="submit" id="submit-button" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-colors flex justify-center items-center">
                      <i class="bi bi-check-circle-fill mr-2"></i> REPORTAR PAGO
                 </button>
             </div>
@@ -309,10 +339,9 @@
                 </div>
             </div>
         </div>
-        </div>
+    </div>
 </div>
 {% endblock %}
-
 
 {% block scripts_extra %}
 <script src="//unpkg.com/alpinejs" defer></script>
@@ -343,7 +372,7 @@
                 return (this.montoFinalUSD * this.tasaBcv).toFixed(2);
             },
 
-            // --- INICIO DE LA CORRECCIÓN: Lógica de validación ---
+            // --- VALIDACIÓN DE FORMULARIO ---
             validateAndSubmit() {
                 const form = document.getElementById('payment-form');
                 const fieldsToValidate = {
@@ -359,8 +388,10 @@
                     } else { // Transferencia
                         fieldsToValidate['banco_tr'] = 'Banco Emisor (Transferencia)';
                     }
-                } else { // USDT
+                } else if (this.pagoEn === 'USDT') {
                     fieldsToValidate['referencia_usdt'] = 'ID de Transacción / Pay ID';
+                } else if (this.pagoEn === 'Efectivo') {
+                    // El pago en efectivo no requiere validar campos de referencia
                 }
 
                 let missingFields = [];
@@ -380,7 +411,7 @@
                     return;
                 }
 
-                // Si la validación es exitosa, se deshabilita el botón y se envía el formulario.
+                // Si la validación es exitosa, deshabilitar botón y enviar
                 const submitButton = form.querySelector('#submit-button');
                 if (submitButton) {
                     submitButton.disabled = true;
@@ -388,7 +419,6 @@
                 }
                 form.submit();
             }
-            // --- FIN DE LA CORRECCIÓN ---
         }));
     });
 

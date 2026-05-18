@@ -7296,8 +7296,22 @@ def portal_reportar_pago():
                     tasa_bcv_calculo = None
                     currency_bulk = 'USD'
                     referencia_final = pago_form.get('referencia_usdt')
+                elif pago_en_final == 'Efectivo':
+                    # NUEVA LÓGICA PARA EFECTIVO FÍSICO
+                    monto_usd_a_guardar = monto_a_pagar_usd
+                    forma_pago_final = 'Efectivo'
+                    tasa_bcv_calculo = None
+                    currency_bulk = 'USD'
+                    referencia_final = 'Entregado en Caja'
                 else: 
                     pago_en_final = 'Dolar/BCV'
+                    monto_bs_str = pago_form.get('monto_bs', '0.00').replace(',', '.')
+                    monto_reportado_bs = Decimal(monto_bs_str).quantize(Decimal('0.02'))
+                    monto_usd_a_guardar = monto_a_pagar_usd 
+                    forma_pago_final = pago_form.get('forma_pago_bs')
+                    banco_final = pago_form.get('banco')
+                    currency_bulk = 'VES'
+                    referencia_final = pago_form.get('referencia')
                     monto_bs_str = pago_form.get('monto_bs', '0.00').replace(',', '.')
                     monto_reportado_bs = Decimal(monto_bs_str).quantize(Decimal('0.02'))
                     # CORREGIDO: Guarda el monto correcto correspondiente (Inscripción o Cuota)
