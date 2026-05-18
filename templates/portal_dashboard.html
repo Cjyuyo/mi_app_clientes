@@ -47,16 +47,16 @@
                         </svg>
                     </div>
                     <div>
-                        <h3 class="text-base font-bold text-amber-900">Tu cuenta requiere atención</h3>
-                        <p class="text-sm text-amber-700 mt-0.5">Para activar plenamente tu cuenta y proceder con la asignación, es necesario registrar el pago inicial correspondiente a tu inscripción.</p>
+                        <h3 class="text-base font-bold text-amber-900">Tu plan requiere atención</h3>
+                        <p class="text-sm text-amber-700 mt-0.5">Es necesario registrar el pago correspondiente a tu inscripción.</p>
                         <div class="mt-2 text-sm font-semibold text-amber-900 bg-amber-100/50 inline-block px-2.5 py-1 rounded-md">
                             Monto a abonar: ${{ "%.2f"|format(cliente.inscripcion_monto|float if cliente.inscripcion_monto else 0.0) }} {{ cliente.moneda_pago }}
                         </div>
                     </div>
                 </div>
                 <div class="sm:text-right">
-                    <a href="{{ url_for('portal_reportar_pago') }}" class="inline-flex items-center justify-center px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg transition-colors shadow-sm text-sm whitespace-nowrap">
-                        <i class="bi bi-cash-coin mr-2"></i> Reportar Pago
+                    <a href="{{ url_for('portal_reportar_pago') }}" class="inline-flex items-center justify-center px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition-colors shadow-sm text-sm whitespace-nowrap tracking-wide">
+                        <i class="bi bi-cash-coin mr-2"></i> INICIAR PAGO
                     </a>
                 </div>
             </div>
@@ -67,7 +67,9 @@
         
         <div class="lg:col-span-2">
             {% set has_notifications = get_flashed_messages() or ordenes_pendientes or estado_principal or cita_confirmada or ciclo_cobranza_activo %}
+            {% set mostrar_caja_notificaciones = get_flashed_messages() or ordenes_pendientes or estado_principal or cita_confirmada or (ciclo_cobranza_activo and not is_inscripcion_pendiente) or (not is_inscripcion_pendiente) %}
             
+            {% if mostrar_caja_notificaciones %}
             <div class="bg-white rounded-xl shadow-md card-lift">
                 <div class="p-5 border-b border-slate-200">
                     <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
