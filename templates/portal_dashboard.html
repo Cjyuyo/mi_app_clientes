@@ -4,73 +4,23 @@
 
 {% block head_extra %}
 <style>
-    body {
-        background-color: #f1f5f9; /* slate-100 */
-    }
-    .card-lift {
-        transition: transform 0.25s ease, box-shadow 0.25s ease;
-    }
-    .card-lift:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1);
-    }
-    .progress-bar {
-        transition: width .6s ease;
-        background-color: #f97316 !important; /* orange-500 */
-    }
-    .tab-button {
-        transition: background-color 0.2s ease, color 0.2s ease;
-    }
-    .tab-button.active {
-        background-color: #f97316; /* orange-500 */
-        color: white;
-    }
-    .disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-    /* Estilos para la nueva línea de tiempo de pagos */
-    .timeline-step {
-        position: relative;
-        padding-left: 2.5rem; /* 40px */
-        padding-bottom: 1.5rem; /* 24px */
-        border-left: 2px solid #e2e8f0; /* slate-200 */
-    }
-    .timeline-step:last-child {
-        border-left: 2px solid transparent;
-        padding-bottom: 0;
-    }
-    .timeline-icon {
-        position: absolute;
-        left: -0.875rem; /* -14px */
-        top: 0;
-        width: 1.75rem; /* 28px */
-        height: 1.75rem; /* 28px */
-        border-radius: 9999px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 2px solid white;
-    }
-    .timeline-step.is-complete .timeline-icon {
-        background-color: #16a34a; /* green-600 */
-        color: white;
-    }
-    .timeline-step.is-active .timeline-icon {
-        background-color: #2563eb; /* blue-600 */
-        color: white;
-    }
-    .timeline-step.is-error .timeline-icon {
-        background-color: #dc2626; /* red-600 */
-        color: white;
-    }
-    .timeline-step.is-pending .timeline-icon {
-        background-color: #e2e8f0; /* slate-200 */
-        color: #64748b; /* slate-500 */
-    }
-    .timeline-step.is-complete {
-        border-left-color: #16a34a; /* green-600 */
-    }
+    body { background-color: #f1f5f9; /* slate-100 */ }
+    .card-lift { transition: transform 0.25s ease, box-shadow 0.25s ease; }
+    .card-lift:hover { transform: translateY(-4px); box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1); }
+    .progress-bar { transition: width .6s ease; background-color: #f97316 !important; /* orange-500 */ }
+    .tab-button { transition: background-color 0.2s ease, color 0.2s ease; }
+    .tab-button.active { background-color: #f97316; /* orange-500 */ color: white; }
+    .disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    /* Estilos para la línea de tiempo de pagos */
+    .timeline-step { position: relative; padding-left: 2.5rem; padding-bottom: 1.5rem; border-left: 2px solid #e2e8f0; }
+    .timeline-step:last-child { border-left: 2px solid transparent; padding-bottom: 0; }
+    .timeline-icon { position: absolute; left: -0.875rem; top: 0; width: 1.75rem; height: 1.75rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center; border: 2px solid white; }
+    .timeline-step.is-complete .timeline-icon { background-color: #16a34a; color: white; }
+    .timeline-step.is-active .timeline-icon { background-color: #2563eb; color: white; }
+    .timeline-step.is-error .timeline-icon { background-color: #dc2626; color: white; }
+    .timeline-step.is-pending .timeline-icon { background-color: #e2e8f0; color: #64748b; }
+    .timeline-step.is-complete { border-left-color: #16a34a; }
 </style>
 {% endblock %}
 
@@ -84,6 +34,35 @@
         </div>
     </div>
 
+    {% set estado_actual = cliente.estado_del_plan|default('')|string|lower %}
+    {% set is_inscripcion_pendiente = ('reserva' in estado_actual or 'formaliz' in estado_actual) %}
+
+    {% if is_inscripcion_pendiente %}
+        <div class="bg-amber-50 border-l-4 border-amber-500 p-5 rounded-r-xl shadow-sm">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div class="flex items-start space-x-3">
+                    <div class="p-2 bg-amber-100 text-amber-700 rounded-lg mt-0.5">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-amber-900">Tu cuenta requiere atención</h3>
+                        <p class="text-sm text-amber-700 mt-0.5">Para activar plenamente tu cuenta y proceder con la asignación, es necesario registrar el pago inicial correspondiente a tu inscripción.</p>
+                        <div class="mt-2 text-sm font-semibold text-amber-900 bg-amber-100/50 inline-block px-2.5 py-1 rounded-md">
+                            Monto a abonar: ${{ "%.2f"|format(cliente.inscripcion_monto|float if cliente.inscripcion_monto else 0.0) }} {{ cliente.moneda_pago }}
+                        </div>
+                    </div>
+                </div>
+                <div class="sm:text-right">
+                    <a href="{{ url_for('portal_reportar_pago') }}" class="inline-flex items-center justify-center px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg transition-colors shadow-sm text-sm whitespace-nowrap">
+                        <i class="bi bi-cash-coin mr-2"></i> Reportar Pago
+                    </a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         <div class="lg:col-span-2">
@@ -92,8 +71,7 @@
             <div class="bg-white rounded-xl shadow-md card-lift">
                 <div class="p-5 border-b border-slate-200">
                     <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-                        <i class="bi bi-bell-fill text-orange-500"></i>
-                        Notificaciones
+                        <i class="bi bi-bell-fill text-orange-500"></i> Notificaciones
                     </h2>
                 </div>
                 <div class="p-5 space-y-4">
@@ -112,18 +90,11 @@
                         {% for orden in ordenes_pendientes %}
                         <div class="bg-red-100 border-l-4 border-red-500 text-red-800 p-4 rounded-lg">
                             <h3 class="font-bold text-md flex items-center gap-2"><i class="bi bi-exclamation-triangle-fill"></i> ¡Acción Requerida!</h3>
-                            <p class="mt-2 mb-3 text-sm">
-                                Detectamos una inconsistencia en uno de tus pagos. Por favor, completa la diferencia pendiente de 
-                                <strong class="font-semibold">{{ "%.2f"|format(orden.amount) }} {{ "Bs." if orden.currency == 'VES' else orden.currency }}</strong>.
-                            </p>
+                            <p class="mt-2 mb-3 text-sm">Detectamos una inconsistencia en uno de tus pagos. Por favor, completa la diferencia pendiente de <strong class="font-semibold">{{ "%.2f"|format(orden.amount) }} {{ "Bs." if orden.currency == 'VES' else orden.currency }}</strong>.</p>
                             <div class="flex items-center gap-3 mt-2">
-                                <a href="{{ url_for('portal_diferencia_reportar', bulk_id=orden.bulk_id, order_id=orden.id) }}" class="text-sm text-white font-semibold py-2 px-3 rounded-lg bg-red-600 hover:bg-red-700 inline-block">
-                                    Pagar Diferencia
-                                </a>
+                                <a href="{{ url_for('portal_diferencia_reportar', bulk_id=orden.bulk_id, order_id=orden.id) }}" class="text-sm text-white font-semibold py-2 px-3 rounded-lg bg-red-600 hover:bg-red-700 inline-block">Pagar Diferencia</a>
                                 {% if orden.pago_original_id %}
-                                <a href="{{ url_for('ver_reporte', pago_id=orden.pago_original_id) }}" target="_blank" class="text-sm text-red-700 font-semibold py-2 px-3 rounded-lg bg-white border border-red-600 hover:bg-red-50 inline-block">
-                                    Ver Reporte
-                                </a>
+                                <a href="{{ url_for('ver_reporte', pago_id=orden.pago_original_id) }}" target="_blank" class="text-sm text-red-700 font-semibold py-2 px-3 rounded-lg bg-white border border-red-600 hover:bg-red-50 inline-block">Ver Reporte</a>
                                 {% endif %}
                             </div>
                         </div>
@@ -135,17 +106,12 @@
                         <h3 class="text-md font-bold text-slate-800">{{ estado_principal.titulo }}</h3>
                         <p class="text-sm text-slate-600 mt-2">{{ estado_principal.mensaje | safe }}</p>
                         {% if estado_principal.boton_texto %}
-                        <a href="{{ estado_principal.boton_url }}" class="inline-block mt-3 text-sm text-white font-semibold py-2 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if not estado_principal.boton_activo %}opacity-50 cursor-not-allowed pointer-events-none{% endif %}"
-                           {% if not estado_principal.boton_activo %}title="Ya tienes un pago en revisión."{% endif %}>
+                        <a href="{{ estado_principal.boton_url }}" class="inline-block mt-3 text-sm text-white font-semibold py-2 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if not estado_principal.boton_activo %}opacity-50 cursor-not-allowed pointer-events-none{% endif %}" {% if not estado_principal.boton_activo %}title="Ya tienes un pago en revisión."{% endif %}>
                             {{ estado_principal.boton_texto }}
                         </a>
                         {% endif %}
                     </div>
                     {% endif %}
-                    
-                    {# --- INICIO DE CORRECCIÓN: Aviso azul oculto para inscripciones --- #}
-                    {% set estado_actual = cliente.estado_del_plan|default('')|string|lower %}
-                    {% set is_inscripcion_pendiente = ('reserva' in estado_actual or 'formaliz' in estado_actual) %}
                     
                     {% if ciclo_cobranza_activo and not is_inscripcion_pendiente %}
                     <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-800 p-4 rounded-lg">
@@ -156,7 +122,6 @@
                         </a>
                     </div>
                     {% endif %}
-                    {# --- FIN DE CORRECCIÓN: Aviso azul --- #}
 
                     {% if cita_confirmada %}
                     <div class="bg-white p-4 rounded-lg border">
@@ -176,7 +141,7 @@
                     </div>
                     {% endif %}
 
-                    {% if not has_notifications %}
+                    {% if not has_notifications and not is_inscripcion_pendiente %}
                     <div class="text-center text-slate-500 py-6">
                         <div class="inline-block bg-green-100 p-4 rounded-full">
                             <i class="bi bi-check-circle-fill text-4xl text-green-500"></i>
@@ -207,173 +172,149 @@
                 </div>
             </div>
              
-            {# --- NUEVA LÓGICA INTELIGENTE DEL BOTÓN DE PAGO (CORREGIDA) --- #}
-            {% if is_inscripcion_pendiente or ciclo_cobranza_activo %}
+            {% if ciclo_cobranza_activo and not is_inscripcion_pendiente %}
             <div class="p-5 border-t border-slate-200 bg-slate-50/50 rounded-b-xl">
-                 <a href="{{ url_for('portal_reportar_pago') }}"
-                    class="w-full text-center inline-block text-sm text-white font-semibold py-3 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if hay_pago_pendiente_general and not is_inscripcion_pendiente %}opacity-50 cursor-not-allowed pointer-events-none{% endif %}">
-                    
-                    {% if is_inscripcion_pendiente %}
-                        <i class="bi bi-cash-coin mr-1"></i> Abonar/Pagar Inscripción
-                    {% else %}
-                        <i class="bi bi-send-plus-fill mr-1"></i> Reportar un Pago
-                    {% endif %}
-                    
+                 <a href="{{ url_for('portal_reportar_pago') }}" class="w-full text-center inline-block text-sm text-white font-semibold py-3 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if hay_pago_pendiente_general %}opacity-50 cursor-not-allowed pointer-events-none{% endif %}">
+                    <i class="bi bi-send-plus-fill mr-1"></i> Reportar un Pago
                 </a>
             </div>
             {% endif %}
         </div>
+    </div>
 
-        <div class="bg-white rounded-xl shadow-md card-lift" x-data="{ activeTab: 'pagos' }">
-            <div class="p-2 bg-slate-50 rounded-t-xl border-b border-slate-200">
-                <nav class="flex space-x-2">
-                    <button @click="activeTab = 'pagos'" 
-                            :class="{ 'active': activeTab === 'pagos' }"
-                            class="tab-button flex-1 text-sm font-semibold py-2 px-4 rounded-md text-slate-600 hover:bg-orange-100">
-                        Últimos Pagos
-                    </button>
-                    <button @click="activeTab = 'gestiones'" 
-                            :class="{ 'active': activeTab === 'gestiones' }"
-                            class="tab-button flex-1 text-sm font-semibold py-2 px-4 rounded-md text-slate-600 hover:bg-orange-100">
-                        Historial de Gestiones
-                    </button>
-                </nav>
-            </div>
+    <div class="bg-white rounded-xl shadow-md card-lift" x-data="{ activeTab: 'pagos' }">
+        <div class="p-2 bg-slate-50 rounded-t-xl border-b border-slate-200">
+            <nav class="flex space-x-2">
+                <button @click="activeTab = 'pagos'" :class="{ 'active': activeTab === 'pagos' }" class="tab-button flex-1 text-sm font-semibold py-2 px-4 rounded-md text-slate-600 hover:bg-orange-100">
+                    Últimos Pagos
+                </button>
+                <button @click="activeTab = 'gestiones'" :class="{ 'active': activeTab === 'gestiones' }" class="tab-button flex-1 text-sm font-semibold py-2 px-4 rounded-md text-slate-600 hover:bg-orange-100">
+                    Historial de Gestiones
+                </button>
+            </nav>
+        </div>
 
-            <div class="p-4">
-                <div x-show="activeTab === 'pagos'" class="space-y-4">
-                    {% if cliente.procesos_de_pago %}
-                        {% for proceso in cliente.procesos_de_pago %}
-                        <div x-data="{ expanded: false }" class="bg-white border rounded-lg hover:shadow-sm transition-shadow">
-                            
-                            <button @click="expanded = !expanded" class="w-full text-left p-4 focus:outline-none">
-                                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start">
-                                    <div>
-                                        <p class="font-bold text-slate-800">{{ proceso.concepto_principal }}</p>
-                                        <p class="text-xs text-slate-500 mt-1">Iniciado el: {{ proceso.fecha_inicio | format_datetime('%d/%m/%Y') }}</p>
-                                    </div>
-                                    <div class="mt-2 sm:mt-0 flex items-center gap-4">
-                                        <div class="text-left sm:text-right">
-                                            <p class="text-lg font-bold text-slate-800 flex items-baseline justify-end">
-                                                {% if proceso.moneda == 'Bs.' %}
-                                                    {{ "%.2f"|format(proceso.monto_total) }} <span class="text-sm font-normal text-slate-500 ml-1">Bs.</span>
-                                                {% else %}
-                                                    <span class="text-sm font-normal text-slate-500 mr-0.5">$</span>{{ "%.2f"|format(proceso.monto_total) }}
-                                                {% endif %}
-                                            </p>
-                                        </div>
-                                        <i class="bi bi-chevron-down text-slate-500 transition-transform" :class="{ 'rotate-180': expanded }"></i>
-                                    </div>
+        <div class="p-4">
+            <div x-show="activeTab === 'pagos'" class="space-y-4">
+                {% if cliente.procesos_de_pago %}
+                    {% for proceso in cliente.procesos_de_pago %}
+                    <div x-data="{ expanded: false }" class="bg-white border rounded-lg hover:shadow-sm transition-shadow">
+                        <button @click="expanded = !expanded" class="w-full text-left p-4 focus:outline-none">
+                            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start">
+                                <div>
+                                    <p class="font-bold text-slate-800">{{ proceso.concepto_principal }}</p>
+                                    <p class="text-xs text-slate-500 mt-1">Iniciado el: {{ proceso.fecha_inicio | format_datetime('%d/%m/%Y') }}</p>
                                 </div>
-                            </button>
-                            
-                            <div x-show="expanded" x-transition class="px-4 pb-4">
-                                <div class="pt-4 border-t border-slate-200">
-                                    <h4 class="text-sm font-bold text-slate-600 mb-3">Tracking del Proceso</h4>
-                                    <ol>
-                                        {% set estado = proceso.estado_general %}
-                                        <li class="timeline-step is-complete">
-                                            <div class="timeline-icon"><i class="bi bi-send-check-fill"></i></div>
-                                            <h4 class="font-semibold text-sm text-slate-800">Reporte Enviado</h4>
-                                            <p class="text-xs text-slate-500">Recibimos tu reporte inicial.</p>
-                                        </li>
-                                        <li class="timeline-step {% if estado == 'Pendiente de Revision' %}is-active{% elif estado in ['Aprobado', 'Conciliado', 'Inconsistente'] %}is-complete{% else %}is-pending{% endif %}">
-                                            <div class="timeline-icon">
-                                                {% if estado == 'Pendiente de Revision' %}<i class="bi bi-hourglass-split"></i>{% else %}<i class="bi bi-check-lg"></i>{% endif %}
-                                            </div>
-                                            <h4 class="font-semibold text-sm text-slate-800">En Verificación</h4>
-                                            <p class="text-xs text-slate-500">Nuestro equipo está verificando la información.</p>
-                                        </li>
-                                        <li class="timeline-step {% if estado == 'Inconsistente' %}is-error{% elif estado in ['Aprobado', 'Conciliado'] %}is-complete{% else %}is-pending{% endif %}">
-                                            <div class="timeline-icon">
-                                                {% if estado == 'Inconsistente' %}<i class="bi bi-exclamation-triangle-fill"></i>{% elif estado in ['Aprobado', 'Conciliado'] %}<i class="bi bi-check-lg"></i>{% else %}<i class="bi bi-card-checklist"></i>{% endif %}
-                                            </div>
-                                            <h4 class="font-semibold text-sm text-slate-800">Procesado por Administración</h4>
-                                            {% if estado == 'Inconsistente' %}<p class="text-xs text-red-600">Se encontró una inconsistencia. Revisa tus notificaciones.</p>{% else %}<p class="text-xs text-slate-500">El pago fue aprobado.</p>{% endif %}
-                                        </li>
-                                        <li class="timeline-step {% if estado == 'Conciliado' %}is-complete{% else %}is-pending{% endif %}">
-                                            <div class="timeline-icon">
-                                                {% if estado == 'Conciliado' %}<i class="bi bi-patch-check-fill"></i>{% else %}<i class="bi bi-patch-check"></i>{% endif %}
-                                            </div>
-                                            <h4 class="font-semibold text-sm text-slate-800">Conciliado</h4>
-                                            <p class="text-xs text-slate-500">¡Listo! Tu pago ha sido aplicado a tu cuenta.</p>
-                                        </li>
-                                    </ol>
-                                    
-                                    <h4 class="text-sm font-bold text-slate-600 mt-6 mb-3 border-t pt-4">Desglose de Pagos</h4>
-                                    <ul class="space-y-2 text-sm">
-                                        {% for pago_item in proceso.pagos | sort(attribute='fecha_creacion') %}
-                                        <li class="flex justify-between items-center bg-slate-50 p-2 rounded-md">
-                                            <div class="flex items-center gap-2">
-                                                <i class="bi bi-receipt text-slate-400"></i>
-                                                <span>{{ pago_item.por_concepto_de }} (#{{pago_item.id}})</span>
-                                                <span class="text-xs font-medium uppercase tracking-wider rounded-md p-1 
-                                                    {% if pago_item.estado_reporte == 'Inconsistente' %} text-red-800 bg-red-100
-                                                    {% elif pago_item.estado_reporte == 'Pendiente de Revision' %} text-amber-800 bg-amber-100
-                                                    {% else %} text-green-800 bg-green-100 {% endif %}">
-                                                    {{ pago_item.estado_reporte }}
-                                                </span>
-                                            </div>
-                                            <span class="font-semibold font-mono flex items-baseline">
-                                                {% if pago_item.pago_en == 'Dolar/BCV' %}{{ "%.2f"|format(pago_item.monto_bs|float) }}<span class="text-xs font-normal text-slate-500 ml-1">Bs.</span>{% else %}<span class="text-xs font-normal text-slate-500 mr-0.5">$</span>{{ "%.2f"|format(pago_item.monto|float) }}{% endif %}
-                                            </span>
-                                        </li>
-                                        {% endfor %}
-                                    </ul>
-
-                                </div>
-                                <div class="mt-4 pt-3 border-t border-slate-200 text-right">
-                                    <a href="{{ url_for('ver_reporte', pago_id=proceso.pagos[-1].id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-blue-600 hover:text-blue-700">
-                                        <i class="bi bi-eye-fill"></i> Ver Detalles del Proceso
-                                    </a>
+                                <div class="mt-2 sm:mt-0 flex items-center gap-4">
+                                    <div class="text-left sm:text-right">
+                                        <p class="text-lg font-bold text-slate-800 flex items-baseline justify-end">
+                                            {% if proceso.moneda == 'Bs.' %}
+                                                {{ "%.2f"|format(proceso.monto_total) }} <span class="text-sm font-normal text-slate-500 ml-1">Bs.</span>
+                                            {% else %}
+                                                <span class="text-sm font-normal text-slate-500 mr-0.5">$</span>{{ "%.2f"|format(proceso.monto_total) }}
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                    <i class="bi bi-chevron-down text-slate-500 transition-transform" :class="{ 'rotate-180': expanded }"></i>
                                 </div>
                             </div>
+                        </button>
+                        
+                        <div x-show="expanded" x-transition class="px-4 pb-4">
+                            <div class="pt-4 border-t border-slate-200">
+                                <h4 class="text-sm font-bold text-slate-600 mb-3">Tracking del Proceso</h4>
+                                <ol>
+                                    {% set estado = proceso.estado_general %}
+                                    <li class="timeline-step is-complete">
+                                        <div class="timeline-icon"><i class="bi bi-send-check-fill"></i></div>
+                                        <h4 class="font-semibold text-sm text-slate-800">Reporte Enviado</h4>
+                                        <p class="text-xs text-slate-500">Recibimos tu reporte inicial.</p>
+                                    </li>
+                                    <li class="timeline-step {% if estado == 'Pendiente de Revision' %}is-active{% elif estado in ['Aprobado', 'Conciliado', 'Inconsistente'] %}is-complete{% else %}is-pending{% endif %}">
+                                        <div class="timeline-icon">{% if estado == 'Pendiente de Revision' %}<i class="bi bi-hourglass-split"></i>{% else %}<i class="bi bi-check-lg"></i>{% endif %}</div>
+                                        <h4 class="font-semibold text-sm text-slate-800">En Verificación</h4>
+                                        <p class="text-xs text-slate-500">Nuestro equipo está verificando la información.</p>
+                                    </li>
+                                    <li class="timeline-step {% if estado == 'Inconsistente' %}is-error{% elif estado in ['Aprobado', 'Conciliado'] %}is-complete{% else %}is-pending{% endif %}">
+                                        <div class="timeline-icon">{% if estado == 'Inconsistente' %}<i class="bi bi-exclamation-triangle-fill"></i>{% elif estado in ['Aprobado', 'Conciliado'] %}<i class="bi bi-check-lg"></i>{% else %}<i class="bi bi-card-checklist"></i>{% endif %}</div>
+                                        <h4 class="font-semibold text-sm text-slate-800">Procesado por Administración</h4>
+                                        {% if estado == 'Inconsistente' %}<p class="text-xs text-red-600">Se encontró una inconsistencia. Revisa tus notificaciones.</p>{% else %}<p class="text-xs text-slate-500">El pago fue procesado.</p>{% endif %}
+                                    </li>
+                                    <li class="timeline-step {% if estado == 'Conciliado' %}is-complete{% else %}is-pending{% endif %}">
+                                        <div class="timeline-icon">{% if estado == 'Conciliado' %}<i class="bi bi-patch-check-fill"></i>{% else %}<i class="bi bi-patch-check"></i>{% endif %}</div>
+                                        <h4 class="font-semibold text-sm text-slate-800">Conciliado</h4>
+                                        <p class="text-xs text-slate-500">Tu pago ha sido aplicado a tu cuenta.</p>
+                                    </li>
+                                </ol>
+                                
+                                <h4 class="text-sm font-bold text-slate-600 mt-6 mb-3 border-t pt-4">Desglose de Pagos</h4>
+                                <ul class="space-y-2 text-sm">
+                                    {% for pago_item in proceso.pagos | sort(attribute='fecha_creacion') %}
+                                    <li class="flex justify-between items-center bg-slate-50 p-2 rounded-md">
+                                        <div class="flex items-center gap-2">
+                                            <i class="bi bi-receipt text-slate-400"></i>
+                                            <span>{{ pago_item.por_concepto_de }} (#{{pago_item.id}})</span>
+                                            <span class="text-xs font-medium uppercase tracking-wider rounded-md p-1 {% if pago_item.estado_reporte == 'Inconsistente' %} text-red-800 bg-red-100 {% elif pago_item.estado_reporte == 'Pendiente de Revision' %} text-amber-800 bg-amber-100 {% else %} text-green-800 bg-green-100 {% endif %}">
+                                                {{ pago_item.estado_reporte }}
+                                            </span>
+                                        </div>
+                                        <span class="font-semibold font-mono flex items-baseline">
+                                            {% if pago_item.pago_en == 'Dolar/BCV' %}{{ "%.2f"|format(pago_item.monto_bs|float) }}<span class="text-xs font-normal text-slate-500 ml-1">Bs.</span>{% else %}<span class="text-xs font-normal text-slate-500 mr-0.5">$</span>{{ "%.2f"|format(pago_item.monto|float) }}{% endif %}
+                                        </span>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            <div class="mt-4 pt-3 border-t border-slate-200 text-right">
+                                <a href="{{ url_for('ver_reporte', pago_id=proceso.pagos[-1].id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-blue-600 hover:text-blue-700">
+                                    <i class="bi bi-eye-fill"></i> Ver Detalles del Proceso
+                                </a>
+                            </div>
                         </div>
-                        {% endfor %}
-                    {% else %}
-                        <div class="text-center text-slate-500 py-6 text-sm">
-                            <i class="bi bi-receipt-cutoff text-4xl text-slate-300"></i>
-                            <p class="mt-2">Aún no tienes pagos registrados.</p>
-                        </div>
-                    {% endif %}
                     </div>
-                <div x-show="activeTab === 'gestiones'" class="space-y-4">
-                    {% if historial_gestiones %}
-                        <ul class="space-y-4">
-                            {% for gestion in historial_gestiones %}
-                            <li class="flex gap-3">
-                                <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full 
-                                    {% if gestion.estado == 'Aprobada' or gestion.estado == 'Completada' %} bg-green-100 text-green-600 
-                                    {% elif gestion.estado == 'Rechazada' or gestion.estado == 'Cancelada' %} bg-red-100 text-red-600
-                                    {% else %} bg-slate-100 text-slate-600 {% endif %}">
-                                    <i class="bi {{ gestion.icono }} text-xl"></i>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-slate-500 py-6 text-sm">
+                        <i class="bi bi-receipt-cutoff text-4xl text-slate-300"></i>
+                        <p class="mt-2">Aún no tienes pagos registrados.</p>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div x-show="activeTab === 'gestiones'" class="space-y-4">
+                {% if historial_gestiones %}
+                    <ul class="space-y-4">
+                        {% for gestion in historial_gestiones %}
+                        <li class="flex gap-3">
+                            <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full {% if gestion.estado == 'Aprobada' or gestion.estado == 'Completada' %} bg-green-100 text-green-600 {% elif gestion.estado == 'Rechazada' or gestion.estado == 'Cancelada' %} bg-red-100 text-red-600 {% else %} bg-slate-100 text-slate-600 {% endif %}">
+                                <i class="bi {{ gestion.icono }} text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-sm text-slate-800">{{ gestion.titulo }}</p>
+                                <p class="text-xs text-slate-500">{{ gestion.fecha | format_datetime }}</p>
+                                <p class="text-sm text-slate-600 mt-1">{{ gestion.descripcion }}</p>
+                                {% if gestion.titulo == 'Solicitud de Cita' and gestion.estado == 'Completada' and gestion.detalles and gestion.detalles.reporte %}
+                                <div class="mt-2">
+                                    <a href="{{ url_for('ver_reporte_cita', solicitud_id=gestion.id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-sky-600 hover:text-sky-700">
+                                        <i class="bi bi-file-earmark-text"></i> Ver Reporte de Cita
+                                    </a>
                                 </div>
-                                <div>
-                                    <p class="font-semibold text-sm text-slate-800">{{ gestion.titulo }}</p>
-                                    <p class="text-xs text-slate-500">{{ gestion.fecha | format_datetime }}</p>
-                                    <p class="text-sm text-slate-600 mt-1">{{ gestion.descripcion }}</p>
-                                    {% if gestion.titulo == 'Solicitud de Cita' and gestion.estado == 'Completada' and gestion.detalles and gestion.detalles.reporte %}
-                                    <div class="mt-2">
-                                        <a href="{{ url_for('ver_reporte_cita', solicitud_id=gestion.id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-sky-600 hover:text-sky-700">
-                                            <i class="bi bi-file-earmark-text"></i> Ver Reporte de Cita
-                                        </a>
-                                    </div>
-                                    {% endif %}
-                                </div>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <div class="text-center text-slate-500 py-6 text-sm">
-                            <i class="bi bi-clock-history text-4xl text-slate-300"></i>
-                            <p class="mt-2">No hay gestiones registradas.</p>
-                        </div>
-                    {% endif %}
-                </div>
+                                {% endif %}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <div class="text-center text-slate-500 py-6 text-sm">
+                        <i class="bi bi-clock-history text-4xl text-slate-300"></i>
+                        <p class="mt-2">No hay gestiones registradas.</p>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
+
 <div class="modal fade" id="ofertaModal" tabindex="-1" aria-labelledby="ofertaModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -499,7 +440,6 @@
                     <h6 class="fw-bold text-blue-800">Paso 1: Notificación por Correo</h6>
                     <p class="text-muted small mb-0">Para iniciar tu solicitud de retiro, primero debes enviar un correo electrónico a <a href="mailto:motoplan.dptolegal@gmail.com"><strong>motoplan.dptolegal@gmail.com</strong></a> especificando tus motivos.</p>
                 </div>
-                
                 <h6 class="fw-bold">Paso 2: Confirma el Envío</h6>
                 <p class="text-muted mb-3 small">Una vez hayas enviado el correo, completa el siguiente formulario para que nuestros asesores puedan dar seguimiento a tu caso.</p>
                 <form id="retiroForm" action="{{ url_for('portal_solicitar_retiro') }}" method="POST">
@@ -557,7 +497,7 @@ document.addEventListener('DOMContentLoaded', function() {
         horaSelect.disabled = true;
         horaSelect.innerHTML = '<option>Cargando horas...</option>';
         availabilityMessage.textContent = '';
-
+        
         try {
             const response = await fetch(`/citas/disponibilidad?fecha=${fechaSeleccionada}`);
             const data = await response.json();
@@ -573,11 +513,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
                 "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM"
             ];
-
+            
             const horasOcupadas = new Set(data.ocupados);
             const horasDisponibles = horarios.filter(h => !horasOcupadas.has(h));
 
-            horaSelect.innerHTML = ''; 
+            horaSelect.innerHTML = '';
             if (horasDisponibles.length > 0) {
                 horasDisponibles.forEach(hora => {
                     const option = document.createElement('option');
@@ -610,16 +550,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const planModels = {
         1400: ['Bera SBR', 'Bera BRF', 'Águila', 'ES Hero'], 1500: ['Ávila', 'X1', 'Cardenal', 'TR Jaguar', 'New Jog'], 1600: ['Milan', 'Xpress', 'Colibrí', 'Cuervo', 'Canario', 'Cóndor II', 'Tucán II', 'Tauro'], 1700: ['Bera León', 'Bera Tezo', 'Adventure'], 1800: ['New Horsen', 'New Owen', 'Fénix', 'Toro León'], 1900: ['Runner', 'Horse RL', 'Horse II', 'Abeja'], 2000: ['Kavak', 'BWS', 'BR', 'Cobra', 'Owen 200', 'Fénix', 'Power', 'Extreme'], 2100: ['TR Tank'], 2300: ['EK Foton', 'TX 150cc', 'TX 200cc'], 2400: ['Antiking', 'Optimus', 'Arsen II', 'RK 200'], 2500: ['Bera GBR', 'Matrix II', 'Cruiser', 'Lechuza'], 2700: ['RK 250', 'Thunder 180', 'Lechuza II', 'Falco'], 2800: ['Bera DTx', 'Toro Rex', 'ES EM200'], 2900: ['Outlook II'], 3200: ['TX GT 250', 'Superlight'], 3300: ['TR R3X 250'], 3500: ['BRZ 250', 'GR 250', 'TX GS 250'], 3800: ['Kiwi'], 4500: ['EK Atlas'], 5200: ['Carguero'], 5600: ['Outlook XL'], 5900: ['Carguero Transporte', 'Carguero Cava'], 6300: ['Zontes 350']
     };
-
+    
     const clientPlan = parseFloat("{{ cliente.plan_contratado | default(0, true) }}");
     const modeloSelect = document.getElementById('modelo_ofertado_select');
     const ofertaModal = document.getElementById('ofertaModal');
-
+    
     function populateModels() {
         if (!modeloSelect) return;
         modeloSelect.innerHTML = ''; 
         const models = planModels[clientPlan];
-
+        
         if (models && models.length > 0) {
             modeloSelect.appendChild(new Option('-- Seleccione un modelo --', '', true, true));
             models.forEach(model => {

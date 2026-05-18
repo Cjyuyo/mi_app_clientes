@@ -7244,12 +7244,13 @@ def portal_reportar_pago():
 
             # 2. EVALUACIÓN DINÁMICA: ¿Le corresponde pagar Inscripción o Cuota?
             # Verificamos si ya tiene algún pago de inscripción registrado que no esté anulado
+            # CORREGIDO: Pasamos el comodín % dentro de la tupla para evitar el IndexError
             cur.execute("""
                 SELECT COUNT(*) FROM pagos 
                 WHERE cliente_id = %s 
-                  AND (tipo_pago ILIKE 'Inscripción%' OR tipo_pago = 'Inscripción Finalizada')
+                  AND (tipo_pago ILIKE %s OR tipo_pago = 'Inscripción Finalizada')
                   AND estado_pago != 'Anulado';
-            """, (session['cliente_id'],))
+            """, (session['cliente_id'], 'Inscripción%'))
             tiene_inscripcion = cur.fetchone()[0] > 0
             
             estado_plan_upper = (cliente.get('estado_del_plan') or '').strip().upper()
