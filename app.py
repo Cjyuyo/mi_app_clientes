@@ -7945,7 +7945,6 @@ def portal_corregir_reporte(pago_id):
                            modo_correccion=True,
                            mes_actual=get_nombre_mes(get_venezuela_current_date().month))
 
-
 @app.route('/portal/pagar_inscripcion', methods=['GET', 'POST'])
 @portal_login_required
 def portal_pagar_inscripcion():
@@ -8000,8 +7999,20 @@ def portal_pagar_inscripcion():
                     tasa_bcv_calculo = None
                     currency_bulk = 'USD'
                     referencia_final = pago_form.get('referencia_usdt')
-                    # CORREGIDO: El lote espera exactamente lo que el cliente va a abonar
                     expected_amount_for_bulk = monto_usd_a_guardar
+                
+                # --- AQUÍ INYECTAMOS LA LÓGICA DE EFECTIVO QUE FALTABA ---
+                elif pago_en_final == 'Efectivo':
+                    if tipo_pago_inscripcion == 'abono':
+                        monto_usd_a_guardar = Decimal(pago_form.get('monto_abono_usd', '0.00').replace(',', '.'))
+                    else:
+                        monto_usd_a_guardar = monto_restante
+                    forma_pago_final = 'Efectivo'
+                    tasa_bcv_calculo = None
+                    currency_bulk = 'USD'
+                    referencia_final = 'Entregado en Caja'
+                    expected_amount_for_bulk = monto_usd_a_guardar
+
                 else: 
                     pago_en_final = 'Dolar/BCV'
                     monto_bs_str = pago_form.get('monto_bs', '0.00').replace(',', '.')
@@ -8014,7 +8025,6 @@ def portal_pagar_inscripcion():
                     banco_final = pago_form.get('banco')
                     currency_bulk = 'VES'
                     referencia_final = pago_form.get('referencia')
-                    # CORREGIDO: El lote espera exactamente los Bolívares que el cliente va a transferir
                     expected_amount_for_bulk = monto_reportado_bs
 
                 # Creación del lote con el monto real de la transacción
@@ -8047,6 +8057,21 @@ def portal_pagar_inscripcion():
                 flash('✅ ¡Pago de inscripción reportado! Será verificado por un administrador.', 'success')
                 return redirect(url_for('portal_dashboard'))
 
+            # Bloque para solicitudes GET (Mostrar la página)
+            return render_template('portal_pago_unificado.html',
+                                   concepto_pago=concepto_pago,
+                                   cliente=cliente,
+                                   monto_restante=monto_restante,
+                                   monto_a_pagar_bs=monto_a_pagar_bs,
+                                   tasa_hoy=tasa_hoy,
+                                   is_enrollment_payment=True)
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        flash(f'Ocurrió un error: {e}', 'error')
+        return redirect(url_for('portal_dashboard'))
+        
     except (psycopg2.Error, KeyError, ValueError, InvalidOperation) as e:
         if conn: conn.rollback()
         logging.error(f"Error en portal_pagar_inscripcion: {traceback.format_exc()}")
