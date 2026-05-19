@@ -7241,8 +7241,6 @@ def portal_dashboard():
 
 @app.route('/portal/reportar_pago', methods=['GET', 'POST'])
 @portal_login_required
-@app.route('/portal/reportar_pago', methods=['GET', 'POST'])
-@portal_login_required
 def portal_reportar_pago():
     conn = get_db()
     if not conn:
