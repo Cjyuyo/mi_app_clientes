@@ -7291,59 +7291,56 @@ def portal_reportar_pago():
             monto_a_pagar_bs = (monto_a_pagar_usd * tasa_bcv_calculo).quantize(Decimal('0.01'))
 
 
-            # 4. PROCESAMIENTO DEL REPORTE (POST)
             if request.method == 'POST':
                 pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
-                
-                # CORRECCIÓN DE SEGURIDAD: Extraemos las variables del formulario para evitar NameError
                 pago_en_final = pago_form.get('pago_en')
                 tipo_pago_inscripcion = pago_form.get('tipo_pago_inscripcion')
                 
-                monto_reportado_bs = Decimal('0.0')
                 monto_usd_a_guardar = Decimal('0.0')
+                monto_reportado_bs = Decimal('0.0')
                 forma_pago_final = None
-                referencia_final = None 
+                referencia_final = None
                 banco_final = None
                 fecha_pago_final = pago_form.get('fecha_pago')
                 currency_bulk = ''
 
                 if pago_en_final == 'USDT':
-                    monto_usd_a_guardar = Decimal(pago_form.get('monto_usdt', '0.00').replace(',', '.'))
+                    if tipo_pago_inscripcion == 'abono':
+                        monto_usd_a_guardar = Decimal(pago_form.get('monto_abono_usd', '0.00').replace(',', '.'))
+                    else:
+                        monto_usd_a_guardar = monto_restante
                     forma_pago_final = 'Binance'
                     tasa_bcv_calculo = None
                     currency_bulk = 'USD'
                     referencia_final = pago_form.get('referencia_usdt')
+                    expected_amount_for_bulk = monto_usd_a_guardar
                 
                 elif pago_en_final == 'Efectivo':
-                    # LÓGICA PARA EFECTIVO FÍSICO EN INSCRIPCIONES (Monto completo o Abono parcial)
                     if tipo_pago_inscripcion == 'abono':
                         monto_usd_a_guardar = Decimal(pago_form.get('monto_abono_usd', '0.00').replace(',', '.'))
                     else:
-                        monto_usd_a_guardar = monto_a_pagar_usd
+                        monto_usd_a_guardar = monto_restante
                     forma_pago_final = 'Efectivo'
                     tasa_bcv_calculo = None
                     currency_bulk = 'USD'
                     referencia_final = 'Entregado en Caja'
-                
-                else: 
+                    expected_amount_for_bulk = monto_usd_a_guardar
+
+                else:
                     pago_en_final = 'Dolar/BCV'
                     monto_bs_str = pago_form.get('monto_bs', '0.00').replace(',', '.')
                     monto_reportado_bs = Decimal(monto_bs_str).quantize(Decimal('0.02'))
                     
-                    # Si es un abono en Bs, el monto en USD a guardar es el parcial indicado
-                    if tipo_pago_inscripcion == 'abono':
-                        monto_usd_a_guardar = Decimal(pago_form.get('monto_abono_usd', '0.00').replace(',', '.'))
+                    if tasa_bcv_calculo > 0:
+                        monto_usd_a_guardar = (monto_reportado_bs / tasa_bcv_calculo).quantize(Decimal('0.02'))
                     else:
-                        monto_usd_a_guardar = monto_a_pagar_usd 
-                        
+                        monto_usd_a_guardar = Decimal('0.0')
                     forma_pago_final = pago_form.get('forma_pago_bs')
                     banco_final = pago_form.get('banco')
                     currency_bulk = 'VES'
                     referencia_final = pago_form.get('referencia')
+                    expected_amount_for_bulk = monto_reportado_bs
 
-                # CORREGIDO: El monto esperado del lote ahora se adapta perfectamente si es abono o pago completo
-                expected_amount_for_bulk = monto_reportado_bs if currency_bulk == 'VES' else monto_usd_a_guardar
-                
                 cur.execute("""
                     INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified)
                     VALUES (%s, %s, %s, 'OPEN', 0) RETURNING id
@@ -7351,29 +7348,23 @@ def portal_reportar_pago():
                 
                 new_bulk_id = cur.fetchone()[0]
 
-                # CORREGIDO: tipo_pago dinámico en el INSERT (%s en lugar de 'Cuota' quemado)
                 pago_query = """
-                    INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, referencia, banco, tasa_dia,
-                                    estado_reporte, fecha_creacion, reportado_por_cliente, por_concepto_de, pago_en, cuotas_cubiertas, bulk_id, estado_pago)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, %s, %s, 1, %s, 'Pendiente');
+                    INSERT INTO pagos (cliente_id, monto, monto_bs, tipo_pago, forma_pago, fecha_pago, pago_en, por_concepto_de, referencia, banco, tasa_dia, estado_reporte, fecha_creacion, reportado_por_cliente, estado_pago, cuotas_cubiertas, bulk_id)
+                    VALUES (%s, %s, %s, 'Inscripción', %s, %s, %s, %s, %s, %s, %s, 'Pendiente de Revision', %s, TRUE, 'Pendiente', 0, %s);
                 """
                 cur.execute(pago_query, (
-                    cliente['id'], monto_usd_a_guardar, monto_reportado_bs,
-                    tipo_pago_db, forma_pago_final, fecha_pago_final, referencia_final, 
-                    banco_final, tasa_bcv_calculo,
-                    get_venezuela_current_datetime(), concepto_pago, pago_en_final,
-                    new_bulk_id
+                    session['cliente_id'], monto_usd_a_guardar, monto_reportado_bs,
+                    forma_pago_final, fecha_pago_final, pago_en_final, concepto_pago,
+                    referencia_final, banco_final, tasa_bcv_calculo,
+                    get_venezuela_current_datetime(), new_bulk_id
                 ))
-                
-                flash(f'✅ ¡{concepto_pago} reportado! Será verificado por un administrador.', 'success')
-                conn.commit()
-                return redirect(url_for('portal_dashboard'))
 
-    except (psycopg2.Error, ValueError, InvalidOperation) as e:
-        if conn: conn.rollback()
-        flash(f'Ocurrió un error al reportar el pago: {e}', 'error')
-        traceback.print_exc()
-        return redirect(url_for('portal_dashboard'))
+                if monto_usd_a_guardar > 0 and cliente.get('estatus') == 'Pendiente por formalización':
+                    cur.execute("UPDATE clientes SET estatus = 'Reserva' WHERE id = %s", (cliente['id'],))
+                    
+                conn.commit()
+                flash('✅ ¡Pago de inscripción reportado! Será verificado por un administrador.', 'success')
+                return redirect(url_for('portal_dashboard'))
 
     # CORREGIDO: Transmite los flags dinámicos correctos a la vista unificada de Alpine.js
     return render_template('portal_pago_unificado.html', 
