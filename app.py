@@ -7955,7 +7955,9 @@ def portal_pagar_inscripcion():
                 flash('No se pudo encontrar tu perfil de cliente.', 'error')
                 return redirect(url_for('portal_logout'))
             
-            inscripcion_total = cliente.get('inscripcion', Decimal('0.0')) or Decimal('0.0')
+            # --- CORRECCIÓN CRÍTICA AQUÍ ---
+            # Leemos 'inscripcion_monto' (el nombre real) en lugar de 'inscripcion'
+            inscripcion_total = cliente.get('inscripcion_monto', Decimal('0.0')) or Decimal('0.0')
             inscripcion_pagada = cliente.get('inscripcion_pagada', Decimal('0.0')) or Decimal('0.0')
             monto_restante = inscripcion_total - inscripcion_pagada
 
@@ -7995,7 +7997,6 @@ def portal_pagar_inscripcion():
                     referencia_final = pago_form.get('referencia_usdt')
                     expected_amount_for_bulk = monto_usd_a_guardar
                 
-                # --- AQUÍ INYECTAMOS LA LÓGICA DE EFECTIVO QUE FALTABA ---
                 elif pago_en_final == 'Efectivo':
                     if tipo_pago_inscripcion == 'abono':
                         monto_usd_a_guardar = Decimal(pago_form.get('monto_abono_usd', '0.00').replace(',', '.'))
@@ -8021,7 +8022,6 @@ def portal_pagar_inscripcion():
                     referencia_final = pago_form.get('referencia')
                     expected_amount_for_bulk = monto_reportado_bs
 
-                # Creación del lote con el monto real de la transacción
                 cur.execute("""
                     INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified)
                     VALUES (%s, %s, %s, 'OPEN', 0) RETURNING id
@@ -8043,7 +8043,6 @@ def portal_pagar_inscripcion():
                     new_bulk_id
                 ))
                 
-                # REGLA DE NEGOCIO: Si el cliente abona (mayor a 0) y estaba 'Pendiente por formalización', cambia a 'Reserva'
                 if monto_usd_a_guardar > 0 and cliente.get('estatus') == 'Pendiente por formalización':
                     cur.execute("UPDATE clientes SET estatus = 'Reserva' WHERE id = %s", (cliente['id'],))
                 
@@ -8051,7 +8050,6 @@ def portal_pagar_inscripcion():
                 flash('✅ ¡Pago de inscripción reportado! Será verificado por un administrador.', 'success')
                 return redirect(url_for('portal_dashboard'))
 
-            # Bloque para solicitudes GET (Mostrar la página)
             return render_template('portal_pago_unificado.html',
                                    concepto_pago=concepto_pago,
                                    cliente=cliente,
@@ -8430,15 +8428,17 @@ def actualizar_estatus_automatico_cliente(cur, cliente_id):
     - estatus_cliente: Pendiente por activación -> Ahorrador (Sustituible por Congelado o Retiro)
     """
     # 1. Obtener los datos actuales del contrato y contadores
+    # CORRECCIÓN: Seleccionamos 'inscripcion_monto' de la BD
     cur.execute("""
-        SELECT inscripcion, cuotas_pagadas_progresivas, cuotas_pagadas_regresivas, estado_del_plan, estatus_cliente
+        SELECT inscripcion_monto, cuotas_pagadas_progresivas, cuotas_pagadas_regresivas, estado_del_plan, estatus_cliente
         FROM clientes WHERE id = %s FOR UPDATE;
     """, (cliente_id,))
     cliente = cur.fetchone()
     if not cliente:
         return
 
-    inscripcion_total = Decimal(str(cliente.get('inscripcion') or 0))
+    # CORRECCIÓN: Leemos la llave correcta
+    inscripcion_total = Decimal(str(cliente.get('inscripcion_monto') or 0))
     cuotas_progresivas = int(cliente.get('cuotas_pagadas_progresivas') or 0)
     cuotas_regresivas = int(cliente.get('cuotas_pagadas_regresivas') or 0)
     total_cuotas_pagadas = cuotas_progresivas + cuotas_regresivas
