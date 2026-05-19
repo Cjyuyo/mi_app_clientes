@@ -7638,7 +7638,7 @@ def conciliar_bulk(bulk_id):
                 cliente_actualizado = cur.fetchone()
                 # Si la inscripción se completó, cambiar estado y calcular comisiones
                 if cliente_actualizado['inscripcion_pagada'] >= cliente_actualizado['inscripcion_monto']:
-                    cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente_id,))
+                    cur.execute("UPDATE clientes SET estado_del_plan = 'Inscrito' WHERE id = %s", (cliente_id,))
                     flash("¡Inscripción completada y cliente ahora está INSCRITO!", "info")
 
             elif tipo_pago_principal == 'Cuota':
