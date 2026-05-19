@@ -8001,7 +8001,6 @@ def portal_pagar_inscripcion():
                     referencia_final = pago_form.get('referencia_usdt')
                     expected_amount_for_bulk = monto_usd_a_guardar
                 
-                # ---> INICIO DE LA INYECCIÓN DE EFECTIVO <---
                 elif pago_en_final == 'Efectivo':
                     if tipo_pago_inscripcion == 'abono':
                         monto_usd_a_guardar = Decimal(pago_form.get('monto_abono_usd', '0.00').replace(',', '.'))
@@ -8012,7 +8011,6 @@ def portal_pagar_inscripcion():
                     currency_bulk = 'USD'
                     referencia_final = 'Entregado en Caja'
                     expected_amount_for_bulk = monto_usd_a_guardar
-                # ---> FIN DE LA INYECCIÓN DE EFECTIVO <---
 
                 else: 
                     pago_en_final = 'Dolar/BCV'
@@ -8028,7 +8026,6 @@ def portal_pagar_inscripcion():
                     referencia_final = pago_form.get('referencia')
                     expected_amount_for_bulk = monto_reportado_bs
 
-                # Creación del lote con el monto real de la transacción
                 cur.execute("""
                     INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified)
                     VALUES (%s, %s, %s, 'OPEN', 0) RETURNING id
@@ -8050,7 +8047,6 @@ def portal_pagar_inscripcion():
                     new_bulk_id
                 ))
                 
-                # REGLA DE NEGOCIO: Si el cliente abona (mayor a 0) y estaba 'Pendiente por formalización', cambia a 'Reserva'
                 if monto_usd_a_guardar > 0 and cliente.get('estatus') == 'Pendiente por formalización':
                     cur.execute("UPDATE clientes SET estatus = 'Reserva' WHERE id = %s", (cliente['id'],))
                 
@@ -8058,27 +8054,21 @@ def portal_pagar_inscripcion():
                 flash('✅ ¡Pago de inscripción reportado! Será verificado por un administrador.', 'success')
                 return redirect(url_for('portal_dashboard'))
 
+            return render_template('portal_pago_unificado.html', 
+                                   cliente=cliente, 
+                                   monto_restante=monto_restante,
+                                   tasa_hoy=tasa_hoy, 
+                                   monto_a_pagar_usd=monto_restante,
+                                   monto_a_pagar_bs=monto_a_pagar_bs,
+                                   concepto_pago=concepto_pago,
+                                   is_enrollment_payment=True)
+
     except (psycopg2.Error, KeyError, ValueError, InvalidOperation) as e:
-        if conn: conn.rollback()
+        if conn: 
+            conn.rollback()
         logging.error(f"Error en portal_pagar_inscripcion: {traceback.format_exc()}")
         flash('Ocurrió un error inesperado al procesar tu solicitud de pago.', 'error')
         return redirect(url_for('portal_dashboard'))
-
-    return render_template('portal_pago_unificado.html', 
-                           cliente=cliente, 
-                           monto_restante=monto_restante,
-                           tasa_hoy=tasa_hoy, 
-                           monto_a_pagar_usd=monto_restante,
-                           monto_a_pagar_bs=monto_a_pagar_bs,
-                           concepto_pago=concepto_pago,
-                           is_enrollment_payment=True)
-
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        flash(f'Ocurrió un error: {e}', 'error')
-        return redirect(url_for('portal_dashboard'))
-
 
 @app.route('/portal/estado_cuenta')
 @portal_login_required
