@@ -96,24 +96,30 @@
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-slate-100 text-slate-500"><i class="bi bi-bullseye text-xl"></i></div>
                             <div>
-                                <h3 class="font-semibold text-slate-800">Monto de la Cuota</h3>
-                                <p class="text-xs text-slate-500">Valor según plan del cliente</p>
+                                {% if pago.tipo_pago == 'Inscripción' %}
+                                    <h3 class="font-semibold text-slate-800">Monto de Inscripción</h3>
+                                    <p class="text-xs text-slate-500">Valor de ingreso al plan</p>
+                                {% else %}
+                                    <h3 class="font-semibold text-slate-800">Monto de la Cuota</h3>
+                                    <p class="text-xs text-slate-500">Valor según plan del cliente</p>
+                                {% endif %}
                             </div>
                         </div>
                         <div class="mt-4 text-center">
-                             {% if pago.moneda_pago == 'BsBCV' %}
+                            {% if pago.tipo_pago == 'Inscripción' %}
                                 <p class="text-3xl font-bold text-slate-800 tracking-tight flex items-baseline justify-center">
                                     <span class="text-xl font-normal mr-1">$</span>
-                                    <span class="font-mono">{{ "%.2f"|format(pago.valor_cuota|float) }}</span>
+                                    <span class="font-mono">{{ "%.2f"|format(pago.inscripcion_monto|float if pago.inscripcion_monto else 0.0) }}</span>
                                 </p>
-                                <p class="text-xs text-slate-500 mt-1">(Referencia en USD)</p>
                             {% else %}
                                 <p class="text-3xl font-bold text-slate-800 tracking-tight flex items-baseline justify-center">
                                     <span class="text-xl font-normal mr-1">$</span>
-                                    <span class="font-mono">{{ "%.2f"|format(pago.valor_cuota|float) }}</span>
+                                    <span class="font-mono">{{ "%.2f"|format(pago.valor_cuota|float if pago.valor_cuota else 0.0) }}</span>
                                 </p>
-                                <p class="text-xs text-slate-500 mt-1">Pago directo en divisas</p>
                             {% endif %}
+                            <p class="text-xs text-slate-500 mt-1">
+                                {% if pago.moneda_pago == 'BsBCV' %}(Referencia en USD){% else %}Pago directo en divisas{% endif %}
+                            </p>
                         </div>
                     </div>
 
@@ -211,7 +217,7 @@
                     <h3 class="text-lg font-bold text-slate-800 mb-4">Acciones (sobre Pago #{{p_accion.id}})</h3>
                     <div class="space-y-3">
                         <form action="{{ url_for('validar_pago_individual', pago_id=p_accion.id) }}" method="POST">
-                             <button type="submit" class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold rounded-md text-white bg-green-600 hover:bg-green-700">
+                            <button type="submit" class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-semibold rounded-md text-white bg-green-600 hover:bg-green-700">
                                 <i class="bi bi-check-lg mr-2"></i> Validar este Reporte
                             </button>
                         </form>

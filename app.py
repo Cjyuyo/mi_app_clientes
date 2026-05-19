@@ -7632,12 +7632,12 @@ def conciliar_bulk(bulk_id):
             # 4. Actualizar el registro maestro del cliente según el tipo de pago
             if tipo_pago_principal == 'Inscripción':
                 cur.execute(
-                    "UPDATE clientes SET inscripcion_pagada = inscripcion_pagada + %s WHERE id = %s RETURNING id, inscripcion_pagada, inscripcion",
+                    "UPDATE clientes SET inscripcion_pagada = inscripcion_pagada + %s WHERE id = %s RETURNING id, inscripcion_pagada, inscripcion_monto",
                     (monto_total_conciliado_usd, cliente_id)
                 )
                 cliente_actualizado = cur.fetchone()
                 # Si la inscripción se completó, cambiar estado y calcular comisiones
-                if cliente_actualizado['inscripcion_pagada'] >= cliente_actualizado['inscripcion']:
+                if cliente_actualizado['inscripcion_pagada'] >= cliente_actualizado['inscripcion_monto']:
                     cur.execute("UPDATE clientes SET proceso = 'INSCRITO' WHERE id = %s", (cliente_id,))
                     flash("¡Inscripción completada y cliente ahora está INSCRITO!", "info")
 
@@ -8428,7 +8428,6 @@ def actualizar_estatus_automatico_cliente(cur, cliente_id):
     - estatus_cliente: Pendiente por activación -> Ahorrador (Sustituible por Congelado o Retiro)
     """
     # 1. Obtener los datos actuales del contrato y contadores
-    # CORRECCIÓN: Seleccionamos 'inscripcion_monto' de la BD
     cur.execute("""
         SELECT inscripcion_monto, cuotas_pagadas_progresivas, cuotas_pagadas_regresivas, estado_del_plan, estatus_cliente
         FROM clientes WHERE id = %s FOR UPDATE;
@@ -8437,7 +8436,6 @@ def actualizar_estatus_automatico_cliente(cur, cliente_id):
     if not cliente:
         return
 
-    # CORRECCIÓN: Leemos la llave correcta
     inscripcion_total = Decimal(str(cliente.get('inscripcion_monto') or 0))
     cuotas_progresivas = int(cliente.get('cuotas_pagadas_progresivas') or 0)
     cuotas_regresivas = int(cliente.get('cuotas_pagadas_regresivas') or 0)
