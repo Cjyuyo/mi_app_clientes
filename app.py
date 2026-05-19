@@ -8054,7 +8054,6 @@ def portal_pagar_inscripcion():
                 flash('✅ ¡Pago de inscripción reportado! Será verificado por un administrador.', 'success')
                 return redirect(url_for('portal_dashboard'))
 
-            # --- ESTAS LÍNEAS SON LAS QUE FALTABAN PARA CERRAR CORRECTAMENTE ---
             return render_template('portal_pago_unificado.html',
                                    concepto_pago=concepto_pago,
                                    cliente=cliente,
@@ -8069,6 +8068,7 @@ def portal_pagar_inscripcion():
         flash(f'Ocurrió un error: {e}', 'error')
         return redirect(url_for('portal_dashboard'))
 
+
 @app.route('/portal/estado_cuenta')
 @portal_login_required
 def portal_estado_cuenta():
@@ -8082,6 +8082,7 @@ def portal_estado_cuenta():
 
     return render_template('portal_estado_cuenta.html', **datos_cuenta)
 
+
 @app.route('/admin/estado_cuenta/<int:cliente_id>')
 @admin_required
 def admin_estado_cuenta(cliente_id):
@@ -8090,6 +8091,7 @@ def admin_estado_cuenta(cliente_id):
         return redirect(url_for('consulta'))
         
     return render_template('admin_estado_cuenta.html', **datos_cuenta)
+
 
 def _get_estado_cuenta_data(cliente_id):
     conn = get_db()
@@ -8104,7 +8106,6 @@ def _get_estado_cuenta_data(cliente_id):
                 flash('Cliente no encontrado.', 'error')
                 return None
             
-            # --- INICIO DE LA CORRECCIÓN LÓGICA ---
             cur.execute("""
                 SELECT id, fecha_creacion as fecha, 'Pago' as tipo_base, 
                        json_build_object(
@@ -8138,8 +8139,6 @@ def _get_estado_cuenta_data(cliente_id):
             total_a_pagar_plan = valor_cuota * cuotas_totales
             sobrecosto_administrativo = total_a_pagar_plan - plan_contratado
             saldo_pendiente_plan = total_a_pagar_plan - total_pagado_plan
-        
-            # --- FIN DE LA CORRECCIÓN LÓGICA ---
 
             historial_unificado = []
             for item in historial_raw:
