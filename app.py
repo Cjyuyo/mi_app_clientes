@@ -8001,6 +8001,7 @@ def portal_pagar_inscripcion():
                     referencia_final = pago_form.get('referencia_usdt')
                     expected_amount_for_bulk = monto_usd_a_guardar
                 
+                # --- AQUÍ INYECTAMOS LA LÓGICA DE EFECTIVO QUE FALTABA ---
                 elif pago_en_final == 'Efectivo':
                     if tipo_pago_inscripcion == 'abono':
                         monto_usd_a_guardar = Decimal(pago_form.get('monto_abono_usd', '0.00').replace(',', '.'))
@@ -8026,6 +8027,7 @@ def portal_pagar_inscripcion():
                     referencia_final = pago_form.get('referencia')
                     expected_amount_for_bulk = monto_reportado_bs
 
+                # Creación del lote con el monto real de la transacción
                 cur.execute("""
                     INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified)
                     VALUES (%s, %s, %s, 'OPEN', 0) RETURNING id
@@ -8047,6 +8049,7 @@ def portal_pagar_inscripcion():
                     new_bulk_id
                 ))
                 
+                # REGLA DE NEGOCIO: Si el cliente abona (mayor a 0) y estaba 'Pendiente por formalización', cambia a 'Reserva'
                 if monto_usd_a_guardar > 0 and cliente.get('estatus') == 'Pendiente por formalización':
                     cur.execute("UPDATE clientes SET estatus = 'Reserva' WHERE id = %s", (cliente['id'],))
                 
@@ -8054,136 +8057,20 @@ def portal_pagar_inscripcion():
                 flash('✅ ¡Pago de inscripción reportado! Será verificado por un administrador.', 'success')
                 return redirect(url_for('portal_dashboard'))
 
-            return render_template('portal_pago_unificado.html', 
-                                   cliente=cliente, 
-                                   monto_restante=monto_restante,
-                                   tasa_hoy=tasa_hoy, 
-                                   monto_a_pagar_usd=monto_restante,
-                                   monto_a_pagar_bs=monto_a_pagar_bs,
+            # Bloque para solicitudes GET (Mostrar la página)
+            return render_template('portal_pago_unificado.html',
                                    concepto_pago=concepto_pago,
+                                   cliente=cliente,
+                                   monto_restante=monto_restante,
+                                   monto_a_pagar_bs=monto_a_pagar_bs,
+                                   tasa_hoy=tasa_hoy,
                                    is_enrollment_payment=True)
 
-    except (psycopg2.Error, KeyError, ValueError, InvalidOperation) as e:
-        if conn: 
+    except Exception as e:
+        if conn:
             conn.rollback()
-        logging.error(f"Error en portal_pagar_inscripcion: {traceback.format_exc()}")
-        flash('Ocurrió un error inesperado al procesar tu solicitud de pago.', 'error')
+        flash(f'Ocurrió un error: {e}', 'error')
         return redirect(url_for('portal_dashboard'))
-
-@app.route('/portal/estado_cuenta')
-@portal_login_required
-def portal_estado_cuenta():
-    if g.cliente is None:
-        return redirect(url_for('portal_login'))
-    
-    cliente_id = session['cliente_id']
-    datos_cuenta = _get_estado_cuenta_data(cliente_id)
-    if not datos_cuenta:
-        return redirect(url_for('portal_dashboard'))
-
-    return render_template('portal_estado_cuenta.html', **datos_cuenta)
-
-
-@app.route('/admin/estado_cuenta/<int:cliente_id>')
-@admin_required
-def admin_estado_cuenta(cliente_id):
-    datos_cuenta = _get_estado_cuenta_data(cliente_id)
-    if not datos_cuenta:
-        return redirect(url_for('consulta'))
-        
-    return render_template('admin_estado_cuenta.html', **datos_cuenta)
-
-
-def _get_estado_cuenta_data(cliente_id):
-    conn = get_db()
-    if not conn:
-        flash('No se pudo conectar con la base de datos.', 'error')
-        return None
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT *, (nombre || ' ' || apellido) as nombre_apellido FROM clientes WHERE id = %s;", (cliente_id,))
-            cliente = cur.fetchone()
-            if not cliente:
-                flash('Cliente no encontrado.', 'error')
-                return None
-            
-            cur.execute("""
-                SELECT id, fecha_creacion as fecha, 'Pago' as tipo_base, 
-                       json_build_object(
-                           'monto', monto, 'estado', estado_pago, 'concepto', por_concepto_de, 'tipo_pago', tipo_pago
-                       ) as data
-                FROM pagos WHERE cliente_id = %s
-                UNION ALL
-                SELECT id, fecha_creacion as fecha, 'Gestion' as tipo_base,
-                       json_build_object('nota', nota, 'tipo_gestion', tipo_gestion) as data
-                FROM gestiones_cobranza WHERE cliente_id = %s
-                ORDER BY fecha DESC;
-            """, (cliente_id, cliente_id))
-            historial_raw = cur.fetchall()
-            
-            cur.execute("""
-                SELECT COALESCE(SUM(monto), 0) FROM pagos 
-                WHERE cliente_id = %s AND estado_pago = 'Conciliado' AND tipo_pago != 'Inscripción'
-            """, (cliente_id,))
-            total_pagado_plan = cur.fetchone()[0]
-
-            cur.execute("""
-                SELECT COALESCE(SUM(monto), 0) FROM pagos 
-                WHERE cliente_id = %s AND estado_pago = 'Conciliado' AND tipo_pago = 'Inscripción'
-            """, (cliente_id,))
-            total_inscripcion_pagada = cur.fetchone()[0]
-            
-            valor_cuota = cliente.get('valor_cuota', Decimal('0.0')) or Decimal('0.0')
-            cuotas_totales = cliente.get('cuotas_totales', 0) or 0
-            plan_contratado = Decimal(cliente.get('plan_contratado') or '0.0')
-
-            total_a_pagar_plan = valor_cuota * cuotas_totales
-            sobrecosto_administrativo = total_a_pagar_plan - plan_contratado
-            saldo_pendiente_plan = total_a_pagar_plan - total_pagado_plan
-
-            historial_unificado = []
-            for item in historial_raw:
-                data = item['data']
-                if isinstance(data, str):
-                    try: data = json.loads(data)
-                    except json.JSONDecodeError: data = {}
-                
-                evento = {'fecha': item['fecha']}
-                
-                if item['tipo_base'] == 'Pago':
-                    estado = data.get('estado', 'N/A')
-                    evento['tipo'] = f"Pago {estado}"
-                    evento['clase_css'] = 'bg-slate-100'
-                    if estado == 'Conciliado': evento['clase_css'] = 'bg-green-100 text-green-800'
-                    elif estado == 'Pendiente': evento['tipo'] = 'Pago en Revisión'; evento['clase_css'] = 'bg-yellow-100 text-yellow-800'
-                    
-                    evento['descripcion'] = data.get('concepto', 'Pago general')
-                    evento['monto'] = data.get('monto')
-                    if estado == 'Conciliado':
-                        evento['url'] = url_for('generar_recibo_pago', pago_id=item['id'])
-
-                elif item['tipo_base'] == 'Gestion':
-                    evento['tipo'] = data.get('tipo_gestion', 'Gestión')
-                    evento['clase_css'] = 'bg-slate-100 text-slate-800'
-                    evento['descripcion'] = data.get('nota', 'Sin descripción.')
-                
-                historial_unificado.append(evento)
-
-            return {
-                'cliente': cliente,
-                'historial': historial_unificado,
-                'total_pagado_plan': total_pagado_plan,
-                'total_inscripcion_pagada': total_inscripcion_pagada,
-                'valor_plan': plan_contratado,
-                'saldo_pendiente_plan': saldo_pendiente_plan,
-                'total_a_pagar_plan': total_a_pagar_plan,
-                'sobrecosto_administrativo': sobrecosto_administrativo
-            }
-
-    except (psycopg2.Error, json.JSONDecodeError, KeyError) as e:
-        logging.error(f"Error getting account statement for client {cliente_id}: {e}")
-        flash('Ocurrió un error al generar el estado de cuenta.', 'error')
-        return None
 
 @app.route('/citas/disponibilidad')
 @portal_login_required
