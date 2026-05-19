@@ -7295,7 +7295,10 @@ def portal_reportar_pago():
             if request.method == 'POST':
                 pago_form = {k: v.strip() if v else None for k, v in request.form.items()}
                 
+                # CORRECCIÓN DE SEGURIDAD: Extraemos las variables del formulario para evitar NameError
                 pago_en_final = pago_form.get('pago_en')
+                tipo_pago_inscripcion = pago_form.get('tipo_pago_inscripcion')
+                
                 monto_reportado_bs = Decimal('0.0')
                 monto_usd_a_guardar = Decimal('0.0')
                 forma_pago_final = None
@@ -7310,32 +7313,36 @@ def portal_reportar_pago():
                     tasa_bcv_calculo = None
                     currency_bulk = 'USD'
                     referencia_final = pago_form.get('referencia_usdt')
+                
                 elif pago_en_final == 'Efectivo':
-                    # NUEVA LÓGICA PARA EFECTIVO FÍSICO
-                    monto_usd_a_guardar = monto_a_pagar_usd
+                    # LÓGICA PARA EFECTIVO FÍSICO EN INSCRIPCIONES (Monto completo o Abono parcial)
+                    if tipo_pago_inscripcion == 'abono':
+                        monto_usd_a_guardar = Decimal(pago_form.get('monto_abono_usd', '0.00').replace(',', '.'))
+                    else:
+                        monto_usd_a_guardar = monto_a_pagar_usd
                     forma_pago_final = 'Efectivo'
                     tasa_bcv_calculo = None
                     currency_bulk = 'USD'
                     referencia_final = 'Entregado en Caja'
+                
                 else: 
                     pago_en_final = 'Dolar/BCV'
                     monto_bs_str = pago_form.get('monto_bs', '0.00').replace(',', '.')
                     monto_reportado_bs = Decimal(monto_bs_str).quantize(Decimal('0.02'))
-                    monto_usd_a_guardar = monto_a_pagar_usd 
-                    forma_pago_final = pago_form.get('forma_pago_bs')
-                    banco_final = pago_form.get('banco')
-                    currency_bulk = 'VES'
-                    referencia_final = pago_form.get('referencia')
-                    monto_bs_str = pago_form.get('monto_bs', '0.00').replace(',', '.')
-                    monto_reportado_bs = Decimal(monto_bs_str).quantize(Decimal('0.02'))
-                    # CORREGIDO: Guarda el monto correcto correspondiente (Inscripción o Cuota)
-                    monto_usd_a_guardar = monto_a_pagar_usd 
+                    
+                    # Si es un abono en Bs, el monto en USD a guardar es el parcial indicado
+                    if tipo_pago_inscripcion == 'abono':
+                        monto_usd_a_guardar = Decimal(pago_form.get('monto_abono_usd', '0.00').replace(',', '.'))
+                    else:
+                        monto_usd_a_guardar = monto_a_pagar_usd 
+                        
                     forma_pago_final = pago_form.get('forma_pago_bs')
                     banco_final = pago_form.get('banco')
                     currency_bulk = 'VES'
                     referencia_final = pago_form.get('referencia')
 
-                expected_amount_for_bulk = monto_a_pagar_bs if currency_bulk == 'VES' else monto_a_pagar_usd
+                # CORREGIDO: El monto esperado del lote ahora se adapta perfectamente si es abono o pago completo
+                expected_amount_for_bulk = monto_reportado_bs if currency_bulk == 'VES' else monto_usd_a_guardar
                 
                 cur.execute("""
                     INSERT INTO payment_bulks (cliente_id, currency, expected_amount, status, total_verified)
