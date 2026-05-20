@@ -31,7 +31,6 @@
             </button>
         </div>
         
-        {% if cliente.moneda_pago == 'BsBCV' or is_enrollment_payment %}
         <div class="p-2 bg-slate-50 border-x border-slate-200">
             <nav class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                 {% if cliente.moneda_pago == 'BsBCV' %}
@@ -48,71 +47,44 @@
                     Cripto (USDT)
                 </button>
                 
-                {% if is_enrollment_payment %}
                 <button type="button" @click="pagoEn = 'Efectivo'" 
                         :class="{ 'bg-orange-500 text-white': pagoEn === 'Efectivo', 'text-slate-600 hover:bg-orange-100': pagoEn !== 'Efectivo' }"
                         class="flex-1 text-sm font-semibold py-2 px-4 rounded-md transition-colors">
                     Efectivo (Físico)
                 </button>
-                {% endif %}
             </nav>
         </div>
-        {% endif %}
 
         <form id="payment-form"
               action="{{ url_for('portal_pagar_inscripcion') if is_enrollment_payment else (url_for('portal_diferencia_reportar', bulk_id=bulk_id, order_id=order_id) if is_difference_payment else url_for('portal_reportar_pago')) }}" 
               method="POST" class="bg-white p-6 space-y-8 rounded-b-xl border-x border-b border-slate-200" 
               @submit.prevent="validateAndSubmit">
 
-            <template x-if="isEnrollment">
-                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
-                    <p class="text-sm font-medium text-slate-600">Monto Total Pendiente de Inscripción</p>
-                    <div class="mt-2">
-                        <span class="text-3xl font-bold text-slate-800 tracking-tight" x-text="'$' + montoRestante.toFixed(2)"></span>
-                        <span class="text-lg text-slate-500">USD</span>
-                    </div>
+            <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
+                <p class="text-sm font-medium text-slate-600" x-text="isEnrollment ? 'Monto Total Pendiente de Inscripción' : 'Monto Base de la Cuota'"></p>
+                <div class="mt-2">
+                    <span class="text-3xl font-bold text-slate-800 tracking-tight" x-text="'$' + (isEnrollment ? montoRestante : montoAPagar).toFixed(2)"></span>
+                    <span class="text-lg text-slate-500">USD</span>
                 </div>
-            </template>
-            
-            <template x-if="!isEnrollment">
-                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
-                    <p class="text-sm font-medium text-slate-600">Monto de la Cuota a Pagar</p>
-                    <div class="mt-2">
-                        <span class="text-3xl font-bold text-slate-800 tracking-tight" x-text="'$' + montoAPagar.toFixed(2)"></span>
-                        <span class="text-lg text-slate-500">USD</span>
-                    </div>
-                </div>
-            </template>
-            
-            <template x-if="!isEnrollment">
-                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
-                    <p class="text-sm font-medium text-slate-600">Monto de la Cuota a Pagar</p>
-                    <div class="mt-2">
-                        <span class="text-3xl font-bold text-slate-800 tracking-tight">${{ "%.2f"|format(monto_a_pagar_usd|float) }}</span>
-                        <span class="text-lg text-slate-500">USD</span>
-                    </div>
-                </div>
-            </template>
+            </div>
 
-            <template x-if="isEnrollment">
-                <div>
-                    <label class="text-lg font-semibold text-slate-700">¿Cómo deseas pagar?</label>
-                    <div class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <label @click="tipoInscripcion = 'completo'" :class="{'ring-2 ring-blue-500 border-blue-500 bg-blue-50': tipoInscripcion === 'completo', 'border-slate-300': tipoInscripcion !== 'completo'}" 
-                               class="flex items-center p-4 border rounded-lg cursor-pointer transition-all">
-                            <input type="radio" name="tipo_pago_inscripcion" value="completo" class="h-4 w-4 text-blue-600" x-model="tipoInscripcion">
-                            <span class="ml-3 font-medium text-slate-700">Pagar Monto Completo</span>
-                        </label>
-                        <label @click="tipoInscripcion = 'abono'" :class="{'ring-2 ring-blue-500 border-blue-500 bg-blue-50': tipoInscripcion === 'abono', 'border-slate-300': tipoInscripcion !== 'abono'}"
-                               class="flex items-center p-4 border rounded-lg cursor-pointer transition-all">
-                            <input type="radio" name="tipo_pago_inscripcion" value="abono" class="h-4 w-4 text-blue-600" x-model="tipoInscripcion">
-                            <span class="ml-3 font-medium text-slate-700">Realizar un Abono</span>
-                        </label>
-                    </div>
+            <div>
+                <label class="text-lg font-semibold text-slate-700">¿Cómo deseas pagar?</label>
+                <div class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label @click="tipoInscripcion = 'completo'" :class="{'ring-2 ring-blue-500 border-blue-500 bg-blue-50': tipoInscripcion === 'completo', 'border-slate-300': tipoInscripcion !== 'completo'}" 
+                           class="flex items-center p-4 border rounded-lg cursor-pointer transition-all">
+                        <input type="radio" name="tipo_pago_inscripcion" value="completo" class="h-4 w-4 text-blue-600" x-model="tipoInscripcion">
+                        <span class="ml-3 font-medium text-slate-700">Pagar Monto Completo</span>
+                    </label>
+                    <label @click="tipoInscripcion = 'abono'" :class="{'ring-2 ring-blue-500 border-blue-500 bg-blue-50': tipoInscripcion === 'abono', 'border-slate-300': tipoInscripcion !== 'abono'}"
+                           class="flex items-center p-4 border rounded-lg cursor-pointer transition-all">
+                        <input type="radio" name="tipo_pago_inscripcion" value="abono" class="h-4 w-4 text-blue-600" x-model="tipoInscripcion">
+                        <span class="ml-3 font-medium text-slate-700">Realizar un Abono Parcial</span>
+                    </label>
                 </div>
-            </template>
+            </div>
 
-            <template x-if="isEnrollment && tipoInscripcion === 'abono'">
+            <template x-if="tipoInscripcion === 'abono'">
                 <div x-transition>
                     <label for="monto_abono_usd" class="block text-sm font-medium text-slate-700">Monto a Abonar (USD)</label>
                     <div class="relative mt-1">
@@ -252,6 +224,7 @@
                     
                     <template x-if="pagoEn === 'Efectivo'">
                         <div class="md:col-span-2 mt-2">
+                            <input type="hidden" name="monto_efectivo_usd" :value="montoFinalUSD.toFixed(2)">
                             <div class="bg-amber-50 border border-amber-200 rounded-lg p-5 text-amber-800 text-sm">
                                 <div class="flex items-start gap-4">
                                     <i class="bi bi-info-circle-fill text-amber-500 text-2xl mt-0.5"></i>
@@ -359,6 +332,7 @@
 <script>
     document.addEventListener('alpine:init', () => {
         Alpine.data('paymentController', (config) => ({
+            
             // --- ESTADO ---
             isEnrollment: config.isEnrollment,
             tipoInscripcion: 'completo',
@@ -372,12 +346,10 @@
             montoRestante: config.montoRestante,
             montoAPagar: config.montoAPagar,
 
-            // --- LÓGICA CALCULADA ---
+            // --- LÓGICA CALCULADA (CORREGIDA PARA SOPORTAR ABONOS DE CUOTAS) ---
             get montoFinalUSD() {
-                if (this.isEnrollment) {
-                    return this.tipoInscripcion === 'abono' ? (parseFloat(this.montoAbono) || 0.00) : this.montoRestante;
-                }
-                return this.montoAPagar;
+                let baseMonto = this.isEnrollment ? this.montoRestante : this.montoAPagar;
+                return this.tipoInscripcion === 'abono' ? (parseFloat(this.montoAbono) || 0.00) : baseMonto;
             },
             get montoCalculadoBs() {
                 return (this.montoFinalUSD * this.tasaBcv).toFixed(2);
@@ -456,10 +428,8 @@
             document.querySelectorAll(selector).forEach(el => {
                 // 1. Apagamos visualmente el botón
                 el.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
-                
                 // 2. Agregamos un tooltip explicando el porqué
                 el.setAttribute('title', 'Acción bloqueada: Debes completar el pago de tu inscripción primero.');
-                
                 // 3. Destruimos la capacidad de abrir cualquier cosa
                 el.removeAttribute('data-bs-toggle');
                 el.addEventListener('click', function(e) {

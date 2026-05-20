@@ -7366,7 +7366,12 @@ def portal_reportar_pago():
                     expected_amount_for_bulk = monto_usd_a_guardar
                 
                 elif pago_en_final == 'Efectivo':
-                    monto_usd_a_guardar = monto_a_pagar_usd
+                    # NUEVO: Leemos el monto en efectivo enviado dinámicamente (soporta abonos)
+                    monto_efectivo_str = pago_form.get('monto_efectivo_usd', '0.00').replace(',', '.')
+                    monto_usd_a_guardar = Decimal(monto_efectivo_str)
+                    if monto_usd_a_guardar <= Decimal('0.0'):
+                        monto_usd_a_guardar = monto_a_pagar_usd # Respaldo por si falla el front
+                        
                     forma_pago_final = 'Efectivo'
                     tasa_bcv_calculo = None
                     currency_bulk = 'USD'
