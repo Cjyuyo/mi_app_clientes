@@ -6702,7 +6702,8 @@ def generar_recibo_pago(pago_id):
     
     with conn.cursor() as cur:
         query = """
-    SELECT p.*, c.nombre, c.apellido, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, c.cuotas_totales, c.valor_cuota, c.inscripcion, c.inscripcion_pagada,
+    SELECT p.*, 
+c.nombre, c.apellido, (c.nombre || ' ' || c.apellido) as nombre_apellido, c.cedula, c.cuotas_totales, c.valor_cuota, c.inscripcion_monto as inscripcion, c.inscripcion_pagada,
            COALESCE(p.cuotas_progresivas_al_pagar, c.cuotas_pagadas_progresivas) AS cuotas_pagadas_progresivas, 
            COALESCE(p.cuotas_regresivas_al_pagar, c.cuotas_pagadas_regresivas) AS cuotas_pagadas_regresivas,
            COALESCE(p.balance_al_pagar, c.balance_regresivo) AS balance_regresivo
