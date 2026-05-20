@@ -15,293 +15,320 @@
     /* Estilos para la línea de tiempo de pagos */
     .timeline-step { position: relative; padding-left: 2.5rem; padding-bottom: 1.5rem; border-left: 2px solid #e2e8f0; }
     .timeline-step:last-child { border-left: 2px solid transparent; padding-bottom: 0; }
-    .timeline-icon { position: absolute; left: -0.875rem; top: 0; width: 1.75rem; height: 1.75rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center; border: 2px solid white; }
-    .timeline-step.is-complete .timeline-icon { background-color: #16a34a; color: white; }
-    .timeline-step.is-active .timeline-icon { background-color: #2563eb; color: white; }
-    .timeline-step.is-error .timeline-icon { background-color: #dc2626; color: white; }
-    .timeline-step.is-pending .timeline-icon { background-color: #e2e8f0; color: #64748b; }
-    .timeline-step.is-complete { border-left-color: #16a34a; }
+    .timeline-icon { position: absolute; left: -0.875rem; top: 0; width: 1.75rem; height: 1.75rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.875rem; }
+    
+    .timeline-step.is-complete .timeline-icon { background-color: #10b981; color: white; border: 2px solid #fff; box-shadow: 0 0 0 2px #10b981; }
+    .timeline-step.is-active .timeline-icon { background-color: #f59e0b; color: white; border: 2px solid #fff; box-shadow: 0 0 0 2px #f59e0b; }
+    .timeline-step.is-pending .timeline-icon { background-color: #f8fafc; color: #94a3b8; border: 2px solid #e2e8f0; }
+    .timeline-step.is-error .timeline-icon { background-color: #ef4444; color: white; border: 2px solid #fff; box-shadow: 0 0 0 2px #ef4444; }
+    .timeline-step.is-complete { border-left-color: #10b981; }
 </style>
 {% endblock %}
 
-<div class="mt-8 pt-6 border-t border-slate-200 flex flex-col items-center justify-center text-center pb-8 print:pb-0">
-    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
-        <i class="bi bi-shield-check text-green-600 text-sm mr-1"></i> Documento Oficial
-    </p>
+{% block body %}
+<div class="p-6 space-y-6">
     
-    <div class="bg-white p-2 rounded-xl shadow-sm border border-slate-200 inline-block">
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={{ url_for('validar_recibo_qr', pago_id=pago.id, _external=True) }}" alt="QR de Autenticidad" class="w-24 h-24">
-    </div>
-    
-    <p class="text-[11px] text-slate-400 mt-3 max-w-xs">
-        Escanea este código con la cámara de tu celular para validar la autenticidad de este recibo en nuestro sistema.
-    </p>
-</div>
-
-<div class="modal fade" id="ofertaModal" tabindex="-1" aria-labelledby="ofertaModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="ofertaModalLabel">Registrar Oferta</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="ofertaForm" action="{{ url_for('portal_guardar_oferta') }}" method="POST">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Tu Plan Contratado</label>
-                        <input type="text" class="form-control" value="{{ cliente.plan_contratado | default('N/A', true) }} $" disabled readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label for="modelo_ofertado_select" class="form-label fw-semibold">Modelo a Ofertar</label>
-                        <select class="form-select" id="modelo_ofertado_select" name="modelo_ofertado" required>
-                            <option value="">Cargando modelos...</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="cuotas_ofertadas_select" class="form-label fw-semibold">Cuotas a Ofertar</label>
-                        <select class="form-select" id="cuotas_ofertadas_select" name="cuotas_ofertadas" required>
-                            <option value="">--</option>
-                            {% for i in range(1, (cliente.cuotas_totales or 0) + 1) %}
-                                <option value="{{ i }}">{{ i }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                <button type="submit" form="ofertaForm" class="btn btn-primary">Enviar Oferta</button>
-            </div>
+    <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-slate-800">¡Hola de nuevo, {{ cliente.nombre }}!</h1>
+            <p class="text-slate-500 mt-1">Bienvenido a tu portal de cliente.</p>
         </div>
     </div>
-</div>
 
-<div class="modal fade" id="citaModal" tabindex="-1" aria-labelledby="citaModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="citaModalLabel">Solicitar Cita</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="citaForm" action="{{ url_for('portal_solicitar_cita') }}" method="POST">
-                    <div class="mb-3">
-                        <label for="fecha_cita_input" class="form-label fw-semibold">Fecha deseada</label>
-                        <input type="date" class="form-control" id="fecha_cita_input" name="fecha_cita" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="hora_cita_select" class="form-label fw-semibold">Hora disponible</label>
-                        <select class="form-select" id="hora_cita_select" name="hora_cita" required disabled>
-                            <option>Seleccione una fecha primero</option>
-                        </select>
-                        <div id="cita-availability-message" class="form-text mt-2"></div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="motivo_cita_select" class="form-label fw-semibold">Motivo</label>
-                        <select class="form-select" id="motivo_cita_select" name="motivo_cita" required>
-                            <option value="" disabled selected>-- Seleccione un motivo --</option>
-                            <option value="Consulta sobre pagos">Consulta sobre pagos</option>
-                            <option value="Información sobre adjudicación">Información sobre adjudicación</option>
-                            <option value="Actualización de datos">Actualización de datos</option>
-                            <option value="Otro">Otro</option>
-                        </select>
-                    </div>
-                    <div class="mb-3" id="motivo_otro_div" style="display: none;">
-                        <label for="motivo_otro_texto" class="form-label fw-semibold">Especifique el motivo</label>
-                        <input type="text" class="form-control" id="motivo_otro_texto" name="motivo_otro_texto">
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                <button type="submit" form="citaForm" class="btn btn-primary">Enviar Solicitud</button>
-            </div>
-        </div>
-    </div>
-</div>
+    {% set estado_actual = cliente.estado_del_plan|default('')|string|lower %}
+    {% set is_inscripcion_pendiente = ('reserva' in estado_actual or 'formaliz' in estado_actual) %}
 
-<div class="modal fade" id="congelamientoModal" tabindex="-1" aria-labelledby="congelamientoModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="congelamientoModalLabel">Solicitar Congelamiento</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p class="text-muted mb-3 small">Selecciona el tiempo que deseas congelar tu plan y explica brevemente el motivo de tu solicitud.</p>
-                <form id="congelamientoForm" action="{{ url_for('portal_solicitar_congelamiento') }}" method="POST">
-                    <div class="mb-3">
-                        <label for="tiempo_congelamiento" class="form-label fw-semibold">Tiempo de Congelamiento</label>
-                        <select class="form-select" id="tiempo_congelamiento" name="tiempo_congelamiento" required>
-                            <option value="1 mes">1 mes</option>
-                            <option value="2 meses">2 meses</option>
-                        </select>
+    {% if is_inscripcion_pendiente %}
+        <div class="bg-amber-50 border-l-4 border-amber-500 p-5 rounded-r-xl shadow-sm">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div class="flex items-start space-x-3">
+                    <div class="p-2 bg-amber-100 text-amber-700 rounded-lg mt-0.5">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
                     </div>
-                    <div class="mb-3">
-                        <label for="motivo_congelamiento" class="form-label fw-semibold">Motivo de la Solicitud</label>
-                        <textarea class="form-control" id="motivo_congelamiento" name="motivo" rows="3" required placeholder="Ej: Motivos de viaje, situación personal, etc."></textarea>
+                    <div>
+                        <h3 class="text-base font-bold text-amber-900">Tu plan requiere atención</h3>
+                        <p class="text-sm text-amber-700 mt-0.5">Es necesario registrar el pago correspondiente a tu inscripción.</p>
+                        <div class="mt-2 text-sm font-semibold text-amber-900 bg-amber-100/50 inline-block px-2.5 py-1 rounded-md">
+                            Monto a abonar: ${{ "%.2f"|format(cliente.inscripcion_monto|float if cliente.inscripcion_monto else 0.0) }} {{ cliente.moneda_pago }}
+                        </div>
                     </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" form="congelamientoForm" class="btn btn-primary">Enviar Solicitud</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="retiroModal" tabindex="-1" aria-labelledby="retiroModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="retiroModalLabel">Solicitar Retiro del Plan</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg mb-4">
-                    <h6 class="fw-bold text-blue-800">Paso 1: Notificación por Correo</h6>
-                    <p class="text-muted small mb-0">Para iniciar tu solicitud de retiro, primero debes enviar un correo electrónico a <a href="mailto:motoplan.dptolegal@gmail.com"><strong>motoplan.dptolegal@gmail.com</strong></a> especificando tus motivos.</p>
                 </div>
-                <h6 class="fw-bold">Paso 2: Confirma el Envío</h6>
-                <p class="text-muted mb-3 small">Una vez hayas enviado el correo, completa el siguiente formulario para que nuestros asesores puedan dar seguimiento a tu caso.</p>
-                <form id="retiroForm" action="{{ url_for('portal_solicitar_retiro') }}" method="POST">
-                    <div class="mb-3">
-                        <label for="email_origen_retiro" class="form-label fw-semibold">Correo desde el que enviaste la solicitud</label>
-                        <input type="email" class="form-control" id="email_origen_retiro" name="email_origen_retiro" required placeholder="ejemplo@correo.com">
-                    </div>
-                    <div class="mb-3">
-                        <label for="fecha_correo_retiro" class="form-label fw-semibold">Fecha de envío del correo</label>
-                        <input type="date" class="form-control" id="fecha_correo_retiro" name="fecha_correo_retiro" required>
-                    </div>
-                </form>
+                <div class="sm:text-right">
+                    <a href="{{ url_for('portal_reportar_pago') }}" class="inline-flex items-center justify-center px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition-colors shadow-sm text-sm whitespace-nowrap tracking-wide">
+                        <i class="bi bi-cash-coin mr-2"></i> INICIAR PAGO
+                    </a>
+                </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" form="retiroForm" class="btn btn-primary">Confirmar Envío de Correo</button>
+        </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <div class="lg:col-span-2">
+            {% set has_notifications = get_flashed_messages() or ordenes_pendientes or estado_principal or cita_confirmada or ciclo_cobranza_activo %}
+            {% set mostrar_caja_notificaciones = get_flashed_messages() or ordenes_pendientes or estado_principal or cita_confirmada or (ciclo_cobranza_activo and not is_inscripcion_pendiente) or (not is_inscripcion_pendiente) %}
+            
+            {% if mostrar_caja_notificaciones %}
+            <div class="bg-white rounded-xl shadow-md card-lift">
+                <div class="p-5 border-b border-slate-200">
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <i class="bi bi-bell-fill text-orange-500"></i> Notificaciones
+                    </h2>
+                </div>
+                <div class="p-5 space-y-4">
+                    
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                            <div class="p-4 rounded-lg text-sm {% if category == 'error' or category == 'danger' %} bg-red-100 text-red-800 {% elif category == 'success' %} bg-green-100 text-green-800 {% else %} bg-blue-100 text-blue-800 {% endif %}" role="alert">
+                                {{ message | safe }}
+                            </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    {% if ordenes_pendientes %}
+                        {% for orden in ordenes_pendientes %}
+                        <div class="bg-red-100 border-l-4 border-red-500 text-red-800 p-4 rounded-lg">
+                            <h3 class="font-bold text-md flex items-center gap-2"><i class="bi bi-exclamation-triangle-fill"></i> ¡Acción Requerida!</h3>
+                            <p class="mt-2 mb-3 text-sm">Detectamos una inconsistencia en uno de tus pagos. Por favor, completa la diferencia pendiente de <strong class="font-semibold">{{ "%.2f"|format(orden.amount) }} {{ "Bs." if orden.currency == 'VES' else orden.currency }}</strong>.</p>
+                            <div class="flex items-center gap-3 mt-2">
+                                <a href="{{ url_for('portal_diferencia_reportar', bulk_id=orden.bulk_id, order_id=orden.id) }}" class="text-sm text-white font-semibold py-2 px-3 rounded-lg bg-red-600 hover:bg-red-700 inline-block">Pagar Diferencia</a>
+                                {% if orden.pago_original_id %}
+                                <a href="{{ url_for('ver_reporte', pago_id=orden.pago_original_id) }}" target="_blank" class="text-sm text-red-700 font-semibold py-2 px-3 rounded-lg bg-white border border-red-600 hover:bg-red-50 inline-block">Ver Reporte</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                    
+                    {% if estado_principal %}
+                    <div class="bg-white p-4 rounded-lg border">
+                        <h3 class="text-md font-bold text-slate-800">{{ estado_principal.titulo }}</h3>
+                        <p class="text-sm text-slate-600 mt-2">{{ estado_principal.mensaje | safe }}</p>
+                        {% if estado_principal.boton_texto %}
+                        <a href="{{ estado_principal.boton_url }}" class="inline-block mt-3 text-sm text-white font-semibold py-2 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if not estado_principal.boton_activo %}opacity-50 cursor-not-allowed pointer-events-none{% endif %}" {% if not estado_principal.boton_activo %}title="Ya tienes un pago en revisión."{% endif %}>
+                            {{ estado_principal.boton_texto }}
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if ciclo_cobranza_activo and not is_inscripcion_pendiente %}
+                    <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-800 p-4 rounded-lg">
+                        <h3 class="font-bold text-md flex items-center gap-2"><i class="bi bi-info-circle-fill"></i> Ciclo de Cobranza Activo</h3>
+                        <p class="mt-2 mb-3 text-sm">Nuestro ciclo de cobranza ha comenzado. Realiza tus pagos para mantenerte al día.</p>
+                         <a href="{{ url_for('portal_reportar_pago') }}" class="text-sm text-white font-semibold py-2 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 {% if hay_pago_pendiente_general %}opacity-50 cursor-not-allowed pointer-events-none{% endif %}">
+                            Reportar un Pago
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    {% if cita_confirmada %}
+                    <div class="bg-white p-4 rounded-lg border">
+                        <div class="flex items-start gap-4">
+                            <i class="bi bi-calendar-check-fill text-2xl text-green-500 mt-1"></i>
+                            <div>
+                                <h3 class="font-bold text-md text-slate-800">Tu Cita Confirmada</h3>
+                                <ul class="text-sm text-slate-500 mt-2 space-y-1">
+                                    <li><strong>Fecha:</strong> {{ cita_confirmada.detalles.fecha_cita | format_date('%d/%m/%Y') }}</li>
+                                    <li><strong>Hora:</strong> {{ cita_confirmada.detalles.hora_cita }}</li>
+                                </ul>
+                                <form action="{{ url_for('cancelar_cita_cliente', solicitud_id=cita_confirmada.id) }}" method="POST" data-confirm="¿Seguro que deseas cancelar?" class="mt-3">
+                                    <button type="submit" class="text-xs bg-red-100 text-red-800 font-semibold py-1 px-2 rounded-md hover:bg-red-200">Cancelar Cita</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if not has_notifications and not is_inscripcion_pendiente %}
+                    <div class="text-center text-slate-500 py-6">
+                        <div class="inline-block bg-green-100 p-4 rounded-full">
+                            <i class="bi bi-check-circle-fill text-4xl text-green-500"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-slate-800 mt-4">¡Todo está al día!</h3>
+                        <p class="mt-1 text-sm">No tienes notificaciones pendientes.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-md card-lift flex flex-col">
+            <div class="p-5 border-b border-slate-200">
+                <h2 class="text-lg font-bold text-slate-800">Resumen de mi Plan</h2>
+            </div>
+            <div class="p-5 space-y-4 flex-grow">
+                 {% set cuotas_progresivas = cliente.cuotas_pagadas_progresivas or 0 %}{% set cuotas_regresivas = cliente.cuotas_pagadas_regresivas or 0 %}{% set cuotas_pagadas_total = cuotas_progresivas + cuotas_regresivas %}{% set cuotas_totales = cliente.cuotas_totales or 0 %}{% set progreso_total = (cuotas_pagadas_total / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+                <div>
+                    <div class="flex justify-between items-center mb-1"><span class="text-sm font-medium text-slate-600">Progreso Total del Plan</span><span class="text-sm font-semibold text-slate-700">{{ "%.0f"|format(progreso_total) }}%</span></div>
+                    <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="h-2.5 rounded-full progress-bar" style="width: {{ progreso_total }}%"></div></div>
+                </div>
+                {% set balance = cliente.balance_regresivo|float or 0.0 %}{% set valor_cuota = cliente.valor_cuota|float or 0.0 %}{% set progreso_cuota_actual = (balance / valor_cuota * 100) if valor_cuota > 0 else 0 %}
+                <div>
+                    {% set cuota_regresiva_objetivo = (cuotas_totales | int) - (cuotas_regresivas | int) %}
+                    <div class="flex justify-between items-center mb-1"><span class="text-sm font-medium text-slate-600">Saldo a Favor (Abono a cuota N° {{ cuota_regresiva_objetivo }})</span><span class="text-sm font-semibold text-slate-700">{{ "%.0f"|format(progreso_cuota_actual) }}%</span></div>
+                    <div class="w-full bg-slate-200 rounded-full h-2.5"><div class="h-2.5 rounded-full progress-bar" style="width: {{ progreso_cuota_actual }}%"></div></div>
+                </div>
+            </div>
+             
+            {% if ciclo_cobranza_activo and not is_inscripcion_pendiente %}
+            <div class="p-5 border-t border-slate-200 bg-slate-50/50 rounded-b-xl">
+                 <a href="{{ url_for('portal_reportar_pago') }}" class="w-full text-center inline-block text-sm text-white font-semibold py-3 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if hay_pago_pendiente_general %}opacity-50 cursor-not-allowed pointer-events-none{% endif %}">
+                    <i class="bi bi-send-plus-fill mr-1"></i> Reportar un Pago
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-md card-lift" x-data="{ activeTab: 'pagos' }">
+        <div class="p-2 bg-slate-50 rounded-t-xl border-b border-slate-200">
+            <nav class="flex space-x-2">
+                <button @click="activeTab = 'pagos'" :class="{ 'active': activeTab === 'pagos' }" class="tab-button flex-1 text-sm font-semibold py-2 px-4 rounded-md text-slate-600 hover:bg-orange-100">
+                    Últimos Pagos
+                </button>
+                <button @click="activeTab = 'gestiones'" :class="{ 'active': activeTab === 'gestiones' }" class="tab-button flex-1 text-sm font-semibold py-2 px-4 rounded-md text-slate-600 hover:bg-orange-100">
+                    Historial de Gestiones
+                </button>
+            </nav>
+        </div>
+
+        <div class="p-4">
+            <div x-show="activeTab === 'pagos'" class="space-y-4">
+                {% if cliente.procesos_de_pago %}
+                    {% for proceso in cliente.procesos_de_pago %}
+                    <div x-data="{ expanded: false }" class="bg-white border rounded-lg hover:shadow-sm transition-shadow">
+                        <button @click="expanded = !expanded" class="w-full text-left p-4 focus:outline-none">
+                            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start">
+                                <div>
+                                    <p class="font-bold text-slate-800">{{ proceso.concepto_principal }}</p>
+                                    <p class="text-xs text-slate-500 mt-1">Iniciado el: {{ proceso.fecha_inicio | format_datetime('%d/%m/%Y') }}</p>
+                                </div>
+                                <div class="mt-2 sm:mt-0 flex items-center gap-4">
+                                    <div class="text-left sm:text-right">
+                                        <p class="text-lg font-bold text-slate-800 flex items-baseline justify-end">
+                                            {% if proceso.moneda == 'Bs.' %}
+                                                {{ "%.2f"|format(proceso.monto_total) }} <span class="text-sm font-normal text-slate-500 ml-1">Bs.</span>
+                                            {% else %}
+                                                <span class="text-sm font-normal text-slate-500 mr-0.5">$</span>{{ "%.2f"|format(proceso.monto_total) }}
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                    <i class="bi bi-chevron-down text-slate-500 transition-transform" :class="{ 'rotate-180': expanded }"></i>
+                                </div>
+                            </div>
+                        </button>
+                        
+                        <div x-show="expanded" x-transition class="px-4 pb-4">
+                            <div class="pt-4 border-t border-slate-200">
+                                <h4 class="text-sm font-bold text-slate-600 mb-3">Tracking del Proceso</h4>
+                                <ol>
+                                    {% set estado = proceso.estado_general %}
+                                    <li class="timeline-step is-complete">
+                                        <div class="timeline-icon"><i class="bi bi-send-check-fill"></i></div>
+                                        <h4 class="font-semibold text-sm text-slate-800">Reporte Enviado</h4>
+                                        <p class="text-xs text-slate-500">Recibimos tu reporte inicial.</p>
+                                    </li>
+                                    <li class="timeline-step {% if estado == 'Pendiente de Revision' %}is-active{% elif estado in ['Aprobado', 'Conciliado', 'Inconsistente'] %}is-complete{% else %}is-pending{% endif %}">
+                                        <div class="timeline-icon">{% if estado == 'Pendiente de Revision' %}<i class="bi bi-hourglass-split"></i>{% else %}<i class="bi bi-check-lg"></i>{% endif %}</div>
+                                        <h4 class="font-semibold text-sm text-slate-800">En Verificación</h4>
+                                        <p class="text-xs text-slate-500">Nuestro equipo está verificando la información.</p>
+                                    </li>
+                                    <li class="timeline-step {% if estado == 'Inconsistente' %}is-error{% elif estado in ['Aprobado', 'Conciliado'] %}is-complete{% else %}is-pending{% endif %}">
+                                        <div class="timeline-icon">{% if estado == 'Inconsistente' %}<i class="bi bi-exclamation-triangle-fill"></i>{% elif estado in ['Aprobado', 'Conciliado'] %}<i class="bi bi-check-lg"></i>{% else %}<i class="bi bi-card-checklist"></i>{% endif %}</div>
+                                        <h4 class="font-semibold text-sm text-slate-800">Procesado por Administración</h4>
+                                        {% if estado == 'Inconsistente' %}<p class="text-xs text-red-600">Se encontró una inconsistencia. Revisa tus notificaciones.</p>{% else %}<p class="text-xs text-slate-500">El pago fue procesado.</p>{% endif %}
+                                    </li>
+                                    <li class="timeline-step {% if estado == 'Conciliado' %}is-complete{% else %}is-pending{% endif %}">
+                                        <div class="timeline-icon">{% if estado == 'Conciliado' %}<i class="bi bi-patch-check-fill"></i>{% else %}<i class="bi bi-patch-check"></i>{% endif %}</div>
+                                        <h4 class="font-semibold text-sm text-slate-800">Conciliado</h4>
+                                        <p class="text-xs text-slate-500">Tu pago ha sido aplicado a tu cuenta.</p>
+                                    </li>
+                                </ol>
+                                
+                                <h4 class="text-sm font-bold text-slate-600 mt-6 mb-3 border-t pt-4">Desglose de Pagos</h4>
+                                <ul class="space-y-2 text-sm">
+                                    {% for pago_item in proceso.pagos | sort(attribute='fecha_creacion') %}
+                                    <li class="flex justify-between items-center bg-slate-50 p-2 rounded-md">
+                                        <div class="flex items-center gap-2">
+                                            <i class="bi bi-receipt text-slate-400"></i>
+                                            <span>{{ pago_item.por_concepto_de }} (#{{pago_item.id}})</span>
+                                            <span class="text-xs font-medium uppercase tracking-wider rounded-md p-1 {% if pago_item.estado_reporte == 'Inconsistente' %} text-red-800 bg-red-100 {% elif pago_item.estado_reporte == 'Pendiente de Revision' %} text-amber-800 bg-amber-100 {% else %} text-green-800 bg-green-100 {% endif %}">
+                                                {{ pago_item.estado_reporte }}
+                                            </span>
+                                        </div>
+                                        <span class="font-semibold font-mono flex items-baseline">
+                                            {% if pago_item.pago_en == 'Dolar/BCV' %}{{ "%.2f"|format(pago_item.monto_bs|float) }}<span class="text-xs font-normal text-slate-500 ml-1">Bs.</span>{% else %}<span class="text-xs font-normal text-slate-500 mr-0.5">$</span>{{ "%.2f"|format(pago_item.monto|float) }}{% endif %}
+                                        </span>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            
+                            <div class="mt-4 pt-3 border-t border-slate-200 flex justify-end items-center gap-4">
+                                <a href="{{ url_for('ver_reporte', pago_id=proceso.pagos[-1].id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-blue-600 hover:text-blue-700">
+                                    <i class="bi bi-eye-fill"></i> Detalles del Proceso
+                                </a>
+                                {% if proceso.estado_general == 'Conciliado' %}
+                                    {% set primer_pago = proceso.pagos[0] %}
+                                    {% if primer_pago.receipt_id %}
+                                        <a href="{{ url_for('ver_recibo_consolidado', receipt_id=primer_pago.receipt_id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-green-600 hover:text-green-700 border-l border-slate-300 pl-4">
+                                            <i class="bi bi-receipt"></i> Ver Recibo
+                                        </a>
+                                    {% else %}
+                                        <a href="{{ url_for('generar_recibo_pago', pago_id=primer_pago.id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-green-600 hover:text-green-700 border-l border-slate-300 pl-4">
+                                            <i class="bi bi-receipt"></i> Ver Recibo
+                                        </a>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                            </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-slate-500 py-6 text-sm">
+                        <i class="bi bi-receipt-cutoff text-4xl text-slate-300"></i>
+                        <p class="mt-2">Aún no tienes pagos registrados.</p>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div x-show="activeTab === 'gestiones'" class="space-y-4">
+                {% if historial_gestiones %}
+                    <ul class="space-y-4">
+                        {% for gestion in historial_gestiones %}
+                        <li class="flex gap-3">
+                            <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full {% if gestion.estado == 'Aprobada' or gestion.estado == 'Completada' %} bg-green-100 text-green-600 {% elif gestion.estado == 'Rechazada' or gestion.estado == 'Cancelada' %} bg-red-100 text-red-600 {% else %} bg-slate-100 text-slate-600 {% endif %}">
+                                <i class="bi {{ gestion.icono }} text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-sm text-slate-800">{{ gestion.titulo }}</p>
+                                <p class="text-xs text-slate-500">{{ gestion.fecha | format_datetime }}</p>
+                                <p class="text-sm text-slate-600 mt-1">{{ gestion.descripcion }}</p>
+                                {% if gestion.titulo == 'Solicitud de Cita' and gestion.estado == 'Completada' and gestion.detalles and gestion.detalles.reporte %}
+                                <div class="mt-2">
+                                    <a href="{{ url_for('ver_reporte_cita', solicitud_id=gestion.id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-sky-600 hover:text-sky-700">
+                                        <i class="bi bi-file-earmark-text"></i> Ver Reporte de Cita
+                                    </a>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <div class="text-center text-slate-500 py-6 text-sm">
+                        <i class="bi bi-clock-history text-4xl text-slate-300"></i>
+                        <p class="mt-2">No hay gestiones registradas.</p>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block scripts_extra %}
-{{ super() }}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const fechaInput = document.getElementById('fecha_cita_input');
-    const horaSelect = document.getElementById('hora_cita_select');
-    const motivoSelect = document.getElementById('motivo_cita_select');
-    const motivoOtroDiv = document.getElementById('motivo_otro_div');
-    const motivoOtroInput = document.getElementById('motivo_otro_texto');
-    const availabilityMessage = document.getElementById('cita-availability-message');
-
-    if (motivoSelect) {
-        motivoSelect.addEventListener('change', function() {
-            if (this.value === 'Otro') {
-                motivoOtroDiv.style.display = 'block';
-                motivoOtroInput.required = true;
-            } else {
-                motivoOtroDiv.style.display = 'none';
-                motivoOtroInput.required = false;
-            }
-        });
-    }
-    
-    async function actualizarHorasDisponibles() {
-        const fechaSeleccionada = fechaInput.value;
-        if (!fechaSeleccionada) {
-            horaSelect.disabled = true;
-            horaSelect.innerHTML = '<option>Seleccione una fecha primero</option>';
-            availabilityMessage.textContent = '';
-            return;
-        }
-
-        horaSelect.disabled = true;
-        horaSelect.innerHTML = '<option>Cargando horas...</option>';
-        availabilityMessage.textContent = '';
-        
-        try {
-            const response = await fetch(`/citas/disponibilidad?fecha=${fechaSeleccionada}`);
-            const data = await response.json();
-
-            if (!data.es_habil) {
-                availabilityMessage.textContent = data.mensaje || 'El día seleccionado no es hábil.';
-                availabilityMessage.className = 'form-text text-danger mt-2';
-                horaSelect.innerHTML = '<option>No hay horas disponibles</option>';
-                return;
-            }
-
-            const horarios = [
-                "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
-                "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM"
-            ];
-            
-            const horasOcupadas = new Set(data.ocupados);
-            const horasDisponibles = horarios.filter(h => !horasOcupadas.has(h));
-
-            horaSelect.innerHTML = '';
-            if (horasDisponibles.length > 0) {
-                horasDisponibles.forEach(hora => {
-                    const option = document.createElement('option');
-                    option.value = hora;
-                    option.textContent = hora;
-                    horaSelect.appendChild(option);
-                });
-                horaSelect.disabled = false;
-                availabilityMessage.textContent = 'Seleccione una hora de la lista.';
-                availabilityMessage.className = 'form-text text-success mt-2';
-            } else {
-                horaSelect.innerHTML = '<option>No hay horas disponibles</option>';
-                availabilityMessage.textContent = 'No quedan horas disponibles para este día.';
-                availabilityMessage.className = 'form-text text-warning mt-2';
-            }
-        } catch (error) {
-            console.error('Error al cargar la disponibilidad:', error);
-            horaSelect.innerHTML = '<option>Error al cargar</option>';
-            availabilityMessage.textContent = 'No se pudo verificar la disponibilidad. Intente más tarde.';
-            availabilityMessage.className = 'form-text text-danger mt-2';
-        }
-    }
-
-    if (fechaInput) {
-        fechaInput.addEventListener('change', actualizarHorasDisponibles);
-        const today = new Date().toISOString().split('T')[0];
-        fechaInput.setAttribute('min', today);
-    }
-
-    const planModels = {
-        1400: ['Bera SBR', 'Bera BRF', 'Águila', 'ES Hero'], 1500: ['Ávila', 'X1', 'Cardenal', 'TR Jaguar', 'New Jog'], 1600: ['Milan', 'Xpress', 'Colibrí', 'Cuervo', 'Canario', 'Cóndor II', 'Tucán II', 'Tauro'], 1700: ['Bera León', 'Bera Tezo', 'Adventure'], 1800: ['New Horsen', 'New Owen', 'Fénix', 'Toro León'], 1900: ['Runner', 'Horse RL', 'Horse II', 'Abeja'], 2000: ['Kavak', 'BWS', 'BR', 'Cobra', 'Owen 200', 'Fénix', 'Power', 'Extreme'], 2100: ['TR Tank'], 2300: ['EK Foton', 'TX 150cc', 'TX 200cc'], 2400: ['Antiking', 'Optimus', 'Arsen II', 'RK 200'], 2500: ['Bera GBR', 'Matrix II', 'Cruiser', 'Lechuza'], 2700: ['RK 250', 'Thunder 180', 'Lechuza II', 'Falco'], 2800: ['Bera DTx', 'Toro Rex', 'ES EM200'], 2900: ['Outlook II'], 3200: ['TX GT 250', 'Superlight'], 3300: ['TR R3X 250'], 3500: ['BRZ 250', 'GR 250', 'TX GS 250'], 3800: ['Kiwi'], 4500: ['EK Atlas'], 5200: ['Carguero'], 5600: ['Outlook XL'], 5900: ['Carguero Transporte', 'Carguero Cava'], 6300: ['Zontes 350']
-    };
-    
-    const clientPlan = parseFloat("{{ cliente.plan_contratado | default(0, true) }}");
-    const modeloSelect = document.getElementById('modelo_ofertado_select');
-    const ofertaModal = document.getElementById('ofertaModal');
-    
-    function populateModels() {
-        if (!modeloSelect) return;
-        modeloSelect.innerHTML = ''; 
-        const models = planModels[clientPlan];
-        
-        if (models && models.length > 0) {
-            modeloSelect.appendChild(new Option('-- Seleccione un modelo --', '', true, true));
-            models.forEach(model => {
-                const option = document.createElement('option');
-                option.value = model;
-                option.textContent = model;
-                modeloSelect.appendChild(option);
-            });
-        } else {
-            const option = document.createElement('option');
-            option.textContent = 'No hay modelos disponibles para tu plan';
-            option.disabled = true;
-            modeloSelect.appendChild(option);
-        }
-    }
-
-    if (ofertaModal) {
-        ofertaModal.addEventListener('show.bs.modal', populateModels);
-    }
-});
-</script>
 {% endblock %}
