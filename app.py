@@ -6843,6 +6843,42 @@ def verificar_recibo():
 
     return render_template('verificacion_recibo.html', pago=pago)
 
+# =================================================================================
+# ===== VALIDADOR AUTOMÁTICO DE SEGURIDAD (QR DIRECTO) =====
+# =================================================================================
+@app.route('/validar/recibo/<int:pago_id>', methods=['GET'])
+def validar_recibo_qr(pago_id):
+    conn = get_db()
+    if not conn:
+        return "Error de conexión con el servidor", 500
+        
+    try:
+        with conn.cursor() as cur:
+            # Buscamos el pago y cruzamos con los datos reales del cliente
+            query = """
+                SELECT p.id, p.monto, p.monto_bs, p.tipo_pago, p.forma_pago, p.fecha_pago, p.por_concepto_de, p.estado_pago,
+                       c.nombre, c.apellido, c.cedula
+                FROM pagos p 
+                JOIN clientes c ON p.cliente_id = c.id 
+                WHERE p.id = %s;
+            """
+            cur.execute(query, (pago_id,))
+            pago = cur.fetchone()
+            
+            # SI NO EXISTE EL PAGO O ESTÁ ANULADO: Alerta de fraude
+            if not pago or pago['estado_pago'] == 'Anulado':
+                return render_template('validador_qr.html', valido=False, error="El número de recibo no existe o fue dado de baja."), 200
+                
+            # SI EXISTE: Enviamos los datos para armar el sello de autenticidad
+            # Importamos datetime localmente para pasar la hora exacta de verificación
+            from datetime import datetime
+            current_time = datetime.now().strftime('%d/%m/%Y %I:%M %p')
+            return render_template('validador_qr.html', valido=True, pago=pago, current_time=current_time), 200
+
+    except Exception as e:
+        logging.error(f"Error en validador QR: {e}")
+        return render_template('validador_qr.html', valido=False, error="Error interno al procesar la verificación."), 500
+
 @app.route('/edit/<int:client_id>', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente', 'administradora')

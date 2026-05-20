@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificación de Autenticidad - Moto Plan Motors</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/font/bootstrap-icons.css">
+</head>
+<body class="bg-slate-100 font-sans antialiased min-h-screen flex items-center justify-center p-4">
+
+    <div class="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+        
+        <div class="bg-slate-900 p-6 text-center text-white">
+            <h2 class="text-xl font-bold tracking-tight">SISTEMA DE VERIFICACIÓN</h2>
+            <p class="text-slate-400 text-xs mt-1">Moto Plan Motors C.A. • RIF: J-50346399-5</p>
+        </div>
+
+        <div class="p-6 space-y-6">
+            {% if valido %}
+                <div class="text-center space-y-2">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 text-green-600 mb-2">
+                        <i class="bi bi-shield-fill-check text-4xl"></i>
+                    </div>
+                    <h1 class="text-2xl font-bold text-green-700">DOCUMENTO VÁLIDO</h1>
+                    <p class="text-slate-500 text-sm">Este recibo de pago es auténtico y está registrado en nuestro sistema oficial.</p>
+                </div>
+
+                <div class="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-3 text-sm">
+                    <div class="flex justify-between border-b border-slate-200/60 pb-2">
+                        <span class="text-slate-500">Recibo Verificado:</span>
+                        <span class="font-mono font-bold text-slate-800">#{{ pago.id }}</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-200/60 pb-2">
+                        <span class="text-slate-500">Cliente:</span>
+                        <span class="font-semibold text-slate-800">{{ pago.nombre }} {{ pago.apellido }}</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-200/60 pb-2">
+                        <span class="text-slate-500">C.I.:</span>
+                        <span class="font-mono text-slate-800">{{ pago.cedula }}</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-200/60 pb-2">
+                        <span class="text-slate-500">Concepto:</span>
+                        <span class="font-semibold text-slate-800">{{ pago.por_concepto_de }}</span>
+                    </div>
+                    <div class="flex justify-between pt-1">
+                        <span class="text-slate-500">Monto Registrado:</span>
+                        <span class="font-mono font-bold text-green-600 text-base">
+                            {% if pago.monto_bs and pago.monto_bs > 0 %}
+                                {{ "%.2f"|format(pago.monto_bs|float) }} Bs.
+                            {% else %}
+                                ${{ "%.2f"|format(pago.monto|float) }}
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="text-center text-[11px] text-slate-400">
+                    <i class="bi bi-clock"></i> Verificado el {{ current_time }} (Hora de Venezuela)
+                </div>
+
+            {% else %}
+                <div class="text-center space-y-2 py-4">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 text-red-600 mb-2">
+                        <i class="bi bi-shield-fill-x text-4xl"></i>
+                    </div>
+                    <h1 class="text-2xl font-bold text-red-600">¡ALERTA DE SEGURIDAD!</h1>
+                    <p class="text-slate-700 font-medium text-sm mt-2">DOCUMENTO NO VÁLIDO O FALSIFICADO</p>
+                    <p class="text-slate-500 text-xs px-2 mt-1">El código escaneado no corresponde a ningún recibo activo en Moto Plan Motors. Si posee un comprobante físico con este código, por favor repórtelo a administración inmediatamente.</p>
+                    
+                    {% if error %}
+                        <div class="mt-4 bg-red-50 text-red-700 text-xs p-3 rounded-lg border border-red-100 font-mono">
+                            Motivo: {{ error }}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="bg-slate-50 p-4 border-t border-slate-100 text-center">
+            <p class="text-xs text-slate-400">&copy; 2026 Moto Plan Motors C.A. Todos los derechos reservados.</p>
+        </div>
+    </div>
+
+</body>
+</html>
