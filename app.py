@@ -7197,8 +7197,10 @@ def portal_dashboard():
             
             cliente_dict = dict(cliente)
             
+            # NOTA: Se mantiene la subconsulta de receipt_id para que el botón de QR siga funcionando
             cur.execute("""
-                SELECT p.*, b.status as bulk_status, b.expected_amount as bulk_expected_amount, b.currency as bulk_currency
+                SELECT p.*, b.status as bulk_status, b.expected_amount as bulk_expected_amount, b.currency as bulk_currency,
+                       (SELECT id FROM receipts r WHERE r.bulk_id = b.id LIMIT 1) as receipt_id
                 FROM pagos p
                 LEFT JOIN payment_bulks b ON p.bulk_id = b.id
                 WHERE p.cliente_id = %s AND p.estado_pago != 'Anulado'
@@ -7247,9 +7249,7 @@ def portal_dashboard():
             ordenes_pendientes_raw = cur.fetchall()
             ordenes_pendientes = [dict(orden) for orden in ordenes_pendientes_raw]
 
-            # --- INICIO DE LA CORRECCIÓN DE LÓGICA ---
-            # Se refina la condición para mostrar el botón de pago.
-            # No solo se verifica si hay órdenes pendientes, sino también si hay algún proceso que no esté conciliado.
+            # --- INICIO DE LA LÓGICA DE ESTADOS ---
             hay_proceso_activo = any(p['estado_general'] not in ['Conciliado', 'Anulado'] for p in lista_procesos)
             
             estado_principal = {}
@@ -7258,19 +7258,40 @@ def portal_dashboard():
                 inscripcion_total = cliente_dict.get('inscripcion_monto', Decimal('0.0')) or Decimal('0.0')
                 if inscripcion_pagada < inscripcion_total:
                     monto_restante = inscripcion_total - inscripcion_pagada
-                    estado_principal = { 'titulo': 'Completa tu Inscripción', 'mensaje': f"¡Bienvenido a Moto Plan! Para activar tu plan, por favor completa el pago de tu inscripción. Monto restante: ${monto_restante:,.2f}", 'boton_texto': 'Pagar Inscripción', 'boton_url': url_for('portal_pagar_inscripcion'), 'boton_activo': True }
-            elif cliente_dict.get('proceso') == 'INSCRITO' and not hay_proceso_activo:
-                estado_principal = { 'titulo': '¡Felicitaciones! Es hora de activar tu plan', 'mensaje': f"Tu inscripción ha sido completada. Para comenzar a sumar cuotas, realiza el pago de tu primera cuota por ${cliente_dict.get('valor_cuota', 0):,.2f}.", 'boton_texto': 'Pagar Primera Cuota', 'boton_url': url_for('portal_reportar_pago'), 'boton_activo': True }
+                    estado_principal = { 
+                        'titulo': 'Completa tu Inscripción', 
+                        'mensaje': f"¡Bienvenido a Moto Plan! Para activar tu plan, por favor completa el pago de tu inscripción. Monto restante: ${monto_restante:,.2f}", 
+                        'boton_texto': 'Pagar Inscripción', 
+                        'boton_url': url_for('portal_pagar_inscripcion'), 
+                        'boton_activo': True 
+                    }
             
+            # =================================================================================
+            # BLOQUE DE LOGICA: ORDEN DE PAGO - PRIMERA CUOTA DE ACTIVACIÓN
+            # =================================================================================
+            elif cliente_dict.get('estado_del_plan') == 'Inscrito' and not hay_proceso_activo:
+                monto_cuota = cliente_dict.get('valor_cuota', 0)
+                estado_principal = {
+                    'titulo': '🚀 ¡Felicidades! Tu inscripción está completada al 100%',
+                    'mensaje': f"Tu plan ha sido pre-activado con éxito. Para proceder con la <strong>Activación Total</strong> de tu contrato y comenzar formalmente tu planificación, el sistema ha generado tu <strong>Primera Cuota de Activación</strong> por un monto de <strong>${monto_cuota:,.2f}</strong>.<br><small class='text-slate-500'>*Nota: Esta cuota inicial de apertura no posee fecha de vencimiento ni se rige por el ciclo regular de cobranza.</small>",
+                    'boton_texto': '⚡ REPORTAR CUOTA DE ACTIVACIÓN',
+                    'boton_url': url_for('portal_reportar_pago'),
+                    'boton_activo': True
+                }
+            # --- FIN DE LA LÓGICA DE ESTADOS ---
+
+            # ⚠️ IMPORTANTE: Si tenías consultas de "cita_confirmada" o "ciclo_cobranza" antes del return, 
+            # asegúrate de que sigan estando en tu código original y no se hayan borrado al copiar.
             return render_template('portal_dashboard.html', 
                                    cliente=cliente_dict, 
                                    ordenes_pendientes=ordenes_pendientes,
                                    estado_principal=estado_principal,
-                                   # ... (otras variables que ya estaban) ...
+                                   # ... (Si tienes más variables como citas o gestiones, inclúyelas aquí) ...
                                    )
-            # --- FIN DE LA CORRECCIÓN DE LÓGICA ---
             
     except (psycopg2.Error, KeyError) as e:
+        import traceback
+        import logging
         error_trace = traceback.format_exc()
         logging.error(f"Error en portal_dashboard:\n{error_trace}")
         flash('Ocurrió un error inesperado al cargar tu portal.', 'error')
