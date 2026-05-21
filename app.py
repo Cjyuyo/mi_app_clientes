@@ -7252,6 +7252,9 @@ def portal_dashboard():
             # --- INICIO DE LA LÓGICA DE ESTADOS ---
             hay_proceso_activo = any(p['estado_general'] not in ['Conciliado', 'Anulado'] for p in lista_procesos)
             
+            # Calculamos las cuotas pagadas ANTES del if para que no rompa la estructura de Python
+            cuotas_pagadas = (cliente_dict.get('cuotas_pagadas_progresivas') or 0) + (cliente_dict.get('cuotas_pagadas_regresivas') or 0)
+            
             estado_principal = {}
             if cliente_dict.get('proceso') == 'RESERVA' and not hay_proceso_activo:
                 inscripcion_pagada = cliente_dict.get('inscripcion_pagada', Decimal('0.0')) or Decimal('0.0')
@@ -7269,7 +7272,7 @@ def portal_dashboard():
             # =================================================================================
             # BLOQUE DE LOGICA: ORDEN DE PAGO - PRIMERA CUOTA DE ACTIVACIÓN
             # =================================================================================
-            elif cliente_dict.get('estado_del_plan') == 'Inscrito' and not hay_proceso_activo:
+            elif cliente_dict.get('estado_del_plan') == 'Inscrito' and not hay_proceso_activo and cuotas_pagadas == 0:
                 monto_cuota = cliente_dict.get('valor_cuota', 0)
                 estado_principal = {
                     'titulo': '🚀 ¡Felicidades! Tu inscripción está completada al 100%',
