@@ -7249,12 +7249,26 @@ def portal_dashboard():
             ordenes_pendientes_raw = cur.fetchall()
             ordenes_pendientes = [dict(orden) for orden in ordenes_pendientes_raw]
 
-            # --- INICIO DE LA LÓGICA DE ESTADOS ---
+           # --- INICIO DE LA LÓGICA DE ESTADOS ---
             hay_proceso_activo = any(p['estado_general'] not in ['Conciliado', 'Anulado'] for p in lista_procesos)
             
-            # Calculamos las cuotas pagadas ANTES del if para que no rompa la estructura de Python
-            cuotas_pagadas = (cliente_dict.get('cuotas_pagadas_progresivas') or 0) + (cliente_dict.get('cuotas_pagadas_regresivas') or 0)
+            # Cálculos de cuotas y mora de forma segura
+            cuotas_pagadas = int(cliente_dict.get('cuotas_pagadas_progresivas') or 0) + int(cliente_dict.get('cuotas_pagadas_regresivas') or 0)
+            condicion_cliente = str(cliente_dict.get('condicion') or '').strip().title()
+            cuotas_en_mora = int(cliente_dict.get('cuotas_en_mora') or cliente_dict.get('cuotas_mora') or 0)
             
+            if condicion_cliente == 'Mora' and cuotas_en_mora == 0:
+                cuotas_en_mora = 1 # Fallback por si la BD no envía el número exacto
+                
+            monto_cuota = Decimal(str(cliente_dict.get('valor_cuota') or '0.0'))
+            
+            # Si la base de datos trae el monto en mora lo usamos, sino lo calculamos
+            monto_mora_raw = cliente_dict.get('monto_en_mora')
+            if monto_mora_raw:
+                monto_mora = Decimal(str(monto_mora_raw))
+            else:
+                monto_mora = Decimal(str(cuotas_en_mora)) * monto_cuota
+
             estado_principal = {}
             if cliente_dict.get('proceso') == 'RESERVA' and not hay_proceso_activo:
                 inscripcion_pagada = cliente_dict.get('inscripcion_pagada', Decimal('0.0')) or Decimal('0.0')
@@ -7270,14 +7284,35 @@ def portal_dashboard():
                     }
             
             # =================================================================================
-            # BLOQUE DE LOGICA: ORDEN DE PAGO - PRIMERA CUOTA DE ACTIVACIÓN
+            # BLOQUE DE LOGICA: ORDEN DE PAGO DINÁMICA (ACTIVACIÓN, MORA Y CICLO)
             # =================================================================================
-            elif cliente_dict.get('estado_del_plan') == 'Inscrito' and not hay_proceso_activo and cuotas_pagadas == 0:
-                monto_cuota = cliente_dict.get('valor_cuota', 0)
+            # 1. Cuota de Activación (Desaparece en cuanto cuotas_pagadas sea mayor a 0)
+            elif cliente_dict.get('estado_del_plan') == 'Inscrito' and cuotas_pagadas == 0 and not hay_proceso_activo:
                 estado_principal = {
                     'titulo': '🚀 ¡Felicidades! Tu inscripción está completada al 100%',
-                    'mensaje': f"Tu plan ha sido pre-activado con éxito. Para proceder con la <strong>Activación Total</strong> de tu contrato y comenzar formalmente tu planificación, el sistema ha generado tu <strong>Primera Cuota de Activación</strong> por un monto de <strong>${monto_cuota:,.2f}</strong>.<br><small class='text-slate-500'>*Nota: Esta cuota inicial de apertura no posee fecha de vencimiento ni se rige por el ciclo regular de cobranza.</small>",
-                    'boton_texto': '⚡ REPORTAR CUOTA DE ACTIVACIÓN',
+                    'mensaje': f"Tu plan ha sido pre-activado con éxito. Para proceder con la <strong>Activación Total</strong>, el sistema ha generado tu <strong>Primera Cuota de Activación</strong> por <strong>${monto_cuota:,.2f}</strong>.<br><small class='text-slate-500'>*Nota: Esta cuota inicial no posee fecha de vencimiento.</small>",
+                    'boton_texto': '⚡ PAGAR CUOTA DE ACTIVACIÓN',
+                    'boton_url': url_for('portal_reportar_pago'),
+                    'boton_activo': True
+                }
+                
+            # 2. Cliente en Mora (Contabiliza los meses caídos)
+            elif condicion_cliente == 'Mora' and not hay_proceso_activo:
+                estado_principal = {
+                    'titulo': f'🚨 Tienes {cuotas_en_mora} cuota(s) en mora',
+                    'mensaje': f"Tu cuenta presenta un atraso. El monto pendiente es de <strong>${monto_mora:,.2f}</strong>. Por favor, regulariza tu situación lo antes posible.",
+                    'boton_texto': 'PAGAR CUOTAS EN MORA',
+                    'boton_url': url_for('portal_reportar_pago'),
+                    'boton_activo': True
+                }
+                
+            # 3. Cuota Mensual Normal (Dentro de un ciclo activo)
+            # Usamos locals().get() por seguridad, en caso de que la variable se haya definido más arriba
+            elif locals().get('ciclo_cobranza_activo', False) and cuotas_pagadas > 0 and not hay_proceso_activo:
+                estado_principal = {
+                    'titulo': 'ℹ️ Tu Ciclo de Cobranza está Activo',
+                    'mensaje': f"Tienes una cuota mensual pendiente por <strong>${monto_cuota:,.2f}</strong>. Recuerda realizar tu pago antes de la fecha de corte.",
+                    'boton_texto': 'PAGAR CUOTA PENDIENTE',
                     'boton_url': url_for('portal_reportar_pago'),
                     'boton_activo': True
                 }
