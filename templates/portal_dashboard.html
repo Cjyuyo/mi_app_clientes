@@ -37,6 +37,7 @@
 
     {% set estado_actual = cliente.estado_del_plan|default('')|string|lower %}
     {% set is_inscripcion_pendiente = ('reserva' in estado_actual or 'formaliz' in estado_actual) %}
+    {% set is_primera_cuota_pendiente = ('inscrito' in estado_actual) %}
 
     {% if is_inscripcion_pendiente %}
         <div class="bg-amber-50 border-l-4 border-amber-500 p-5 rounded-r-xl shadow-sm">
@@ -68,7 +69,7 @@
         
         <div class="lg:col-span-2">
             {% set has_notifications = get_flashed_messages() or ordenes_pendientes or estado_principal or cita_confirmada or ciclo_cobranza_activo %}
-            {% set mostrar_caja_notificaciones = get_flashed_messages() or ordenes_pendientes or estado_principal or cita_confirmada or (ciclo_cobranza_activo and not is_inscripcion_pendiente) or (not is_inscripcion_pendiente) %}
+            {% set mostrar_caja_notificaciones = get_flashed_messages() or ordenes_pendientes or estado_principal or cita_confirmada or (ciclo_cobranza_activo and not is_inscripcion_pendiente and not is_primera_cuota_pendiente) or (not is_inscripcion_pendiente) %}
             
             {% if mostrar_caja_notificaciones %}
             <div class="bg-white rounded-xl shadow-md card-lift">
@@ -116,7 +117,7 @@
                     </div>
                     {% endif %}
                     
-                    {% if ciclo_cobranza_activo and not is_inscripcion_pendiente %}
+                    {% if ciclo_cobranza_activo and not is_inscripcion_pendiente and not is_primera_cuota_pendiente %}
                     <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-800 p-4 rounded-lg">
                         <h3 class="font-bold text-md flex items-center gap-2"><i class="bi bi-info-circle-fill"></i> Ciclo de Cobranza Activo</h3>
                         <p class="mt-2 mb-3 text-sm">Nuestro ciclo de cobranza ha comenzado. Realiza tus pagos para mantenerte al día.</p>
@@ -176,10 +177,10 @@
                 </div>
             </div>
              
-            {% if ciclo_cobranza_activo and not is_inscripcion_pendiente %}
+            {% if (ciclo_cobranza_activo and not is_inscripcion_pendiente) or is_primera_cuota_pendiente %}
             <div class="p-5 border-t border-slate-200 bg-slate-50/50 rounded-b-xl">
                  <a href="{{ url_for('portal_reportar_pago') }}" class="w-full text-center inline-block text-sm text-white font-semibold py-3 px-4 rounded-lg transition-colors bg-orange-500 hover:bg-orange-600 {% if hay_pago_pendiente_general %}opacity-50 cursor-not-allowed pointer-events-none{% endif %}">
-                    <i class="bi bi-send-plus-fill mr-1"></i> Reportar un Pago
+                    <i class="bi bi-rocket-takeoff-fill mr-1"></i> {% if is_primera_cuota_pendiente %}Pagar Cuota de Activación{% else %}Reportar un Pago{% endif %}
                 </a>
             </div>
             {% endif %}
@@ -275,16 +276,9 @@
                                     <i class="bi bi-eye-fill"></i> Detalles del Proceso
                                 </a>
                                 {% if proceso.estado_general == 'Conciliado' %}
-                                    {% set primer_pago = proceso.pagos[0] %}
-                                    {% if primer_pago.receipt_id %}
-                                        <a href="{{ url_for('ver_recibo_consolidado', receipt_id=primer_pago.receipt_id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-green-600 hover:text-green-700 border-l border-slate-300 pl-4">
-                                            <i class="bi bi-receipt"></i> Ver Recibo
-                                        </a>
-                                    {% else %}
-                                        <a href="{{ url_for('generar_recibo_pago', pago_id=primer_pago.id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-green-600 hover:text-green-700 border-l border-slate-300 pl-4">
-                                            <i class="bi bi-receipt"></i> Ver Recibo
-                                        </a>
-                                    {% endif %}
+                                    <a href="{{ url_for('generar_recibo_pago', pago_id=proceso.pagos[0].id) }}" target="_blank" class="text-xs font-semibold inline-flex items-center gap-1 text-green-600 hover:text-green-700 border-l border-slate-300 pl-4">
+                                        <i class="bi bi-receipt"></i> Ver Recibo Oficial
+                                    </a>
                                 {% endif %}
                             </div>
                             </div>
