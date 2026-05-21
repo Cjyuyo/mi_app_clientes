@@ -6595,7 +6595,7 @@ def registrar_pago(client_id):
             
     return render_template('registrar_pago.html', cliente=cliente, tasas_hoy=tasas_hoy)
 
-# --- LÓGICA DE CONCILIACIÓN (AHORA SIN APROBACIÓN AUTOMÁTICA) ---
+# --- LÓGICA DE CONCILIACIÓN (AHORA CON ACTIVACIÓN AUTOMÁTICA DE PLAN) ---
 @app.route('/conciliar_pago/<int:pago_id>', methods=['POST'])
 @admin_required
 def conciliar_pago(pago_id):
@@ -6606,8 +6606,6 @@ def conciliar_pago(pago_id):
             return
         try:
             with conn.cursor() as cur:
-                # La lógica interna de comisiones se asume correcta, pero nos aseguramos
-                # de que use el campo 'plan_contratado'.
                 plan_contratado = Decimal(cliente_info.get('plan_contratado', '0'))
                 # ... (resto de la lógica de cálculo de comisiones) ...
         except Exception as e:
@@ -6633,7 +6631,6 @@ def conciliar_pago(pago_id):
             cliente = cur.fetchone()
             cedula_cliente_para_redirect = cliente['cedula']
 
-            # Lógica de conciliación principal
             flash_msg = ""
             tipo_pago = pago_a_conciliar['tipo_pago']
 
@@ -6665,11 +6662,33 @@ def conciliar_pago(pago_id):
 
             elif tipo_pago in ['Cuota', 'Pago Oferta']:
                 if tipo_pago == 'Cuota':
-                     cur.execute(
-                        "UPDATE clientes SET cuotas_pagadas_progresivas = cuotas_pagadas_progresivas + 1 WHERE id = %s",
-                        (cliente['id'],)
-                    )
-                flash_msg = f"¡Pago de {pago_a_conciliar['tipo_pago']} de ${pago_a_conciliar['monto']} conciliado!"
+                    # Incrementamos y obtenemos el nuevo conteo de cuotas progresivas y regresivas
+                    cur.execute("""
+                        UPDATE clientes 
+                        SET cuotas_pagadas_progresivas = cuotas_pagadas_progresivas + 1 
+                        WHERE id = %s 
+                        RETURNING cuotas_pagadas_progresivas, cuotas_pagadas_regresivas, estado_del_plan;
+                    """, (cliente['id'],))
+                    res_cliente = cur.fetchone()
+                    
+                    total_cuotas = int(res_cliente['cuotas_pagadas_progresivas'] or 0) + int(res_cliente['cuotas_pagadas_regresivas'] or 0)
+                    flash_msg = f"¡Pago de Cuota de ${pago_a_conciliar['monto']} conciliado!"
+                    
+                    # =========================================================================
+                    # AUTOMATIZACIÓN: ASCENSO A AHORRADOR ACTIVO AL PAGAR LA PRIMERA CUOTA
+                    # =========================================================================
+                    estado_plan_upper = str(res_cliente['estado_del_plan'] or '').strip().upper()
+                    if estado_plan_upper == 'INSCRITO' and total_cuotas == 1:
+                        cur.execute("""
+                            UPDATE clientes 
+                            SET proceso = 'AHORRADOR', 
+                                estado_del_plan = 'ACTIVO', 
+                                condicion = 'Al Día' 
+                            WHERE id = %s;
+                        """, (cliente['id'],))
+                        flash_msg += " ¡Contrato activado con éxito! Cliente promovido a Ahorrador Activo."
+                else:
+                    flash_msg = f"¡Pago de {pago_a_conciliar['tipo_pago']} de ${pago_a_conciliar['monto']} conciliado!"
             
             # Actualiza el estado del pago a 'Conciliado'
             cur.execute(
@@ -6687,6 +6706,7 @@ def conciliar_pago(pago_id):
             
     except (psycopg2.Error, ValueError, TypeError, InvalidOperation) as e:
         if conn: conn.rollback()
+        import traceback
         logging.error(f"Error al conciliar el pago {pago_id}: {traceback.format_exc()}")
         flash(f'Ocurrió un error al conciliar el pago: {e}', 'error')
         if cedula_cliente_para_redirect:
