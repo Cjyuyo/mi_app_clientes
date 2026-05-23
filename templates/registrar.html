@@ -128,7 +128,7 @@
                         </div>
                     </div>
 
-                    <div class="glass-card p-6 border-l-4 border-l-orange-500">
+                    <div class="glass-card p-6">
                         <div class="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
                             <div class="w-8 h-8 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center"><i class="bi bi-heart-pulse-fill"></i></div>
                             <div>
@@ -193,64 +193,69 @@
                         </div>
                     </div>
 
-                    <div class="glass-card p-6 bg-slate-900 text-white border-none shadow-xl">
-                        <div class="flex items-center gap-3 mb-5 border-b border-slate-700 pb-4">
-                            <div class="w-8 h-8 rounded-lg bg-slate-800 text-emerald-400 flex items-center justify-center border border-slate-700"><i class="bi bi-calculator-fill"></i></div>
-                            <h3 class="text-base font-bold text-white">Estructura Financiera</h3>
-                        </div>
+                    <div class="relative p-6 rounded-[1.25rem] bg-slate-900/80 backdrop-blur-xl border border-slate-700/60 shadow-2xl text-white overflow-hidden">
+                        <div class="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-50 pointer-events-none"></div>
+                        <div class="absolute -top-12 -right-12 w-32 h-32 bg-orange-500/20 rounded-full blur-3xl pointer-events-none"></div>
                         
-                        <div class="space-y-4">
-                            <div>
-                                <label for="moneda_pago" class="label-premium text-slate-400">1. Instrumento de Pago</label>
-                                <select id="moneda_pago" name="moneda_pago" required class="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg p-2.5 focus:ring-orange-500 focus:border-orange-500 outline-none">
-                                    <option value="USD">Divisas Convertibles (USD)</option>
-                                    <option value="BsBCV">Moneda Nacional (Tasa BCV)</option>
-                                </select>
+                        <div class="relative z-10">
+                            <div class="flex items-center gap-3 mb-5 border-b border-slate-700/80 pb-4">
+                                <div class="w-8 h-8 rounded-lg bg-slate-800/80 backdrop-blur-md text-emerald-400 flex items-center justify-center border border-slate-600/50 shadow-sm"><i class="bi bi-calculator-fill"></i></div>
+                                <h3 class="text-base font-bold text-white tracking-tight">Estructura Financiera</h3>
                             </div>
                             
-                            <div class="grid grid-cols-2 gap-3">
+                            <div class="space-y-4">
                                 <div>
-                                    <label for="plan_contratado" class="label-premium text-slate-400">2. Monto Plan</label>
-                                    <select id="plan_contratado" name="plan_contratado" required class="w-full bg-white text-slate-900 font-bold text-sm rounded-lg p-2.5 border-0 focus:ring-2 focus:ring-orange-500 outline-none">
-                                        <option value="" disabled selected>Monto...</option>
-                                        <option value="1400">$1,400</option><option value="1500">$1,500</option><option value="1600">$1,600</option><option value="1700">$1,700</option><option value="1800">$1,800</option><option value="1900">$1,900</option><option value="2000">$2,000</option><option value="2200">$2,200</option><option value="2300">$2,300</option><option value="2400">$2,400</option><option value="2500">$2,500</option><option value="2600">$2,600</option><option value="2700">$2,700</option><option value="2800">$2,800</option><option value="2900">$2,900</option><option value="3200">$3,200</option><option value="3300">$3,300</option><option value="3500">$3,500</option><option value="3800">$3,800</option><option value="4500">$4,500</option><option value="5200">$5,200</option><option value="5600">$5,600</option><option value="5900">$5,900</option><option value="6300">$6,300</option>
+                                    <label for="moneda_pago" class="label-premium text-slate-400">1. Instrumento de Pago</label>
+                                    <select id="moneda_pago" name="moneda_pago" required class="w-full bg-slate-800/60 backdrop-blur-sm border border-slate-600/50 text-white text-sm rounded-lg p-2.5 focus:ring-orange-500 focus:border-orange-500 outline-none transition-colors">
+                                        <option value="USD" class="bg-slate-800">Divisas Convertibles (USD)</option>
+                                        <option value="BsBCV" class="bg-slate-800">Moneda Nacional (Tasa BCV)</option>
                                     </select>
                                 </div>
-                                <div>
-                                    <label for="cuotas_totales" class="label-premium text-slate-400">3. Plazo</label>
-                                    <select id="cuotas_totales" name="cuotas_totales" required class="w-full bg-slate-800 border border-slate-700 text-white font-medium text-sm rounded-lg p-2.5 focus:ring-orange-500 outline-none">
-                                        <option value="24">24 Meses</option>
-                                        <option value="36">36 Meses</option>
-                                        <option value="48">48 Meses</option>
-                                    </select>
+                                
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label for="plan_contratado" class="label-premium text-slate-400">2. Monto Plan</label>
+                                        <select id="plan_contratado" name="plan_contratado" required class="w-full bg-white text-slate-900 font-bold text-sm rounded-lg p-2.5 border-0 focus:ring-2 focus:ring-orange-500 outline-none shadow-sm">
+                                            <option value="" disabled selected>Monto...</option>
+                                            <option value="1400">$1,400</option><option value="1500">$1,500</option><option value="1600">$1,600</option><option value="1700">$1,700</option><option value="1800">$1,800</option><option value="1900">$1,900</option><option value="2000">$2,000</option><option value="2200">$2,200</option><option value="2300">$2,300</option><option value="2400">$2,400</option><option value="2500">$2,500</option><option value="2600">$2,600</option><option value="2700">$2,700</option><option value="2800">$2,800</option><option value="2900">$2,900</option><option value="3200">$3,200</option><option value="3300">$3,300</option><option value="3500">$3,500</option><option value="3800">$3,800</option><option value="4500">$4,500</option><option value="5200">$5,200</option><option value="5600">$5,600</option><option value="5900">$5,900</option><option value="6300">$6,300</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="cuotas_totales" class="label-premium text-slate-400">3. Plazo</label>
+                                        <select id="cuotas_totales" name="cuotas_totales" required class="w-full bg-slate-800/60 backdrop-blur-sm border border-slate-600/50 text-white font-medium text-sm rounded-lg p-2.5 focus:ring-orange-500 focus:border-orange-500 outline-none transition-colors">
+                                            <option value="24" class="bg-slate-800">24 Meses</option>
+                                            <option value="36" class="bg-slate-800">36 Meses</option>
+                                            <option value="48" class="bg-slate-800">48 Meses</option>
+                                        </select>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div class="p-3 bg-slate-800/50 rounded-xl border border-slate-700 space-y-2 mt-2">
-                                <div class="flex justify-between items-center">
-                                    <span class="text-xs text-slate-400 font-medium">Inscripción (13.93%)</span>
-                                    <div class="flex items-center gap-1">
-                                        <span class="text-slate-500 font-bold text-xs">$</span>
-                                        <input type="text" id="inscripcion_monto" name="inscripcion_monto" readonly class="bg-transparent border-0 text-white font-black text-right w-16 p-0 focus:ring-0">
+                                <div class="p-4 bg-white/5 backdrop-blur-md rounded-xl border border-white/10 space-y-2 mt-3 shadow-inner">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-xs text-slate-300 font-medium">Inscripción (13.93%)</span>
+                                        <div class="flex items-center gap-1">
+                                            <span class="text-slate-400 font-bold text-xs">$</span>
+                                            <input type="text" id="inscripcion_monto" name="inscripcion_monto" readonly class="bg-transparent border-0 text-white font-black text-right w-16 p-0 focus:ring-0">
+                                        </div>
+                                    </div>
+                                    <div class="flex justify-between items-center border-t border-white/10 pt-2">
+                                        <span class="text-xs text-emerald-400 font-bold uppercase tracking-wider">Cuota Mensual</span>
+                                        <div class="flex items-center gap-1">
+                                            <span class="text-emerald-500 font-bold text-xs">$</span>
+                                            <input type="text" id="valor_cuota" name="valor_cuota" readonly class="bg-transparent border-0 text-emerald-400 font-black text-right w-16 p-0 focus:ring-0 text-lg">
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="flex justify-between items-center border-t border-slate-700/50 pt-2">
-                                    <span class="text-xs text-emerald-400 font-bold uppercase tracking-wider">Cuota Mensual</span>
-                                    <div class="flex items-center gap-1">
-                                        <span class="text-emerald-500 font-bold text-xs">$</span>
-                                        <input type="text" id="valor_cuota" name="valor_cuota" readonly class="bg-transparent border-0 text-emerald-400 font-black text-right w-16 p-0 focus:ring-0 text-lg">
+                                
+                                <div class="grid grid-cols-2 gap-3 pt-3">
+                                    <div>
+                                        <label for="numero_contrato" class="label-premium text-slate-400">Nº Contrato</label>
+                                        <input type="text" id="numero_contrato" name="numero_contrato" value="{{ numero_contrato_siguiente_sugerido or '' }}" readonly class="w-full bg-slate-900/50 border border-slate-700/50 text-slate-400 text-xs font-mono rounded p-2 text-center shadow-inner">
                                     </div>
-                                </div>
-                            </div>
-                            
-                            <div class="grid grid-cols-2 gap-3 pt-2">
-                                <div>
-                                    <label for="numero_contrato" class="label-premium text-slate-400">Nº Contrato</label>
-                                    <input type="text" id="numero_contrato" name="numero_contrato" value="{{ numero_contrato_siguiente_sugerido or '' }}" readonly class="w-full bg-slate-800/50 border border-slate-700/50 text-slate-300 text-xs font-mono rounded p-2 text-center">
-                                </div>
-                                <div>
-                                    <label for="grupo" class="label-premium text-slate-400">Nº Grupo</label>
-                                    <input type="number" id="grupo" name="grupo" class="w-full bg-slate-800 border border-slate-700 text-white text-xs font-mono rounded p-2 text-center focus:ring-1 focus:ring-orange-500 focus:outline-none">
+                                    <div>
+                                        <label for="grupo" class="label-premium text-slate-400">Nº Grupo</label>
+                                        <input type="number" id="grupo" name="grupo" class="w-full bg-slate-800/60 backdrop-blur-sm border border-slate-600/50 text-white text-xs font-mono rounded p-2 text-center focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors">
+                                    </div>
                                 </div>
                             </div>
                         </div>
