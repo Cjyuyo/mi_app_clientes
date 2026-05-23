@@ -5,146 +5,175 @@
 {% block page_title %}Hub Principal{% endblock %}
 
 {% block body %}
-<div class="space-y-6 lg:space-y-8">
+<div class="space-y-6 lg:space-y-8 mb-8">
 
-    <div class="bg-slate-800 text-white p-5 rounded-xl shadow-lg relative overflow-hidden">
-        <div class="flex items-center gap-4">
-            <div class="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-full bg-slate-700">
-                <i class="bi bi-rocket-takeoff-fill text-2xl text-orange-400"></i>
-            </div>
-            <div>
-                <h2 class="text-xl font-bold">¡Bienvenido de nuevo, {{ g.admin.usuario }}!</h2>
-                <p class="text-sm text-slate-300">Aquí tienes un resumen de la actividad reciente.</p>
-            </div>
+    <div class="bg-slate-900 rounded-2xl shadow-sm border border-slate-800 p-6 sm:p-8 relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center gap-6">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-slate-800 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
+        
+        <div class="flex-shrink-0 w-14 h-14 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center relative z-10 shadow-inner">
+            <i class="bi bi-rocket-takeoff-fill text-xl text-orange-500"></i>
+        </div>
+        <div class="relative z-10">
+            <h2 class="text-2xl font-bold text-white tracking-tight">¡Bienvenido de nuevo, {{ g.admin.usuario }}!</h2>
+            <p class="text-slate-400 text-sm mt-1">Aquí tienes el resumen operativo y financiero de hoy.</p>
         </div>
     </div>
 
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <div class="bg-white p-4 md:p-5 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-            <div class="flex justify-between items-center">
-                <div class="space-y-1">
-                    <p class="text-sm font-semibold text-slate-500">Clientes en Cartera</p>
-                    <p class="text-2xl lg:text-3xl font-bold text-slate-800">{{ stats.clientes_cartera | default('0') }}</p>
-                </div>
-                <div class="w-12 h-12 flex items-center justify-center rounded-full bg-blue-100 text-blue-600">
-                    <i class="bi bi-people-fill text-2xl"></i>
-                </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-center relative overflow-hidden transition-all hover:border-slate-300">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100/50"><i class="bi bi-people-fill"></i></div>
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Clientes en Cartera</p>
             </div>
+            <p class="text-3xl font-black text-slate-900 tracking-tight">{{ stats.clientes_cartera | default('0') }}</p>
         </div>
         
         {% if g.admin.rol in ['superadmin', 'gerente'] %}
-        <div class="bg-white p-4 md:p-5 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-            <div class="flex justify-between items-center">
-                <div class="space-y-1">
-                    <p class="text-sm font-semibold text-slate-500">Recaudado Mes</p>
-                    <p class="text-2xl lg:text-3xl font-bold text-slate-800">${{ "%.2f"|format(stats.recaudado_mes) if stats.recaudado_mes is not none else '0.00' }}</p>
-                </div>
-                <div class="w-12 h-12 flex items-center justify-center rounded-full bg-green-100 text-green-600">
-                    <i class="bi bi-cash-stack text-2xl"></i>
-                </div>
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-center relative overflow-hidden transition-all hover:border-slate-300">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100/50"><i class="bi bi-cash-stack"></i></div>
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Recaudado Mes</p>
             </div>
+            <p class="text-3xl font-black text-slate-900 tracking-tight">${{ "%.2f"|format(stats.recaudado_mes) if stats.recaudado_mes is not none else '0.00' }}</p>
         </div>
         {% endif %}
 
-        <div class="bg-white p-4 md:p-5 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-            <div class="flex justify-between items-center">
-                <div class="space-y-1">
-                    <p class="text-sm font-semibold text-slate-500">Solicitudes</p>
-                    <p class="text-2xl lg:text-3xl font-bold text-slate-800">{{ stats.solicitudes_pendientes | default('0') }}</p>
-                </div>
-                <div class="w-12 h-12 flex items-center justify-center rounded-full bg-orange-100 text-orange-600">
-                    <i class="bi bi-clipboard2-check-fill text-2xl"></i>
-                </div>
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-center relative overflow-hidden transition-all hover:border-slate-300">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-100/50"><i class="bi bi-clipboard2-check-fill"></i></div>
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Solicitudes</p>
             </div>
+            <p class="text-3xl font-black text-slate-900 tracking-tight">{{ stats.solicitudes_pendientes | default('0') }}</p>
         </div>
-        <div class="bg-white p-4 md:p-5 rounded-xl shadow-md border border-slate-200/80 hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-            <div class="flex justify-between items-center">
-                <div class="space-y-1">
-                    <p class="text-sm font-semibold text-slate-500">Tasa BCV</p>
-                    <p class="text-2xl lg:text-3xl font-bold text-slate-800 whitespace-nowrap">{{ stats.tasa_bcv | default('N/A') }}</p>
-                </div>
-                <div class="w-12 h-12 flex items-center justify-center rounded-full bg-purple-100 text-purple-600">
-                    <i class="bi bi-graph-up-arrow text-2xl"></i>
-                </div>
+
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-center relative overflow-hidden transition-all hover:border-slate-300">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100/50"><i class="bi bi-graph-up-arrow"></i></div>
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tasa BCV</p>
             </div>
+            <p class="text-3xl font-black text-slate-900 tracking-tight">{{ stats.tasa_bcv | default('N/A') }} <span class="text-sm font-semibold text-slate-500 ml-1">Bs</span></p>
         </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-2 bg-white p-5 rounded-xl shadow-md border border-slate-200/80">
-            <h2 class="text-lg font-bold text-slate-800 mb-4">Centro de Operaciones</h2>
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <a href="{{ url_for('reportes_por_revisar') }}" class="relative group bg-slate-50 p-4 rounded-lg hover:bg-red-50 hover:border-red-200 border border-transparent transition-all text-center">
-                    {% if stats.reportes_pendientes and stats.reportes_pendientes > 0 %}
-                    <span class="absolute -top-2 -right-2 flex h-6 w-6">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-6 w-6 bg-red-600 text-white items-center justify-center text-xs font-bold shadow-lg">{{ stats.reportes_pendientes }}</span>
-                    </span>
-                    {% endif %}
-                    <i class="bi bi-journal-check text-3xl text-red-500 mb-2"></i>
-                    <span class="text-sm font-semibold text-slate-700 block">Revisar Reportes</span>
-                </a>
+        <div class="lg:col-span-2 space-y-4">
+            <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-2 border-b border-slate-200 pb-2">Centro de Operaciones</h2>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 
-                <a href="{{ url_for('pagos_por_conciliar') }}" class="relative group bg-slate-50 p-4 rounded-lg hover:bg-green-50 hover:border-green-200 border border-transparent transition-all text-center">
-                    {% if stats.pagos_por_conciliar and stats.pagos_por_conciliar > 0 %}
-                    <span class="absolute -top-2 -right-2 flex h-6 w-6">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-6 w-6 bg-red-600 text-white items-center justify-center text-xs font-bold shadow-lg">{{ stats.pagos_por_conciliar }}</span>
-                    </span>
+                <a href="{{ url_for('reportes_por_revisar') }}" class="group flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:border-rose-300 hover:shadow-md transition-all relative overflow-hidden">
+                    {% if stats.reportes_pendientes and stats.reportes_pendientes > 0 %}
+                    <div class="absolute top-4 right-4 flex items-center">
+                        <span class="relative flex h-5 min-w-[1.25rem] px-1.5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-sm">
+                            <span class="animate-ping absolute inset-0 rounded-full bg-rose-400 opacity-75"></span>
+                            <span class="relative">{{ stats.reportes_pendientes }}</span>
+                        </span>
+                    </div>
                     {% endif %}
-                    <i class="bi bi-patch-check-fill text-3xl text-green-500 mb-2"></i>
-                    <span class="text-sm font-semibold text-slate-700 block">Conciliar Pagos</span>
+                    <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-slate-50 text-slate-500 border border-slate-200 flex items-center justify-center group-hover:bg-rose-50 group-hover:text-rose-600 group-hover:border-rose-200 transition-colors">
+                        <i class="bi bi-journal-check text-xl"></i>
+                    </div>
+                    <div class="pt-1">
+                        <p class="text-sm font-bold text-slate-800 tracking-tight mb-0.5">Revisar Reportes</p>
+                        <p class="text-xs text-slate-500">Auditar pagos reportados por clientes.</p>
+                    </div>
                 </a>
 
-                <a href="{{ url_for('solicitudes_hub') }}" class="relative group bg-slate-50 p-4 rounded-lg hover:bg-purple-50 hover:border-purple-200 border border-transparent transition-all text-center">
-                    {% if stats.solicitudes_pendientes > 0 %}<span class="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-purple-500 text-xs font-bold text-white shadow">{{ stats.solicitudes_pendientes }}</span>{% endif %}
-                    <i class="bi bi-inbox-fill text-3xl text-purple-500 mb-2"></i>
-                    <span class="text-sm font-semibold text-slate-700 block">Gestionar Solicitudes</span>
+                <a href="{{ url_for('pagos_por_conciliar') }}" class="group flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all relative overflow-hidden">
+                    {% if stats.pagos_por_conciliar and stats.pagos_por_conciliar > 0 %}
+                    <div class="absolute top-4 right-4 flex items-center">
+                        <span class="relative flex h-5 min-w-[1.25rem] px-1.5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-sm">
+                            <span class="animate-ping absolute inset-0 rounded-full bg-rose-400 opacity-75"></span>
+                            <span class="relative">{{ stats.pagos_por_conciliar }}</span>
+                        </span>
+                    </div>
+                    {% endif %}
+                    <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-slate-50 text-slate-500 border border-slate-200 flex items-center justify-center group-hover:bg-emerald-50 group-hover:text-emerald-600 group-hover:border-emerald-200 transition-colors">
+                        <i class="bi bi-patch-check-fill text-xl"></i>
+                    </div>
+                    <div class="pt-1">
+                        <p class="text-sm font-bold text-slate-800 tracking-tight mb-0.5">Conciliar Pagos</p>
+                        <p class="text-xs text-slate-500">Ingreso definitivo a la caja.</p>
+                    </div>
                 </a>
-                <a href="{{ url_for('solicitudes_hub') }}" class="relative group bg-slate-50 p-4 rounded-lg hover:bg-purple-50 hover:border-purple-200 border border-transparent transition-all text-center">
-                    {% if stats.solicitudes_pendientes > 0 %}<span class="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-purple-500 text-xs font-bold text-white shadow">{{ stats.solicitudes_pendientes }}</span>{% endif %}
-                    <i class="bi bi-inbox-fill text-3xl text-purple-500 mb-2"></i>
-                    <span class="text-sm font-semibold text-slate-700 block">Gestionar Solicitudes</span>
+
+                <a href="{{ url_for('solicitudes_hub') }}" class="group flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:border-indigo-300 hover:shadow-md transition-all relative overflow-hidden">
+                    {% if stats.solicitudes_pendientes and stats.solicitudes_pendientes > 0 %}
+                    <div class="absolute top-4 right-4 flex items-center">
+                        <span class="relative flex h-5 min-w-[1.25rem] px-1.5 items-center justify-center rounded-full bg-indigo-500 text-[10px] font-bold text-white shadow-sm">
+                            <span class="relative">{{ stats.solicitudes_pendientes }}</span>
+                        </span>
+                    </div>
+                    {% endif %}
+                    <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-slate-50 text-slate-500 border border-slate-200 flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:border-indigo-200 transition-colors">
+                        <i class="bi bi-inbox-fill text-xl"></i>
+                    </div>
+                    <div class="pt-1">
+                        <p class="text-sm font-bold text-slate-800 tracking-tight mb-0.5">Gestionar Solicitudes</p>
+                        <p class="text-xs text-slate-500">Citas, retiros y congelamientos.</p>
+                    </div>
                 </a>
-                <a href="{{ url_for('registrar') }}" class="group bg-slate-50 p-4 rounded-lg hover:bg-blue-50 hover:border-blue-200 border border-transparent transition-all text-center">
-                    <i class="bi bi-person-plus-fill text-3xl text-blue-500 mb-2"></i>
-                    <span class="text-sm font-semibold text-slate-700 block">Registrar Cliente</span>
+
+                <a href="{{ url_for('registrar') }}" class="group flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:border-blue-300 hover:shadow-md transition-all relative overflow-hidden">
+                    <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-slate-50 text-slate-500 border border-slate-200 flex items-center justify-center group-hover:bg-blue-50 group-hover:text-blue-600 group-hover:border-blue-200 transition-colors">
+                        <i class="bi bi-person-plus-fill text-xl"></i>
+                    </div>
+                    <div class="pt-1">
+                        <p class="text-sm font-bold text-slate-800 tracking-tight mb-0.5">Registrar Cliente</p>
+                        <p class="text-xs text-slate-500">Apertura de nuevos contratos.</p>
+                    </div>
                 </a>
-                <a href="{{ url_for('admin_tasa_bcv') }}" class="group bg-slate-50 p-4 rounded-lg hover:bg-cyan-50 hover:border-cyan-200 border border-transparent transition-all text-center">
-                    <i class="bi bi-coin text-3xl text-cyan-500 mb-2"></i>
-                    <span class="text-sm font-semibold text-slate-700 block">Gestionar Tasa</span>
+
+                <a href="{{ url_for('admin_tasa_bcv') }}" class="group flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:border-sky-300 hover:shadow-md transition-all relative overflow-hidden">
+                    <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-slate-50 text-slate-500 border border-slate-200 flex items-center justify-center group-hover:bg-sky-50 group-hover:text-sky-600 group-hover:border-sky-200 transition-colors">
+                        <i class="bi bi-coin text-xl"></i>
+                    </div>
+                    <div class="pt-1">
+                        <p class="text-sm font-bold text-slate-800 tracking-tight mb-0.5">Gestionar Tasa BCV</p>
+                        <p class="text-xs text-slate-500">Actualización del valor oficial.</p>
+                    </div>
                 </a>
-                <a href="{{ url_for('reporte_morosidad') }}" class="group bg-slate-50 p-4 rounded-lg hover:bg-teal-50 hover:border-teal-200 border border-transparent transition-all text-center">
-                    <i class="bi bi-file-earmark-excel-fill text-3xl text-teal-500 mb-2"></i>
-                    <span class="text-sm font-semibold text-slate-700 block">Ver Morosidad</span>
+
+                <a href="{{ url_for('reporte_morosidad') }}" class="group flex items-start gap-4 p-4 rounded-xl bg-white border border-slate-200/80 shadow-sm hover:border-teal-300 hover:shadow-md transition-all relative overflow-hidden">
+                    <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-slate-50 text-slate-500 border border-slate-200 flex items-center justify-center group-hover:bg-teal-50 group-hover:text-teal-600 group-hover:border-teal-200 transition-colors">
+                        <i class="bi bi-file-earmark-excel-fill text-xl"></i>
+                    </div>
+                    <div class="pt-1">
+                        <p class="text-sm font-bold text-slate-800 tracking-tight mb-0.5">Ver Morosidad</p>
+                        <p class="text-xs text-slate-500">Cartera de clientes atrasados.</p>
+                    </div>
                 </a>
+
             </div>
         </div>
 
-        <div class="lg:col-span-1 bg-white p-5 rounded-xl shadow-md border border-slate-200/80" x-data="teamWidget()">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-bold text-slate-800">Equipo en Tiempo Real</h2>
+        <div class="lg:col-span-1 space-y-4" x-data="teamWidget()">
+            <h2 class="text-sm font-bold text-slate-800 uppercase tracking-wider mb-2 border-b border-slate-200 pb-2 flex justify-between items-center">
+                Equipo Activo
                 <div class="relative">
-                    <select @change="updateStatus($event.target.value)" class="text-xs font-semibold pl-3 pr-8 py-1.5 rounded-full bg-slate-100 text-slate-600 border-transparent focus:ring-2 focus:ring-orange-500 focus:outline-none appearance-none">
+                    <select @change="updateStatus($event.target.value)" class="text-[10px] font-bold uppercase tracking-wider pl-2 pr-6 py-1 rounded-md bg-slate-100 text-slate-600 border-transparent focus:ring-2 focus:ring-slate-400 focus:outline-none appearance-none cursor-pointer shadow-sm">
                         <option value="Disponible">🟢 Disponible</option>
                         <option value="Reunion">🔵 Reunión</option>
                         <option value="Descanso">🟡 Descanso</option>
                         <option value="Ocupado">🔴 Ocupado</option>
                     </select>
-                    <i class="bi bi-chevron-down absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs pointer-events-none"></i>
+                    <i class="bi bi-chevron-down absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none"></i>
                 </div>
-            </div>
+            </h2>
             
-            <div id="active-sessions-list" class="space-y-3">
-                {% for i in range(1, 4) %}
-                <div class="flex items-center justify-between p-2 animate-pulse">
-                    <div class="flex items-center gap-3">
-                        <div class="w-3 h-3 bg-slate-200 rounded-full"></div>
-                        <div><div class="h-4 w-24 bg-slate-200 rounded"></div></div>
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200/80 overflow-hidden">
+                <div id="active-sessions-list" class="divide-y divide-slate-100">
+                    {% for i in range(1, 4) %}
+                    <div class="flex items-center justify-between p-4 animate-pulse">
+                        <div class="flex items-center gap-3">
+                            <div class="w-2.5 h-2.5 bg-slate-200 rounded-full"></div>
+                            <div><div class="h-3 w-20 bg-slate-200 rounded"></div></div>
+                        </div>
+                        <div class="h-2 w-12 bg-slate-200 rounded"></div>
                     </div>
-                    <div class="h-3 w-16 bg-slate-200 rounded"></div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
             </div>
         </div>
     </div>
@@ -158,14 +187,14 @@
             sessionsList: document.getElementById('active-sessions-list'),
             getStatusInfo(status, isOnline) {
                 if (!isOnline) {
-                    return { icon: '<span class="w-3 h-3 bg-slate-400 rounded-full" title="Desconectado"></span>', text: 'Desconectado', textColor: 'text-slate-500' };
+                    return { icon: '<span class="w-2.5 h-2.5 bg-slate-300 rounded-full shadow-inner" title="Desconectado"></span>', text: 'Desconectado', textColor: 'text-slate-400' };
                 }
                 const statuses = {
-                    'Disponible': { icon: '<span class="w-3 h-3 bg-green-500 rounded-full" title="Disponible"></span>', text: 'Disponible', textColor: 'text-green-600' },
-                    'Ocupado': { icon: '<span class="w-3 h-3 bg-red-500 rounded-full" title="Ocupado"></span>', text: 'Ocupado', textColor: 'text-red-600' },
-                    'Reunion': { icon: '<span class="w-3 h-3 bg-blue-500 rounded-full" title="Reunión"></span>', text: 'Reunión', textColor: 'text-blue-600' },
-                    'Descanso': { icon: '<span class="w-3 h-3 bg-yellow-400 rounded-full" title="Descanso"></span>', text: 'Descanso', textColor: 'text-yellow-600' },
-                    'default': { icon: '<span class="w-3 h-3 bg-slate-400 rounded-full" title="Desconectado"></span>', text: 'Desconectado', textColor: 'text-slate-500' }
+                    'Disponible': { icon: '<span class="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-sm ring-2 ring-emerald-100" title="Disponible"></span>', text: 'Disponible', textColor: 'text-emerald-600' },
+                    'Ocupado': { icon: '<span class="w-2.5 h-2.5 bg-rose-500 rounded-full shadow-sm ring-2 ring-rose-100" title="Ocupado"></span>', text: 'Ocupado', textColor: 'text-rose-600' },
+                    'Reunion': { icon: '<span class="w-2.5 h-2.5 bg-blue-500 rounded-full shadow-sm ring-2 ring-blue-100" title="Reunión"></span>', text: 'Reunión', textColor: 'text-blue-600' },
+                    'Descanso': { icon: '<span class="w-2.5 h-2.5 bg-amber-400 rounded-full shadow-sm ring-2 ring-amber-100" title="Descanso"></span>', text: 'Descanso', textColor: 'text-amber-600' },
+                    'default': { icon: '<span class="w-2.5 h-2.5 bg-slate-300 rounded-full shadow-inner" title="Desconectado"></span>', text: 'Desconectado', textColor: 'text-slate-400' }
                 };
                 return statuses[status] || statuses['default'];
             },
@@ -174,9 +203,8 @@
                     const response = await fetch("{{ url_for('get_active_sessions') }}");
                     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                     const users = await response.json();
-                    
                     if (!users || users.length === 0) {
-                        this.sessionsList.innerHTML = '<div class="text-center text-slate-500 py-4 text-sm">No hay usuarios para mostrar.</div>';
+                        this.sessionsList.innerHTML = '<div class="text-center text-slate-400 py-6 text-xs font-semibold">No hay usuarios en línea.</div>';
                         return;
                     }
 
@@ -187,14 +215,12 @@
                         const lastSeenText = isEffectivelyOnline ? text : user.last_seen;
                         
                         return `
-                            <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                            <div class="flex items-center justify-between p-3.5 hover:bg-slate-50 transition-colors">
                                 <div class="flex items-center gap-3">
                                     ${icon}
-                                    <div>
-                                        <span class="font-semibold text-sm text-slate-700">${user.username}</span>
-                                        </div>
+                                    <span class="font-bold text-sm text-slate-700 tracking-tight">${user.username}</span>
                                 </div>
-                                <small class="text-xs font-medium ${textColor}">${lastSeenText}</small>
+                                <small class="text-[10px] uppercase font-bold tracking-wider ${textColor}">${lastSeenText}</small>
                             </div>
                         `;
                     }).join('');
@@ -205,7 +231,7 @@
 
                 } catch (error) {
                     console.error('Error fetching active sessions:', error);
-                    this.sessionsList.innerHTML = '<div class="text-center text-red-500 py-4 text-sm">Error al cargar sesiones.</div>';
+                    this.sessionsList.innerHTML = '<div class="text-center text-rose-500 py-6 text-xs font-semibold">Error al cargar equipo.</div>';
                 }
             },
             async updateStatus(newStatus) {
