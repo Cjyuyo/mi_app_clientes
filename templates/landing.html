@@ -59,8 +59,8 @@
 
     <nav id="navbar" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 py-4 border-b border-transparent">
         <div class="container mx-auto px-6 max-w-7xl flex justify-between items-center">
-            <a href="#" class="relative z-10 flex items-center">
-                <img id="navbar-logo" src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan Motors" class="w-56 md:w-72 h-auto drop-shadow-lg transition-all duration-300 origin-left">
+            <a href="#" class="relative z-10 flex items-center h-14 md:h-16">
+                <img id="navbar-logo" src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan Motors" class="w-52 md:w-72 h-full object-contain object-left drop-shadow-lg transition-all duration-300">
             </a>
             
             <div class="flex items-center gap-8">
@@ -422,15 +422,17 @@
                     nav.classList.add('bg-[#0B1121]/95', 'backdrop-blur-md', 'border-slate-800', 'shadow-lg');
                     nav.classList.remove('border-transparent', 'py-4');
                     nav.classList.add('py-2.5');
-                    // Encoge el logo suavemente al hacer scroll
-                    logo.classList.remove('w-56', 'md:w-72');
-                    logo.classList.add('w-44', 'md:w-56');
+                    
+                    // Encoge sutilmente el logo al bajar
+                    logo.classList.remove('w-52', 'md:w-72');
+                    logo.classList.add('w-44', 'md:w-60');
                 } else {
                     nav.classList.remove('bg-[#0B1121]/95', 'backdrop-blur-md', 'border-slate-800', 'shadow-lg', 'py-2.5');
                     nav.classList.add('border-transparent', 'py-4');
-                    // Vuelve a poner el logo gigante arriba
-                    logo.classList.remove('w-44', 'md:w-56');
-                    logo.classList.add('w-56', 'md:w-72');
+                    
+                    // Restaura el tamaño gigante al estar arriba
+                    logo.classList.remove('w-44', 'md:w-60');
+                    logo.classList.add('w-52', 'md:w-72');
                 }
             });
 
