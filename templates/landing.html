@@ -59,8 +59,9 @@
 
     <nav id="navbar" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 py-4 border-b border-transparent">
         <div class="container mx-auto px-6 max-w-7xl flex justify-between items-center">
-            <a href="#" class="relative z-10 flex items-center h-14 md:h-16">
-                <img id="navbar-logo" src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan Motors" class="w-52 md:w-72 h-full object-contain object-left drop-shadow-lg transition-all duration-300">
+            
+            <a href="#" id="logo-container" class="relative z-10 block h-12 md:h-14 w-56 md:w-72 overflow-hidden transition-all duration-300">
+                <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan Motors" class="absolute top-1/2 left-0 -translate-y-1/2 w-[110%] sm:w-[130%] max-w-none drop-shadow-lg">
             </a>
             
             <div class="flex items-center gap-8">
@@ -416,23 +417,23 @@
 
             // Navbar inteligente (Glassmorphism on scroll)
             const nav = document.getElementById('navbar');
-            const logo = document.getElementById('navbar-logo');
+            const logoContainer = document.getElementById('logo-container');
             window.addEventListener('scroll', () => {
                 if (window.scrollY > 50) {
                     nav.classList.add('bg-[#0B1121]/95', 'backdrop-blur-md', 'border-slate-800', 'shadow-lg');
                     nav.classList.remove('border-transparent', 'py-4');
                     nav.classList.add('py-2.5');
                     
-                    // Encoge sutilmente el logo al bajar
-                    logo.classList.remove('w-52', 'md:w-72');
-                    logo.classList.add('w-44', 'md:w-60');
+                    // Encogemos la "ventana" contenedora al bajar
+                    logoContainer.classList.remove('h-12', 'md:h-14', 'w-56', 'md:w-72');
+                    logoContainer.classList.add('h-10', 'md:h-12', 'w-44', 'md:w-56');
                 } else {
                     nav.classList.remove('bg-[#0B1121]/95', 'backdrop-blur-md', 'border-slate-800', 'shadow-lg', 'py-2.5');
                     nav.classList.add('border-transparent', 'py-4');
                     
-                    // Restaura el tamaño gigante al estar arriba
-                    logo.classList.remove('w-44', 'md:w-60');
-                    logo.classList.add('w-52', 'md:w-72');
+                    // Restauramos el tamaño grande al estar arriba
+                    logoContainer.classList.remove('h-10', 'md:h-12', 'w-44', 'md:w-56');
+                    logoContainer.classList.add('h-12', 'md:h-14', 'w-56', 'md:w-72');
                 }
             });
 
