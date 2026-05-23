@@ -14,28 +14,31 @@
 
     <style>
         :root {
-            --color-azul-corp: #2B3A55;
             --color-naranja-corp: #F99417;
         }
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f8fafc;
         }
+        /* --- ESTILO FINTECH PARA EL MENÚ LATERAL --- */
         .sidebar-link {
-            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-            border-left: 3px solid transparent;
+            transition: all 0.2s ease;
         }
         .sidebar-link:hover {
-            background-color: rgba(255, 255, 255, 0.05);
-            border-left-color: var(--color-naranja-corp);
+            background-color: rgba(255, 255, 255, 0.06);
+            color: #ffffff;
         }
         .sidebar-link.active {
-            background-color: var(--color-naranja-corp);
+            background-color: rgba(255, 255, 255, 0.12); /* Fondo traslúcido elegante */
             color: #ffffff;
             font-weight: 600;
-            border-left-color: var(--color-naranja-corp);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); /* Brillo sutil superior */
         }
-        .sidebar-link.active i { color: #ffffff; }
+        .sidebar-link.active i { 
+            color: var(--color-naranja-corp); /* Solo el ícono brilla en naranja */
+            filter: drop-shadow(0 0 8px rgba(249, 148, 23, 0.4));
+        }
+        
         [x-cloak] { display: none !important; }
 
         @media (min-width: 768px) {
@@ -46,15 +49,15 @@
                 left: 0;
                 width: 100%;
                 height: 100%;
-                background: radial-gradient(circle at 15% 25%, rgba(43, 58, 85, 0.08), transparent 40%),
-                            radial-gradient(circle at 85% 75%, rgba(249, 148, 23, 0.06), transparent 40%);
+                background: radial-gradient(circle at 15% 25%, rgba(43, 58, 85, 0.04), transparent 40%),
+                            radial-gradient(circle at 85% 75%, rgba(249, 148, 23, 0.03), transparent 40%);
                 z-index: -1;
                 animation: subtle-pan 40s linear infinite alternate;
                 will-change: transform;
             }
             @keyframes subtle-pan {
-                from { transform: translate(-10%, -5%); }
-                to { transform: translate(10%, 5%); }
+                from { transform: translate(-5%, -5%); }
+                to { transform: translate(5%, 5%); }
             }
         }
         @keyframes spin {
@@ -68,14 +71,15 @@
     </style>
     {% block head_extra %}{% endblock %}
 </head>
-<body x-data="{ sidebarOpen: false, mobileSearchOpen: false }" class="bg-slate-100">
+<body x-data="{ sidebarOpen: false, mobileSearchOpen: false }" class="bg-slate-50 text-slate-800 antialiased selection:bg-orange-200 selection:text-orange-900">
 
-    <div class="flex h-screen">
+    <div class="flex h-screen overflow-hidden">
+        
         <aside 
             x-show="sidebarOpen" 
             @click.away="sidebarOpen = false"
             x-cloak
-            class="fixed inset-y-0 left-0 bg-slate-900 text-white w-64 flex-shrink-0 flex flex-col z-40 transform md:hidden border-r border-slate-700"
+            class="fixed inset-y-0 left-0 bg-[#0B1121] text-white w-72 flex-shrink-0 flex flex-col z-50 transform md:hidden border-r border-slate-800 shadow-2xl"
             x-transition:enter="transition ease-out duration-300"
             x-transition:enter-start="-translate-x-full"
             x-transition:enter-end="translate-x-0"
@@ -83,85 +87,85 @@
             x-transition:leave-start="translate-x-0"
             x-transition:leave-end="-translate-x-full">
             
-            <button @click="sidebarOpen = false" class="md:hidden absolute top-4 right-4 text-slate-400 hover:text-white text-xl z-50 p-2">
-                <i class="bi bi-x"></i>
+            <button @click="sidebarOpen = false" class="md:hidden absolute top-5 right-5 text-slate-400 hover:text-white text-2xl z-50 transition-colors">
+                <i class="bi bi-x-lg"></i>
             </button>
 
-            <div class="flex items-center justify-center h-20 px-6 flex-shrink-0 border-b border-slate-700">
+            <div class="flex items-center h-20 px-8 flex-shrink-0 border-b border-slate-800/60">
                 <a href="{{ url_for('hub') }}">
-                    <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan Motors" class="w-40 h-auto">
+                    <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan Motors" class="w-36 h-auto">
                 </a>
             </div>
-            <nav class="flex-1 flex flex-col justify-between overflow-y-auto px-4 py-4">
+            
+            <nav class="flex-1 flex flex-col justify-between overflow-y-auto px-4 py-6 custom-scrollbar">
                 <div>
-                    <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Navegación</h3>
-                    <ul class="space-y-2">
+                    <h3 class="px-4 mb-3 text-[10px] font-bold uppercase text-slate-500 tracking-widest">Navegación</h3>
+                    <ul class="space-y-1.5">
                         {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
-                        <li><a href="{{ url_for('hub') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-house-door-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Hub Principal</span></a></li>
+                        <li><a href="{{ url_for('hub') }}" class="sidebar-link flex items-center gap-3.5 mx-2 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-house-door-fill text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Hub Principal</span></a></li>
                         {% endif %}
-                        <li><a href="{{ url_for('hub_asesor') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-person-workspace text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Mi HUB de Tareas</span></a></li>
+                        <li><a href="{{ url_for('hub_asesor') }}" class="sidebar-link flex items-center gap-3.5 mx-2 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-person-workspace text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Mi HUB de Tareas</span></a></li>
                         {% if g.admin.rol in ['superadmin', 'gerente', 'asesor', 'asistente'] %}
-                        <li><a href="{{ url_for('registrar') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-person-plus-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Registrar Cliente</span></a></li>
+                        <li><a href="{{ url_for('registrar') }}" class="sidebar-link flex items-center gap-3.5 mx-2 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-person-plus-fill text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Registrar Cliente</span></a></li>
                         {% endif %}
                         {% if g.admin.rol in ['superadmin', 'gerente', 'administradora', 'asistente'] %}
-                        <li><a href="{{ url_for('gestion_administrativa') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-briefcase-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Gestión Administrativa</span></a></li>
+                        <li><a href="{{ url_for('gestion_administrativa') }}" class="sidebar-link flex items-center gap-3.5 mx-2 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-briefcase-fill text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Gestión Administrativa</span></a></li>
                         {% endif %}
                         {% if g.admin.rol in ['superadmin', 'gerente'] %}
-                <a href="{{ url_for('upload_clientes') }}" class="flex items-center mt-4 py-2 px-6 text-gray-600 hover:bg-gray-200">
-                    <i class="bi bi-cloud-arrow-up-fill"></i>
-                    <span class="mx-3">Cargar Clientes</span>
-                </a>
-                {% endif %}
+                        <li><a href="{{ url_for('dashboard_comercial') }}" class="sidebar-link flex items-center gap-3.5 mx-2 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-graph-up-arrow text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Dashboard Comercial</span></a></li>
+                        <li><a href="{{ url_for('upload_clientes') }}" class="sidebar-link flex items-center gap-3.5 mx-2 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-cloud-arrow-up-fill text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Cargar Clientes</span></a></li>
+                        {% endif %}
+                        {% if g.admin.rol == 'superadmin' %}
+                        <li><a href="{{ url_for('auditoria') }}" class="sidebar-link flex items-center gap-3.5 mx-2 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-shield-check text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Auditoría</span></a></li>
+                        {% endif %}
                     </ul>
                 </div>
-                <div>
-                    <div class="border-t border-slate-700 my-4"></div>
-                    <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Externo</h3>
-                    <ul class="space-y-2">
-                        <li><a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-box-arrow-up-right text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Portal Cliente</span></a></li>
+                <div class="mt-8">
+                    <h3 class="px-4 mb-3 text-[10px] font-bold uppercase text-slate-500 tracking-widest">Externo</h3>
+                    <ul class="space-y-1.5">
+                        <li><a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center gap-3.5 mx-2 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-box-arrow-up-right text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Portal Cliente</span></a></li>
                     </ul>
                 </div>
             </nav>
         </aside>
 
+        <div x-show="sidebarOpen" x-transition.opacity x-cloak class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 md:hidden"></div>
+
         <div class="hidden md:flex md:flex-shrink-0">
-            <div class="flex flex-col w-64 bg-slate-900 text-white border-r border-slate-700">
-                <div class="flex items-center justify-center h-20 px-6 flex-shrink-0 border-b border-slate-700">
+            <div class="flex flex-col w-64 bg-[#0B1121] text-white border-r border-slate-800/80 shadow-xl z-10">
+                <div class="flex items-center h-[4.5rem] px-6 flex-shrink-0 border-b border-slate-800/60">
                     <a href="{{ url_for('hub') }}">
-                        <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan Motors" class="w-40 h-auto">
+                        <img src="https://sistema-integral-moto-plan-motors-2025.s3.us-east-1.amazonaws.com/Logo/BLANCOlargo.svg" alt="Logo Moto Plan Motors" class="w-36 h-auto hover:opacity-90 transition-opacity">
                     </a>
                 </div>
-                <nav class="flex-1 flex flex-col justify-between overflow-y-auto px-4 py-4">
+                <nav class="flex-1 flex flex-col justify-between overflow-y-auto px-3 py-6 custom-scrollbar">
                     <div>
-                        <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Navegación</h3>
-                        <ul class="space-y-2">
+                        <h3 class="px-3 mb-3 text-[10px] font-bold uppercase text-slate-500 tracking-widest">Navegación</h3>
+                        <ul class="space-y-1">
                             {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
-                            <li><a href="{{ url_for('hub') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-house-door-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Hub Principal</span></a></li>
+                            <li><a href="{{ url_for('hub') }}" class="sidebar-link flex items-center gap-3.5 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-house-door-fill text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Hub Principal</span></a></li>
                             {% endif %}
-                            <li><a href="{{ url_for('hub_asesor') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-person-workspace text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Mi HUB de Tareas</span></a></li>
+                            <li><a href="{{ url_for('hub_asesor') }}" class="sidebar-link flex items-center gap-3.5 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-person-workspace text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Mi HUB de Tareas</span></a></li>
                             {% if g.admin.rol in ['superadmin', 'gerente', 'asesor', 'asistente'] %}
-                            <li><a href="{{ url_for('registrar') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-person-plus-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Registrar Cliente</span></a></li>
+                            <li><a href="{{ url_for('registrar') }}" class="sidebar-link flex items-center gap-3.5 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-person-plus-fill text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Registrar Cliente</span></a></li>
                             {% endif %}
                             {% if g.admin.rol in ['superadmin', 'gerente', 'administradora', 'asistente'] %}
-                            <li><a href="{{ url_for('gestion_administrativa') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-briefcase-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Gestión Administrativa</span></a></li>
+                            <li><a href="{{ url_for('gestion_administrativa') }}" class="sidebar-link flex items-center gap-3.5 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-briefcase-fill text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Gestión Administrativa</span></a></li>
                             {% endif %}
                             {% if g.admin.rol in ['superadmin', 'gerente'] %}
-                            <li><a href="{{ url_for('dashboard_comercial') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-graph-up-arrow text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Dashboard Comercial</span></a></li>
-                            {% endif %}
-
-                            {% if g.admin.rol in ['superadmin', 'gerente'] %}
-                            <li><a href="{{ url_for('upload_clientes') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-cloud-arrow-up-fill text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Cargar Clientes</span></a></li>
+                            <li><a href="{{ url_for('dashboard_comercial') }}" class="sidebar-link flex items-center gap-3.5 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-graph-up-arrow text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Dashboard Comercial</span></a></li>
+                            <li><a href="{{ url_for('upload_clientes') }}" class="sidebar-link flex items-center gap-3.5 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-cloud-arrow-up-fill text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Cargar Clientes</span></a></li>
                             {% endif %}
                             {% if g.admin.rol == 'superadmin' %}
-                            <li><a href="{{ url_for('auditoria') }}" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-shield-check text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Auditoría</span></a></li>
+                            <li><a href="{{ url_for('auditoria') }}" class="sidebar-link flex items-center gap-3.5 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-shield-check text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Auditoría</span></a></li>
                             {% endif %}
                         </ul>
                     </div>
-                    <div>
-                        <div class="border-t border-slate-700 my-4"></div>
-                        <h3 class="px-3 mb-2 text-xs font-semibold uppercase text-slate-500 tracking-wider">Externo</h3>
-                        <ul class="space-y-2">
-                            <li><a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center gap-4 px-4 py-3 rounded-lg text-slate-300 hover:text-white"><i class="bi bi-box-arrow-up-right text-xl w-6 text-center text-slate-400"></i><span class="text-sm font-medium">Portal Cliente</span></a></li>
+                    <div class="mt-8">
+                        <div class="border-t border-slate-800/60 my-4 mx-3"></div>
+                        <h3 class="px-3 mb-3 text-[10px] font-bold uppercase text-slate-500 tracking-widest">Externo</h3>
+                        <ul class="space-y-1">
+                            <li><a href="{{ url_for('portal_login') }}" target="_blank" class="sidebar-link flex items-center gap-3.5 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-box-arrow-up-right text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Portal Cliente</span></a></li>
                         </ul>
                     </div>
                 </nav>
@@ -169,47 +173,53 @@
         </div>
 
         <div class="flex-1 flex flex-col w-full min-w-0">
-            <header class="flex-shrink-0 flex items-center justify-between bg-white border-b border-slate-200 h-20 px-4 sm:px-6 sticky top-0 z-30">
+            
+            <header class="flex-shrink-0 flex items-center justify-between bg-white/80 backdrop-blur-md border-b border-slate-200 h-[4.5rem] px-4 sm:px-8 sticky top-0 z-30 transition-all">
+                
                 <div class="flex items-center gap-4">
-                    <button @click="sidebarOpen = !sidebarOpen" class="md:hidden text-2xl text-slate-600 hover:text-slate-900" aria-label="Toggle menu"><i class="bi bi-list"></i></button>
-                    <h1 x-show="!mobileSearchOpen" class="text-xl font-semibold text-slate-900 whitespace-nowrap">{% block page_title %}Panel de Control{% endblock %}</h1>
+                    <button @click="sidebarOpen = !sidebarOpen" class="md:hidden text-2xl text-slate-500 hover:text-slate-800 transition-colors" aria-label="Abrir Menú"><i class="bi bi-list"></i></button>
+                    <h1 x-show="!mobileSearchOpen" class="text-lg sm:text-xl font-bold text-slate-900 tracking-tight whitespace-nowrap">{% block page_title %}Panel de Control{% endblock %}</h1>
                 </div>
                 
                 <div class="flex-1 flex justify-center px-4">
                     <form action="{{ url_for('consulta') }}" method="post" class="w-full max-w-2xl hidden md:block" onsubmit="handleFormSubmit(this)">
                         <div class="flex items-center gap-2">
-                            <select name="search_type" id="search_type_selector" class="py-2 text-sm bg-slate-100 border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 transition-colors duration-300">
+                            <select name="search_type" id="search_type_selector" class="py-2.5 px-4 text-sm font-semibold bg-slate-100 text-slate-600 border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 transition-colors cursor-pointer shadow-sm">
                                 <option value="cedula">Por Cédula</option>
-                                <option value="nombre_apellido">Por Nombre y Apellido</option>
-                                <option value="contrato">Por Nº de Contrato</option>
+                                <option value="nombre_apellido">Por Nombre</option>
+                                <option value="contrato">Por Contrato</option>
                             </select>
                             <div class="relative flex-grow">
                                 <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                                <input type="search" name="busqueda" id="search_input_field" placeholder="Introduce la Cédula..." class="w-full pl-11 pr-20 py-2 text-sm text-slate-700 bg-white border border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500 transition-all duration-300" value="{{ busqueda if busqueda }}">
-                                <button type="submit" class="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-16 text-sm font-semibold text-orange-600 bg-orange-100 hover:bg-orange-200 rounded-full transition-colors disabled:opacity-70 disabled:cursor-not-allowed">
-                                    <span>Buscar</span>
+                                <input type="search" name="busqueda" id="search_input_field" placeholder="Introduce datos..." class="w-full pl-11 pr-24 py-2.5 text-sm font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-all shadow-sm placeholder:font-normal" value="{{ busqueda if busqueda }}">
+                                <button type="submit" class="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 px-4 text-xs font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed">
+                                    Buscar
                                 </button>
                             </div>
                         </div>
                     </form>
                 </div>
 
-                <div class="flex items-center justify-end gap-2">
-                    <button @click="mobileSearchOpen = !mobileSearchOpen" class="md:hidden text-2xl text-slate-600 hover:text-slate-900 p-2"><i class="bi bi-search"></i></button>
+                <div class="flex items-center justify-end gap-3">
+                    <button @click="mobileSearchOpen = !mobileSearchOpen" class="md:hidden text-xl text-slate-500 hover:text-slate-800 p-2 transition-colors"><i class="bi bi-search"></i></button>
                     {% if g.admin %}
                     <div x-data="{ open: false }" class="relative">
-                        <button @click="open = !open; sidebarOpen = false" class="flex items-center gap-2 p-2 rounded-full hover:bg-slate-200 transition-colors">
-                            <span class="font-semibold text-sm text-slate-700 hidden sm:inline">{{ g.admin.usuario | truncate(10) }}</span>
-                            <i class="bi bi-person-circle text-2xl text-slate-500"></i>
-                        </button>
-                        <div x-show="open" @click.away="open = false" x-cloak x-transition class="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg py-2 z-50 border border-slate-200 origin-top-right">
-                            <div class="px-4 py-2 border-b border-slate-200">
-                                <p class="text-sm font-semibold text-slate-800 truncate">{{ g.admin.usuario }}</p>
-                                <p class="text-xs text-slate-500">{{ g.admin.rol | capitalize }}</p>
+                        <button @click="open = !open; sidebarOpen = false" class="flex items-center gap-3 p-1.5 pr-3 rounded-full border border-transparent hover:border-slate-200 hover:bg-white transition-all">
+                            <div class="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600">
+                                <i class="bi bi-person-fill text-lg"></i>
                             </div>
-                            <div class="py-1">
-                                <a href="{{ url_for('admin_logout') }}" class="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors">
-                                    <i class="bi bi-box-arrow-right mr-3"></i>Cerrar Sesión
+                            <span class="font-bold text-sm text-slate-700 tracking-tight hidden sm:block">{{ g.admin.usuario | truncate(12) }}</span>
+                            <i class="bi bi-chevron-down text-xs text-slate-400 hidden sm:block"></i>
+                        </button>
+                        
+                        <div x-show="open" @click.away="open = false" x-cloak x-transition.opacity.scale.95 class="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200/80 overflow-hidden origin-top-right z-50">
+                            <div class="px-5 py-4 bg-slate-50 border-b border-slate-100">
+                                <p class="text-sm font-bold text-slate-900 truncate tracking-tight">{{ g.admin.usuario }}</p>
+                                <p class="text-xs font-semibold text-slate-500 mt-0.5 uppercase tracking-wider">{{ g.admin.rol }}</p>
+                            </div>
+                            <div class="py-1.5">
+                                <a href="{{ url_for('admin_logout') }}" class="flex items-center w-full px-5 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors">
+                                    <i class="bi bi-box-arrow-right mr-3 text-lg"></i> Cerrar Sesión
                                 </a>
                             </div>
                         </div>
@@ -218,37 +228,38 @@
                 </div>
 
                 <div x-show="mobileSearchOpen" x-cloak
-                     class="absolute top-0 left-0 w-full h-full bg-white flex items-center px-2 z-40 md:hidden"
-                     x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                     class="absolute top-0 left-0 w-full h-full bg-white/95 backdrop-blur-md flex items-center px-4 z-40 md:hidden border-b border-slate-200"
+                     x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0"
                      x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
                     <form action="{{ url_for('consulta') }}" method="post" class="w-full flex items-center gap-2" onsubmit="handleFormSubmit(this)">
-                        <select name="search_type" id="search_type_selector_mobile" class="py-2 text-sm bg-slate-100 border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500">
-                            <option value="cedula">Por Cédula</option>
-                            <option value="nombre_apellido">Por Nombre</option>
-                            <option value="contrato">Por Contrato</option>
+                        <select name="search_type" id="search_type_selector_mobile" class="py-2.5 px-3 text-sm font-semibold bg-slate-100 text-slate-600 border-transparent rounded-xl focus:outline-none">
+                            <option value="cedula">Cédula</option>
+                            <option value="nombre_apellido">Nombre</option>
+                            <option value="contrato">N° Cont.</option>
                         </select>
                         <div class="relative flex-grow">
-                            <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                            <input type="search" name="busqueda" id="search_input_field_mobile" placeholder="Búsqueda..." class="w-full pl-11 pr-4 py-2 text-sm bg-white border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-orange-500" autofocus>
+                            <i class="bi bi-search absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="search" name="busqueda" id="search_input_field_mobile" placeholder="Buscar..." class="w-full pl-10 pr-4 py-2.5 text-sm font-medium bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-sm" autofocus>
                         </div>
-                        <button type="button" @click.prevent="mobileSearchOpen = false" class="text-2xl text-slate-600 hover:text-slate-900 p-2">
-                            <i class="bi bi-x-lg"></i>
+                        <button type="button" @click.prevent="mobileSearchOpen = false" class="text-2xl text-slate-400 hover:text-slate-800 p-1">
+                            <i class="bi bi-x"></i>
                         </button>
                     </form>
                 </div>
             </header>
             
-            <main class="flex-1 overflow-y-auto">
-                <div class="p-4 sm:p-6 lg:p-8">
+            <main class="flex-1 overflow-y-auto custom-scrollbar">
+                <div class="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto">
                     {% block body %}{% endblock %}
                 </div>
             </main>
 
-            <footer class="flex-shrink-0 text-center py-4 px-6 border-t border-slate-200 bg-white text-sm">
-                <small class="text-slate-600">&copy; {{ g.anio_actual | default('2024') }} - Sistema de Gestión.</small>
+            <footer class="flex-shrink-0 text-center py-5 px-6 border-t border-slate-200 bg-white text-sm">
+                <small class="text-slate-500 font-medium tracking-tight">&copy; {{ g.anio_actual | default('2024') }} Moto Plan Motors. Todos los derechos reservados.</small>
             </footer>
         </div>
     </div>
+
     <script src="//unpkg.com/alpinejs" defer></script>
     <script>
         function handleFormSubmit(form) {
@@ -258,9 +269,12 @@
                 button.innerHTML = `<span class="flex items-center justify-center"><i class="bi bi-arrow-repeat animate-spin"></i></span>`;
             });
         }
+
+        // Lógica para marcar enlace activo
         document.addEventListener('DOMContentLoaded', function() {
             const currentPath = window.location.pathname;
             const sidebarLinks = document.querySelectorAll('.sidebar-link');
+            
             sidebarLinks.forEach(link => {
                 const linkPath = new URL(link.href).pathname;
                 if (linkPath === '/hub' && (currentPath === '/' || currentPath === '/hub')) {
@@ -274,25 +288,26 @@
                 }
             });
 
+            // Lógica para cambiar placeholder del buscador
             function setupSearchInput(typeSelectorId, inputFieldId) {
                 const searchTypeSelector = document.getElementById(typeSelectorId);
                 const searchInputField = document.getElementById(inputFieldId);
                 
                 if (searchTypeSelector && searchInputField) {
                     const updateInputType = () => {
-                        searchInputField.value = ''; 
+                        searchInputField.value = '';
                         switch(searchTypeSelector.value) {
                             case 'cedula':
                                 searchInputField.type = 'number';
-                                searchInputField.placeholder = 'Introduce la Cédula (solo números)';
+                                searchInputField.placeholder = 'Nº de Cédula...';
                                 break;
                             case 'nombre_apellido':
                                 searchInputField.type = 'text';
-                                searchInputField.placeholder = 'Introduce Nombre o Apellido';
+                                searchInputField.placeholder = 'Nombre o Apellido...';
                                 break;
                             case 'contrato':
                                 searchInputField.type = 'text';
-                                searchInputField.placeholder = 'Introduce el Nº de Contrato';
+                                searchInputField.placeholder = 'Nº de Contrato...';
                                 break;
                         }
                     };
@@ -304,9 +319,8 @@
             setupSearchInput('search_type_selector', 'search_input_field');
             setupSearchInput('search_type_selector_mobile', 'search_input_field_mobile');
         });
-    </script>
-    
-    <script>
+
+        // Ping de actividad (Mantiene la sesión viva)
         setInterval(function() {
             {% if g.admin %}
             fetch("{{ url_for('activity_ping') }}", {
@@ -318,6 +332,5 @@
     </script>
 
     {% block scripts_extra %}{% endblock %}
-
 </body>
 </html>
