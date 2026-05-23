@@ -308,25 +308,52 @@
                     <div class="p-6 flex-grow">
                         <div x-show="activeTab === 'resumen'" x-cloak class="space-y-6">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                
                                 <div class="bg-slate-50 border border-slate-100 rounded-xl p-5 h-full">
                                     <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-slate-200 pb-3">Información de Contacto</h3>
-                                    <dl class="space-y-3 text-sm">
-                                        <div class="flex justify-between items-center"><dt class="text-slate-500 flex items-center gap-2"><i class="bi bi-telephone text-slate-400"></i> Celular</dt><dd class="font-medium text-slate-900 tracking-tight">{{ cliente.numero_telefono or 'N/A' }}</dd></div>
-                                        <div class="flex justify-between items-center"><dt class="text-slate-500 flex items-center gap-2"><i class="bi bi-envelope text-slate-400"></i> Email</dt><dd class="font-medium text-slate-900">{{ cliente.email or 'N/A' }}</dd></div>
-                                        <div class="flex justify-between items-start mt-2"><dt class="text-slate-500 flex items-center gap-2 mt-0.5"><i class="bi bi-geo-alt text-slate-400"></i> Dirección</dt><dd class="font-medium text-slate-900 text-right w-2/3 leading-snug">{{ cliente.direccion or 'N/A' }}</dd></div>
+                                    <dl class="space-y-4 text-sm">
+                                        <div class="flex justify-between items-start gap-4">
+                                            <dt class="text-slate-500 flex items-center gap-2 flex-shrink-0 mt-0.5"><i class="bi bi-telephone text-slate-400"></i> Celular</dt>
+                                            <dd class="font-medium text-slate-900 tracking-tight text-right">{{ cliente.numero_telefono or 'N/A' }}</dd>
+                                        </div>
+                                        <div class="flex justify-between items-start gap-4">
+                                            <dt class="text-slate-500 flex items-center gap-2 flex-shrink-0 mt-0.5"><i class="bi bi-envelope text-slate-400"></i> Email</dt>
+                                            <dd class="font-medium text-slate-900 tracking-tight text-right break-all">{{ cliente.email or 'N/A' }}</dd>
+                                        </div>
+                                        <div class="flex justify-between items-start gap-4">
+                                            <dt class="text-slate-500 flex items-center gap-2 flex-shrink-0 mt-0.5"><i class="bi bi-geo-alt text-slate-400"></i> Dirección</dt>
+                                            <dd class="font-medium text-slate-900 text-right leading-snug">{{ cliente.direccion or 'N/A' }}</dd>
+                                        </div>
                                     </dl>
                                 </div>
+                                
                                 <div class="bg-slate-50 border border-slate-100 rounded-xl p-5 h-full">
                                     <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-slate-200 pb-3">Estructura del Contrato</h3>
-                                    <dl class="space-y-3 text-sm">
-                                        <div class="flex justify-between items-center"><dt class="text-slate-500">Valor de Cuota</dt><dd class="font-bold text-slate-900 tracking-tight">${{ "%.2f"|format(cliente.valor_cuota|float) if cliente.valor_cuota else '0.00' }}</dd></div>
-                                        <div class="flex justify-between items-center"><dt class="text-slate-500">N° Contrato</dt><dd class="font-medium text-slate-900 tracking-tight">{{ cliente.numero_contrato or 'N/A' }}</dd></div>
-                                        <div class="flex justify-between items-center"><dt class="text-slate-500">Fecha Ingreso</dt><dd class="font-medium text-slate-900 tracking-tight">{{ cliente.fecha_ingreso.strftime('%d/%m/%Y') if cliente.fecha_ingreso else 'N/A' }}</dd></div>
-                                        <div class="flex justify-between items-center"><dt class="text-slate-500">Asesor</dt><dd class="font-medium text-slate-900">{{ cliente.asesor or 'N/A' }}</dd></div>
-                                        <div class="flex justify-between items-center"><dt class="text-slate-500">Responsable</dt><dd class="font-medium text-slate-900">{{ cliente.responsable or 'N/A' }}</dd></div>
+                                    <dl class="space-y-4 text-sm">
+                                        <div class="flex justify-between items-start gap-4">
+                                            <dt class="text-slate-500 flex-shrink-0">Valor de Cuota</dt>
+                                            <dd class="font-bold text-slate-900 tracking-tight text-right">${{ "%.2f"|format(cliente.valor_cuota|float) if cliente.valor_cuota else '0.00' }}</dd>
+                                        </div>
+                                        <div class="flex justify-between items-start gap-4">
+                                            <dt class="text-slate-500 flex-shrink-0">N° Contrato</dt>
+                                            <dd class="font-medium text-slate-900 tracking-tight text-right">{{ cliente.numero_contrato or 'N/A' }}</dd>
+                                        </div>
+                                        <div class="flex justify-between items-start gap-4">
+                                            <dt class="text-slate-500 flex-shrink-0">Fecha Ingreso</dt>
+                                            <dd class="font-medium text-slate-900 tracking-tight text-right">{{ cliente.fecha_ingreso.strftime('%d/%m/%Y') if cliente.fecha_ingreso else 'N/A' }}</dd>
+                                        </div>
+                                        <div class="flex justify-between items-start gap-4">
+                                            <dt class="text-slate-500 flex-shrink-0">Asesor</dt>
+                                            <dd class="font-medium text-slate-900 text-right">{{ cliente.asesor or 'N/A' }}</dd>
+                                        </div>
+                                        <div class="flex justify-between items-start gap-4">
+                                            <dt class="text-slate-500 flex-shrink-0">Responsable</dt>
+                                            <dd class="font-medium text-slate-900 text-right">{{ cliente.responsable or 'N/A' }}</dd>
+                                        </div>
                                     </dl>
                                 </div>
                             </div>
+                            
                             <div class="mt-6 pt-6 border-t border-slate-100">
                                 <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Salud de la Cuenta</h3>
                                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -339,6 +366,17 @@
                                 <div class="mt-4 bg-amber-50 border border-amber-100 p-4 rounded-xl"><p class="text-[10px] font-bold text-amber-700 uppercase tracking-wider mb-1"><i class="bi bi-pin-angle-fill mr-1"></i> Nota Interna</p><p class="text-sm text-amber-900 italic">{{ cliente.observacion }}</p></div>
                                 {% endif %}
                             </div>
+
+                            {% if cliente.beneficiario_nombre %}
+                            <div class="mt-6 pt-6 border-t border-slate-100">
+                                 <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Beneficiario Legal</h3>
+                                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                    <div><p class="text-[10px] font-semibold text-slate-500 uppercase">Nombre</p><p class="font-medium text-slate-900 mt-0.5 tracking-tight">{{ cliente.beneficiario_nombre }} {{ cliente.beneficiario_apellido }}</p></div>
+                                    <div><p class="text-[10px] font-semibold text-slate-500 uppercase">Cédula</p><p class="font-medium text-slate-900 mt-0.5 tracking-tight">{{ cliente.beneficiario_cedula or 'N/A' }}</p></div>
+                                    <div><p class="text-[10px] font-semibold text-slate-500 uppercase">Teléfono</p><p class="font-medium text-slate-900 mt-0.5 tracking-tight">{{ cliente.beneficiario_telefono or 'N/A' }}</p></div>
+                                 </div>
+                            </div>
+                            {% endif %}
                         </div>
 
                         <div x-show="activeTab === 'pagos'" x-cloak class="space-y-3">
@@ -547,8 +585,9 @@
     const estatusQ = (params.get('estatus') || '').toUpperCase().trim();
     const estadoQ  = (params.get('estado')  || '').toUpperCase().trim();
     const condQ    = (params.get('condicion') || '').toUpperCase().trim();
-    const incQ     = (params.get('inconsistentes') || '').trim();
+    const incQ     = (params.get('inconsistentes') || '').trim(); // '1' => solo inconsistentes
 
+    // Normalización de familias de estatus
     const retiroSet    = new Set(['RETIRO','RETIRADO','RETIRADA','RETIRADOS']);
     const activoSet    = new Set(['ACTIVO','ACTIVOS']);
     const inactivoSet  = new Set(['INACTIVO','INACTIVOS']);
@@ -565,6 +604,7 @@
         (estatusQ === 'INACTIVO' && inactivoSet.has(estatus)) ||
         estatus === estatusQ
       );
+
       const okEstado  = !estadoQ || estado === estadoQ;
       const okCond    = !condQ   || cond === condQ;
       const okInc     = !incQ    || card.dataset.inconsistente === '1';
