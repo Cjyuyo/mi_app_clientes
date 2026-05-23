@@ -114,7 +114,7 @@
         
         <!-- Pie de Página y QR -->
         <div class="bg-slate-50 p-6 sm:p-8 rounded-b-xl text-center space-y-2">
-            <img src="https://api.qrserver.com/v1/create-qr-code/?data={{ url_for('verificar_recibo', pago_id=pago.id, _external=True) }}&size=120x120&q=M" alt="Código QR de Verificación" class="mx-auto">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?data={{ url_for('validar_recibo_qr', pago_id=pago.id, _external=True) }}&size=120x120&q=M" alt="Código QR de Verificación" class="mx-auto">
             <p class="text-xs text-slate-500">Escanee para verificar la validez de este recibo</p>
             <p class="text-xs text-slate-500 pt-2 border-t border-slate-200">Monto cancelado no será devuelto bajo ningún concepto una vez preparado el contrato.</p>
         </div>

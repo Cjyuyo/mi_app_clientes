@@ -130,7 +130,7 @@
         
         <!-- Pie de Página y QR -->
         <div class="bg-slate-50 p-6 sm:p-8 rounded-b-xl text-center">
-            <img src="https://api.qrserver.com/v1/create-qr-code/?data={{ url_for('verificar_recibo', pago_id=pago.id, _external=True) }}&size=120x120&q=M" alt="Código QR de Verificación" class="mx-auto">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?data={{ url_for('validar_recibo_qr', pago_id=pago.id, _external=True) }}&size=120x120&q=M" alt="Código QR de Verificación" class="mx-auto">
             <p class="text-xs text-slate-500 mt-2">Escanee para verificar la validez de este recibo</p>
         </div>
     </div>
