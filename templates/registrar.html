@@ -1,411 +1,441 @@
 {% extends "base_sidebar.html" %}
 
-{% block title %}
-    Registrar Nuevo Cliente
-{% endblock %}
+{% block title %}Registrar Nuevo Cliente | Moto Plan Motors{% endblock %}
 
 {% block head_extra %}
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="https://cdn.tailwindcss.com"></script>
-<script>
-  // opcional: ajustes rápidos de Tailwind
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          brand: {
-            50:"#fff7ed",100:"#ffedd5",200:"#fed7aa",300:"#fdba74",
-            400:"#fb923c",500:"#f97316",600:"#ea580c",700:"#c2410c",800:"#9a3412",900:"#7c2d12"
-          }
-        }
-      }
-    }
-  }
-</script>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+
+<style>
+    /* Estilos Corporativos Premium */
+    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+    
+    .glass-card {
+        background: #ffffff;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+        border-radius: 1.25rem;
+        transition: all 0.3s ease;
+    }
+    
+    .input-premium {
+        width: 100%;
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        padding: 0.625rem 1rem;
+        font-size: 0.875rem;
+        color: #1e293b;
+        transition: all 0.2s ease;
+    }
+    .input-premium:focus {
+        outline: none;
+        border-color: #f97316;
+        box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
+        background-color: #ffffff;
+    }
+    .input-premium:disabled, .input-premium[readonly] {
+        background-color: #f1f5f9;
+        color: #64748b;
+        border-color: #cbd5e1;
+    }
+
+    .label-premium {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.375rem;
+    }
+
+    /* Modal Fixes */
+    .modal-backdrop { z-index: 1040 !important; }
+    .modal { z-index: 1050 !important; }
+</style>
 {% endblock %}
 
 {% block body %}
-<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mb-12">
 
-  <div class="bg-white/90 backdrop-blur p-6 rounded-2xl shadow ring-1 ring-slate-200 mb-6">
-    <div class="flex items-center gap-4">
-      <div class="p-3 rounded-xl bg-brand-50 ring-1 ring-brand-200">
-        <i class="bi bi-person-plus-fill text-2xl text-brand-600"></i>
-      </div>
-      <div>
-        <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Registrar Nuevo Cliente</h1>
-        <p class="text-slate-500">Complete los campos para crear un nuevo perfil de cliente.</p>
-      </div>
+    <div class="bg-slate-900 rounded-2xl shadow-sm border border-slate-800 p-6 sm:p-8 relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center gap-6 mb-8">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-slate-800 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
+        <div class="flex-shrink-0 w-14 h-14 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center relative z-10 shadow-inner">
+            <i class="bi bi-person-plus-fill text-xl text-orange-500"></i>
+        </div>
+        <div class="relative z-10">
+            <h2 class="text-2xl font-bold text-white tracking-tight">Registro y Contratación</h2>
+            <p class="text-slate-400 text-sm mt-1">Apertura formal de nuevo contrato bajo parámetros legales vigentes.</p>
+        </div>
     </div>
-  </div>
-
-  <form id="registroForm" action="{{ url_for('finalizar_registro') }}" method="POST" class="space-y-6">
-    <input type="hidden" name="foto_cliente" id="foto_cliente" required>
-    <input type="hidden" name="foto_cedula" id="foto_cedula" required>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-        <div class="p-4 rounded-xl ring-1 {% if category == 'error' %} bg-red-50 text-red-800 ring-red-200 {% else %} bg-blue-50 text-blue-800 ring-blue-200 {% endif %}">
-          {{ message }}
-        </div>
-        {% endfor %}
-      {% endif %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="p-4 mb-6 rounded-xl border {% if category == 'error' %}bg-rose-50 border-rose-200 text-rose-800{% else %}bg-emerald-50 border-emerald-200 text-emerald-800{% endif %} flex items-center gap-3">
+                <i class="bi {% if category == 'error' %}bi-exclamation-triangle-fill text-rose-500{% else %}bi-check-circle-fill text-emerald-500{% endif %} text-lg"></i>
+                <span class="font-medium text-sm">{{ message }}</span>
+            </div>
+            {% endfor %}
+        {% endif %}
     {% endwith %}
-    
-    <div id="seccion-datos" class="space-y-6">
 
-      <section class="bg-white p-6 rounded-2xl shadow ring-1 ring-slate-200">
-        <h3 class="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
-          <i class="bi bi-person-badge text-slate-500"></i> Información Personal y de Contacto
-        </h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label for="nombre_apellido" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label>
-            <input type="text" id="nombre_apellido" name="nombre_apellido" required
-                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-          </div>
-          <div>
-            <label for="cedula" class="block text-sm font-medium text-slate-700">Número Cédula</label>
-            <input type="text" id="cedula" name="cedula" required
-                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-          </div>
-          <div>
-            <label for="telefono" class="block text-sm font-medium text-slate-700">Teléfono</label>
-            <input type="text" id="telefono" name="telefono" required
-                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-          </div>
-          <div>
-            <label for="email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label>
-            <input type="email" id="email" name="email"
-                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-          </div>
-          <div class="md:col-span-2">
-            <label for="direccion" class="block text-sm font-medium text-slate-700">Dirección</label>
-            <textarea id="direccion" name="direccion" rows="2"
-                      class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500"></textarea>
-          </div>
-          <div>
-            <label for="fecha_ingreso" class="block text-sm font-medium text-slate-700">Fecha de Ingreso</label>
-            <input type="date" id="fecha_ingreso" name="fecha_ingreso" required
-                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-          </div>
-        </div>
-      </section>
+    <form id="registroForm" action="{{ url_for('finalizar_registro') }}" method="POST" class="space-y-8">
+        <input type="hidden" name="foto_cliente" id="foto_cliente" required>
+        <input type="hidden" name="foto_cedula" id="foto_cedula" required>
 
-      <section class="bg-white p-6 rounded-2xl shadow ring-1 ring-slate-200">
-        <h3 class="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
-          <i class="bi bi-person-heart text-slate-500"></i> Beneficiario por Fallecimiento (Obligatorio)
-        </h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label for="beneficiario_nombre_apellido" class="block text-sm font-medium text-slate-700">Nombre y Apellido</label>
-            <input type="text" id="beneficiario_nombre_apellido" name="beneficiario_nombre_apellido" required
-                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-          </div>
-          <div>
-            <label for="beneficiario_cedula" class="block text-sm font-medium text-slate-700">Número Cédula</label>
-            <input type="text" id="beneficiario_cedula" name="beneficiario_cedula" required
-                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-          </div>
-          <div>
-            <label for="beneficiario_telefono" class="block text-sm font-medium text-slate-700">Teléfono</label>
-            <input type="text" id="beneficiario_telefono" name="beneficiario_telefono" required
-                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-          </div>
-          <div>
-            <label for="beneficiario_email" class="block text-sm font-medium text-slate-700">Correo Electrónico</label>
-            <input type="email" id="beneficiario_email" name="beneficiario_email" required
-                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-          </div>
-          <div class="md:col-span-2">
-            <label for="beneficiario_direccion" class="block text-sm font-medium text-slate-700">Dirección</label>
-            <textarea id="beneficiario_direccion" name="beneficiario_direccion" rows="2" required
-                      class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500"></textarea>
-          </div>
-        </div>
-      </section>
-
-      <section class="bg-white p-6 rounded-2xl shadow ring-1 ring-slate-200">
-        <h3 class="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
-          <i class="bi bi-file-earmark-text text-slate-500"></i> Detalles del Plan y Contrato
-        </h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div>
-              <label for="numero_contrato" class="block text-sm font-medium text-slate-700 mb-1">Número de Contrato</label>
-              <input type="text" id="numero_contrato" name="numero_contrato" 
-                     value="{{ numero_contrato_siguiente_sugerido or '' }}"
-                     class="w-full border border-slate-300 rounded-lg p-2.5 bg-slate-50 font-mono text-slate-700 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" 
-                     readonly placeholder="Se generará al guardar">
-          </div>
-          <div>
-            <label for="grupo" class="block text-sm font-medium text-slate-700">Número Grupo</label>
-            <input type="text" id="grupo" name="grupo"
-                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-          </div>
-          <div>
-            <label for="moneda_pago" class="block text-sm font-medium text-slate-700">Moneda de Pago</label>
-            <select id="moneda_pago" name="moneda_pago" required
-                    class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-              <option value="USD">Divisas (USD)</option>
-              <option value="BsBCV">Bolívares (Tasa BCV)</option>
-            </select>
-          </div>
-          <div>
-              <label for="plan_contratado" class="block text-sm font-medium text-slate-700 mb-1">Monto Contratado ($)</label>
-              <select id="plan_contratado" name="plan_contratado" required
-                      class="w-full border border-slate-300 rounded-lg p-2.5 bg-white text-slate-700 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none cursor-pointer">
-                  <option value="" disabled selected>-- Seleccione un Plan --</option>
-                  <option value="1400">$1,400</option>
-                  <option value="1500">$1,500</option>
-                  <option value="1600">$1,600</option>
-                  <option value="1700">$1,700</option>
-                  <option value="1800">$1,800</option>
-                  <option value="1900">$1,900</option>
-                  <option value="2000">$2,000</option>
-                  <option value="2200">$2,200</option>
-                  <option value="2300">$2,300</option>
-                  <option value="2400">$2,400</option>
-                  <option value="2500">$2,500</option>
-                  <option value="2600">$2,600</option>
-                  <option value="2700">$2,700</option>
-                  <option value="2800">$2,800</option>
-                  <option value="2900">$2,900</option>
-                  <option value="3200">$3,200</option>
-                  <option value="3300">$3,300</option>
-                  <option value="3500">$3,500</option>
-                  <option value="3800">$3,800</option>
-                  <option value="4500">$4,500</option>
-                  <option value="5200">$5,200</option>
-                  <option value="5600">$5,600</option>
-                  <option value="5900">$5,900</option>
-                  <option value="6300">$6,300</option>
-              </select>
-          </div>
-          <div>
-            <label for="inscripcion_monto" class="block text-sm font-medium text-slate-700">Monto Inscripción (13.93%)</label>
-            <input type="number" step="0.01" id="inscripcion_monto" name="inscripcion_monto" required readonly
-                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-100 text-slate-700 focus:ring-brand-500 focus:border-brand-500">
-          </div>
-          <div>
-            <label for="cuotas_totales" class="block text-sm font-medium text-slate-700">Total de Cuotas</label>
-            <select id="cuotas_totales" name="cuotas_totales" required
-                    class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-              <option value="24">24</option>
-              <option value="36">36</option>
-              <option value="48">48</option>
-            </select>
-          </div>
-          <div>
-            <label for="valor_cuota" class="block text-sm font-medium text-slate-700">Cuota Mensual</label>
-            <input type="number" step="0.01" id="valor_cuota" name="valor_cuota" required readonly
-                   class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-100 text-slate-700 focus:ring-brand-500 focus:border-brand-500">
-          </div>
-        </div>
-      </section>
-
-      <section class="bg-white p-6 rounded-2xl shadow ring-1 ring-slate-200">
-        <h3 class="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
-          <i class="bi bi-camera text-slate-500"></i> Verificación de Identidad
-        </h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div class="text-center">
-            <h6 class="font-semibold text-slate-700 mb-2">Foto del Cliente</h6>
-            <img id="preview-cliente"
-                 src="https://placehold.co/400x300/e2e8f0/94a3b8?text=Foto+Cliente"
-                 class="w-full h-48 object-cover rounded-xl border-2 border-dashed border-slate-300 mb-3">
-            <button type="button"
-                    class="w-full inline-flex items-center justify-center gap-2 px-4 py-2 font-medium rounded-xl bg-brand-600 text-white shadow hover:bg-brand-700 transition"
-                    data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cliente">
-              <i class="bi bi-person-bounding-box"></i> Tomar Foto Cliente
-            </button>
-          </div>
-          <div class="text-center">
-            <h6 class="font-semibold text-slate-700 mb-2">Foto de la Cédula</h6>
-            <img id="preview-cedula"
-                 src="https://placehold.co/400x300/e2e8f0/94a3b8?text=Foto+C%C3%A9dula"
-                 class="w-full h-48 object-cover rounded-xl border-2 border-dashed border-slate-300 mb-3">
-            <button type="button"
-                    class="w-full inline-flex items-center justify-center gap-2 px-4 py-2 font-medium rounded-xl bg-slate-800 text-white shadow hover:bg-black transition"
-                    data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cedula">
-              <i class="bi bi-credit-card-2-front"></i> Tomar Foto Cédula
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section class="bg-white p-6 rounded-2xl shadow ring-1 ring-slate-200">
-        <h3 class="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
-          <i class="bi bi-briefcase text-slate-500"></i> Información Administrativa
-        </h3>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div>
-            <label for="escenario_dueño" class="block text-sm font-medium text-slate-700">1. Escenario de Cierre</label>
-            <select id="escenario_dueño" name="escenario_dueño" required
-                    class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-              <option value="">Seleccione un cargo...</option>
-              <option value="superadmin">Presidencia</option>
-              <option value="gerente">Gerencia</option>
-              <option value="asesor">Fuerza Comercial</option>
-            </select>
-          </div>
-          <div>
-            <label for="asesor_id" class="block text-sm font-medium text-slate-700">2. Asesor</label>
-            <select id="asesor_id" name="asesor_id" required disabled
-                    class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-              <option value="">Primero seleccione un cargo...</option>
-            </select>
-          </div>
-          <div>
-            <label for="cerrado_por_id" class="block text-sm font-medium text-slate-700">3. Cerrador</label>
-            <select id="cerrado_por_id" name="cerrado_por_id" required
-                    class="mt-1 block w-full rounded-lg border-slate-300 bg-slate-50 focus:ring-brand-500 focus:border-brand-500">
-              <option value="">Elige a un Cerrador</option>
-              {% for admin in todos_los_admins %}
-                <option value="{{ admin.id }}">{{ admin.nombre }}</option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-      </section>
-
-      <div class="flex justify-end gap-4 pt-2">
-        <a href="{{ url_for('hub') }}"
-           class="inline-flex items-center justify-center rounded-xl px-4 py-2 font-medium text-slate-700 bg-white ring-1 ring-slate-200 hover:bg-slate-50">
-          Cancelar
-        </a>
-        <button type="button" id="btnContinuar" onclick="avanzarAlContrato()"
-                class="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-2 font-semibold text-white bg-brand-600 ring-1 ring-brand-700 shadow hover:bg-brand-700">
-          <i class="bi bi-file-earmark-text"></i>
-          Continuar al Contrato
-        </button>
-      </div>
-      
-    </div> 
-
-    <div id="seccion-contrato" class="hidden space-y-6">
-      <section class="bg-white p-6 rounded-2xl shadow ring-1 ring-slate-200">
-        <h3 class="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
-          <i class="bi bi-file-earmark-ruled text-slate-500"></i> Contrato de Adhesión y Prestación de Servicios
-        </h3>
-        
-        <div id="visor-contrato" class="bg-slate-50 border border-slate-200 p-6 rounded-lg mb-6 h-96 overflow-y-auto text-sm text-justify text-slate-700 leading-relaxed shadow-inner">
-          <h4 class="font-bold text-center mb-6 text-base uppercase">CLÁUSULAS DEL CONTRATO</h4>
-          
-          <p class="mb-4">Entre las partes, por un lado, <strong>MOTO PLAN MOTORS, C.A.</strong>, sociedad mercantil constituida bajo las leyes de la República Bolivariana de Venezuela, inscrita en el Registro Mercantil Primero del Estado Portuguesa bajo el número de tomo 66-A RM410, número 18 del año 2023, con RIF J-50408959-1 e inscrita en el RUPDAE, en lo sucesivo denominada “LA EMPRESA”, y por otro lado, el (la) ciudadano (a) <strong id="preview-nombre" class="uppercase text-brand-700">________</strong>, titular de la Cédula de Identidad Nro. V-<strong id="preview-cedula" class="text-brand-700">________</strong>, domiciliado(a) en <strong id="preview-direccion">________</strong>, en lo sucesivo denominado “EL CLIENTE”, convienen en celebrar el presente Contrato de Adhesión, el cual se regirá por las siguientes cláusulas:</p>
+        <div id="seccion-datos" class="space-y-8 animate-fade-in">
             
-          <div class="space-y-3">
-            <h5 class="font-bold mt-4">CAPÍTULO I: DISPOSICIONES GENERALES Y NATURALEZA DEL CONTRATO</h5>
-            <p><strong>Cláusula 1.</strong> LA EMPRESA es una persona jurídica legalmente constituida. EL CLIENTE se adhiere voluntariamente a este contrato. <br><em>Fundamento Legal: Código de Comercio y Código Civil.</em></p>
-            <p><strong>Cláusula 2.</strong> El contrato tiene por objeto la incorporación a un plan de ahorro programado, con fines de autofinanciamiento. LA EMPRESA no vende bienes directamente.</p>
-            <p><strong>Cláusula 3.</strong> EL CLIENTE declara haber recibido asesoría clara, personalizada y oportuna.</p>
-            <p><strong>Cláusula 4 y 4 BIS.</strong> Definiciones contractuales básicas. La asesoría fue grabada con consentimiento expreso de EL CLIENTE y podrá usarse como prueba válida en caso de controversia.</p>
-            
-            <h5 class="font-bold mt-4">CAPÍTULO II: DE LOS GRUPOS, PLAZOS Y EL BIEN A ADQUIRIR</h5>
-            <p><strong>Cláusula 5.</strong> Cuota de inscripción única equivalente al 16% del monto contratado.</p>
-            <p><strong>Cláusula 6 y 7.</strong> Los grupos se conforman por 54 personas y se activan al alcanzar al menos el 85% de integración. Duración máxima del plan: 24 meses.</p>
-            <p><strong>Cláusula 8.</strong> El monto adjudicado se ajusta al precio del bien. LA EMPRESA no garantiza disponibilidad de modelos.</p>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-2 space-y-8">
+                    
+                    <div class="glass-card p-6">
+                        <div class="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+                            <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center"><i class="bi bi-person-vcard-fill"></i></div>
+                            <h3 class="text-base font-bold text-slate-800">Identificación del Cliente</h3>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label for="nombre_apellido" class="label-premium">Nombre Completo</label>
+                                <input type="text" id="nombre_apellido" name="nombre_apellido" required class="input-premium" placeholder="Ej. Juan Pérez">
+                            </div>
+                            <div>
+                                <label for="cedula" class="label-premium">Cédula de Identidad</label>
+                                <input type="number" id="cedula" name="cedula" required class="input-premium" placeholder="Solo números">
+                            </div>
+                            <div>
+                                <label for="telefono" class="label-premium">Teléfono Celular</label>
+                                <input type="tel" id="telefono" name="telefono" required class="input-premium" placeholder="04141234567">
+                            </div>
+                            <div>
+                                <label for="email" class="label-premium">Correo Electrónico</label>
+                                <input type="email" id="email" name="email" class="input-premium" placeholder="correo@ejemplo.com">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label for="direccion" class="label-premium">Dirección de Domicilio</label>
+                                <input type="text" id="direccion" name="direccion" required class="input-premium" placeholder="Dirección completa y exacta">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label for="fecha_ingreso" class="label-premium">Fecha Oficial de Ingreso</label>
+                                <input type="date" id="fecha_ingreso" name="fecha_ingreso" required class="input-premium bg-white">
+                            </div>
+                        </div>
+                    </div>
 
-            <h5 class="font-bold mt-4">CAPÍTULO III: DE LA CUOTA MENSUAL Y LOS PAGOS</h5>
-            <p><strong>Cláusula 9.</strong> La cuota mensual incluye: 9.1. Aporte neto al fondo. 9.2. Costos operativos y utilidad. 9.3. Penalidad por atraso. 9.4. Impuestos (como el IVA del 16%).</p>
-            <p><strong>Cláusula 10.</strong> Se exige el pago completo y puntual de 24 cuotas mensuales, sin interrupciones ni fraccionamientos.</p>
-          </div>
+                    <div class="glass-card p-6 border-l-4 border-l-orange-500">
+                        <div class="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+                            <div class="w-8 h-8 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center"><i class="bi bi-heart-pulse-fill"></i></div>
+                            <div>
+                                <h3 class="text-base font-bold text-slate-800">Beneficiario Legal</h3>
+                                <p class="text-[10px] uppercase tracking-wider font-semibold text-slate-400 mt-0.5">Requerido por protocolo de seguridad</p>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label for="beneficiario_nombre_apellido" class="label-premium">Nombre Completo</label>
+                                <input type="text" id="beneficiario_nombre_apellido" name="beneficiario_nombre_apellido" required class="input-premium">
+                            </div>
+                            <div>
+                                <label for="beneficiario_cedula" class="label-premium">Cédula de Identidad</label>
+                                <input type="number" id="beneficiario_cedula" name="beneficiario_cedula" required class="input-premium">
+                            </div>
+                            <div>
+                                <label for="beneficiario_telefono" class="label-premium">Teléfono Celular</label>
+                                <input type="tel" id="beneficiario_telefono" name="beneficiario_telefono" required class="input-premium">
+                            </div>
+                            <div>
+                                <label for="beneficiario_email" class="label-premium">Correo Electrónico</label>
+                                <input type="email" id="beneficiario_email" name="beneficiario_email" required class="input-premium">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label for="beneficiario_direccion" class="label-premium">Dirección Exacta</label>
+                                <input type="text" id="beneficiario_direccion" name="beneficiario_direccion" required class="input-premium">
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-          <div id="clausulas-bcv" class="hidden bg-blue-50 p-3 rounded mt-3 border border-blue-100">
-            <p class="text-blue-900"><strong>Cláusula 11 (Modalidad Bolívares).</strong> Los pagos deben realizarse preferentemente en Bolívares (Bs.), al valor equivalente según la tasa oficial del BCV. También se aceptan pagos en divisas convertibles, bajo el principio de libre convertibilidad. <br> <em>Fundamento Legal: Ley del BCV (Art. 3 y 121), Convenio Cambiario N.º 1, Código de Comercio (Art. 115 y 128), TSJ Sala Civil N.º 703/2016.</em></p>
-          </div>
+                <div class="lg:col-span-1 space-y-8">
+                    
+                    <div class="glass-card p-6">
+                        <div class="flex items-center gap-3 mb-5 border-b border-slate-100 pb-4">
+                            <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-500 flex items-center justify-center"><i class="bi bi-camera-fill"></i></div>
+                            <h3 class="text-base font-bold text-slate-800">Captura Biométrica</h3>
+                        </div>
+                        
+                        <div class="space-y-5">
+                            <div class="group relative">
+                                <label class="label-premium text-center">Rostro del Cliente (Selfie)</label>
+                                <div class="relative w-full aspect-video rounded-xl overflow-hidden border-2 border-dashed border-slate-300 bg-slate-50 mb-2">
+                                    <img id="preview-cliente" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23f8fafc'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='14' font-weight='600' fill='%2394a3b8'%3EESPERANDO FOTOGRAFÍA%3C/text%3E%3C/svg%3E" class="w-full h-full object-cover transition-opacity">
+                                </div>
+                                <button type="button" class="w-full py-2.5 bg-white border border-slate-300 text-slate-700 font-semibold text-sm rounded-lg hover:bg-slate-50 hover:border-slate-400 transition-all flex items-center justify-center gap-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cliente">
+                                    <i class="bi bi-person-bounding-box text-indigo-500"></i> Tomar Selfie
+                                </button>
+                            </div>
 
-          <div id="clausulas-usd" class="hidden bg-green-50 p-3 rounded mt-3 border border-green-100">
-            <p class="text-green-900"><strong>Cláusula 11 (Modalidad Divisas).</strong> Los pagos deben realizarse en Divisas (USD). No se aceptarán pagos en Bolívares (Bs.). <br> <em>Fundamento Legal: Ley del BCV (Art. 3 y 121), Convenio Cambiario N.º 1, Código de Comercio (Art. 115 y 128), TSJ Sala Civil N.º 703/2016.</em></p>
-          </div>
+                            <div class="group relative">
+                                <label class="label-premium text-center">Documento de Identidad</label>
+                                <div class="relative w-full aspect-video rounded-xl overflow-hidden border-2 border-dashed border-slate-300 bg-slate-50 mb-2">
+                                    <img id="preview-cedula" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'%3E%3Crect width='400' height='300' fill='%23f8fafc'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='14' font-weight='600' fill='%2394a3b8'%3EESPERANDO DOCUMENTO%3C/text%3E%3C/svg%3E" class="w-full h-full object-cover transition-opacity">
+                                </div>
+                                <button type="button" class="w-full py-2.5 bg-slate-900 text-white font-semibold text-sm rounded-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#cameraModal" data-capture-type="cedula">
+                                    <i class="bi bi-credit-card-2-front"></i> Escanear Cédula
+                                </button>
+                            </div>
+                        </div>
+                    </div>
 
-          <div class="space-y-3 mt-3">
-            <h5 class="font-bold mt-4">CAPÍTULO IV: DEL PROCESO DE ENTREGA (ADJUDICACIÓN)</h5>
-            <p><strong>Cláusula 12 y 13.</strong> El evento de adjudicación se realiza una vez al mes entre clientes solventes. Formas de adjudicación: 13.1. Por oferta. <strong>13.2. Asignación por Antigüedad:</strong> A partir de la cuota doce (12). 13.3. Por finiquito.</p>
-            <p><strong>Cláusula 14 y 15.</strong> Para recibir el monto adjudicado, EL CLIENTE debe presentar garantías: fiador, hipoteca, o reserva de dominio. LA EMPRESA dispone de hasta 60 días hábiles para entregar el monto.</p>
+                    <div class="glass-card p-6 bg-slate-900 text-white border-none shadow-xl">
+                        <div class="flex items-center gap-3 mb-5 border-b border-slate-700 pb-4">
+                            <div class="w-8 h-8 rounded-lg bg-slate-800 text-emerald-400 flex items-center justify-center border border-slate-700"><i class="bi bi-calculator-fill"></i></div>
+                            <h3 class="text-base font-bold text-white">Estructura Financiera</h3>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label for="moneda_pago" class="label-premium text-slate-400">1. Instrumento de Pago</label>
+                                <select id="moneda_pago" name="moneda_pago" required class="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg p-2.5 focus:ring-orange-500 focus:border-orange-500 outline-none">
+                                    <option value="USD">Divisas Convertibles (USD)</option>
+                                    <option value="BsBCV">Moneda Nacional (Tasa BCV)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label for="plan_contratado" class="label-premium text-slate-400">2. Monto Plan</label>
+                                    <select id="plan_contratado" name="plan_contratado" required class="w-full bg-white text-slate-900 font-bold text-sm rounded-lg p-2.5 border-0 focus:ring-2 focus:ring-orange-500 outline-none">
+                                        <option value="" disabled selected>Monto...</option>
+                                        <option value="1400">$1,400</option><option value="1500">$1,500</option><option value="1600">$1,600</option><option value="1700">$1,700</option><option value="1800">$1,800</option><option value="1900">$1,900</option><option value="2000">$2,000</option><option value="2200">$2,200</option><option value="2300">$2,300</option><option value="2400">$2,400</option><option value="2500">$2,500</option><option value="2600">$2,600</option><option value="2700">$2,700</option><option value="2800">$2,800</option><option value="2900">$2,900</option><option value="3200">$3,200</option><option value="3300">$3,300</option><option value="3500">$3,500</option><option value="3800">$3,800</option><option value="4500">$4,500</option><option value="5200">$5,200</option><option value="5600">$5,600</option><option value="5900">$5,900</option><option value="6300">$6,300</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="cuotas_totales" class="label-premium text-slate-400">3. Plazo</label>
+                                    <select id="cuotas_totales" name="cuotas_totales" required class="w-full bg-slate-800 border border-slate-700 text-white font-medium text-sm rounded-lg p-2.5 focus:ring-orange-500 outline-none">
+                                        <option value="24">24 Meses</option>
+                                        <option value="36">36 Meses</option>
+                                        <option value="48">48 Meses</option>
+                                    </select>
+                                </div>
+                            </div>
 
-            <h5 class="font-bold mt-4">CAPÍTULOS V, VI y VII: INCUMPLIMIENTO, DERECHOS Y JURISDICCIÓN</h5>
-            <p><strong>Cláusula 16, 17 y 18.</strong> El atraso genera penalidad. El impago de 3 cuotas permite anular el contrato. En caso de mora se aplicará un 0,2% diario.</p>
-            <p><strong>Cláusula 19, 20 y 21.</strong> EL CLIENTE tiene derecho a retracto en 7 días, traspaso o rescisión voluntaria. Las partes acuerdan que este contrato podrá ser firmado electrónicamente y se someten a la jurisdicción venezolana.</p>
-            
-            <p class="pt-6 border-t border-slate-200 italic text-slate-500 text-center font-semibold">Para continuar y habilitar las firmas, debe confirmar la lectura y aceptación en el recuadro inferior.</p>
-          </div>
-        </div>
-
-        <div class="bg-brand-50 border border-brand-200 p-4 rounded-xl mb-6">
-          <p class="text-sm font-semibold text-brand-900 mb-3">Confirmación de lectura obligatoria:</p>
-          <div class="space-y-3">
-            <label class="flex items-center gap-3 cursor-pointer group">
-              <input type="radio" name="confirmacion_lectura" value="acepto" onchange="gestionarAccesoFirmas(this.value)"
-                     class="w-5 h-5 text-brand-600 border-slate-300 focus:ring-brand-500">
-              <span class="text-slate-700 font-medium group-hover:text-black transition-colors">Acepto haber leído, comprendido y estar de acuerdo con TODAS las cláusulas.</span>
-            </label>
-            <label class="flex items-center gap-3 cursor-pointer group">
-              <input type="radio" name="confirmacion_lectura" value="no_acepto" onchange="gestionarAccesoFirmas(this.value)"
-                     class="w-5 h-5 text-red-600 border-slate-300 focus:ring-red-500">
-              <span class="text-slate-700 font-medium group-hover:text-black transition-colors">No acepto los términos (Se bloqueará el registro).</span>
-            </label>
-          </div>
-        </div>
-        
-        <div id="contenedor-firmas" class="grid grid-cols-1 md:grid-cols-2 gap-6 opacity-25 pointer-events-none transition-all duration-300 bg-slate-50 p-4 rounded-xl border border-slate-200">
-          <div>
-            <div class="flex justify-between items-center mb-2">
-              <label class="block text-sm font-medium text-slate-700">Firma del Cliente</label>
-              <button type="button" onclick="padCliente.clear()" class="text-xs font-semibold text-red-600 hover:text-red-800">Limpiar</button>
+                            <div class="p-3 bg-slate-800/50 rounded-xl border border-slate-700 space-y-2 mt-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs text-slate-400 font-medium">Inscripción (13.93%)</span>
+                                    <div class="flex items-center gap-1">
+                                        <span class="text-slate-500 font-bold text-xs">$</span>
+                                        <input type="text" id="inscripcion_monto" name="inscripcion_monto" readonly class="bg-transparent border-0 text-white font-black text-right w-16 p-0 focus:ring-0">
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center border-t border-slate-700/50 pt-2">
+                                    <span class="text-xs text-emerald-400 font-bold uppercase tracking-wider">Cuota Mensual</span>
+                                    <div class="flex items-center gap-1">
+                                        <span class="text-emerald-500 font-bold text-xs">$</span>
+                                        <input type="text" id="valor_cuota" name="valor_cuota" readonly class="bg-transparent border-0 text-emerald-400 font-black text-right w-16 p-0 focus:ring-0 text-lg">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-3 pt-2">
+                                <div>
+                                    <label for="numero_contrato" class="label-premium text-slate-400">Nº Contrato</label>
+                                    <input type="text" id="numero_contrato" name="numero_contrato" value="{{ numero_contrato_siguiente_sugerido or '' }}" readonly class="w-full bg-slate-800/50 border border-slate-700/50 text-slate-300 text-xs font-mono rounded p-2 text-center">
+                                </div>
+                                <div>
+                                    <label for="grupo" class="label-premium text-slate-400">Nº Grupo</label>
+                                    <input type="number" id="grupo" name="grupo" class="w-full bg-slate-800 border border-slate-700 text-white text-xs font-mono rounded p-2 text-center focus:ring-1 focus:ring-orange-500 focus:outline-none">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-card p-6">
+                        <div class="flex items-center gap-3 mb-5 border-b border-slate-100 pb-4">
+                            <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center"><i class="bi bi-briefcase-fill"></i></div>
+                            <h3 class="text-base font-bold text-slate-800">Asignación de Personal</h3>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label for="escenario_dueño" class="label-premium">Jerarquía</label>
+                                    <select id="escenario_dueño" name="escenario_dueño" required class="input-premium p-2 text-xs">
+                                        <option value="">Seleccione...</option>
+                                        <option value="superadmin">Presidencia</option>
+                                        <option value="gerente">Gerencia</option>
+                                        <option value="asesor">Comercial</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="asesor_id" class="label-premium">Asesor Titular</label>
+                                    <select id="asesor_id" name="asesor_id" required disabled class="input-premium p-2 text-xs bg-slate-50">
+                                        <option value="">Esperando jerarquía...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="cerrado_por_id" class="label-premium">Funcionario Cerrador</label>
+                                <select id="cerrado_por_id" name="cerrado_por_id" required class="input-premium">
+                                    <option value="">-- Seleccione autorizante --</option>
+                                    {% for admin in todos_los_admins %}
+                                        <option value="{{ admin.id }}">{{ admin.nombre }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
             </div>
-            <canvas id="signature-pad-cliente" class="border-2 border-dashed border-slate-300 rounded-md bg-white w-full h-40 touch-none"></canvas>
-            <input type="hidden" name="firma_cliente" id="firma_cliente">
-          </div>
-          <div>
-            <div class="flex justify-between items-center mb-2">
-              <label class="block text-sm font-medium text-slate-700">Firma de la Empresa</label>
-              <button type="button" onclick="padEmpresa.clear()" class="text-xs font-semibold text-red-600 hover:text-red-800">Limpiar</button>
-            </div>
-            <canvas id="signature-pad-empresa" class="border-2 border-dashed border-slate-300 rounded-md bg-white w-full h-40 touch-none"></canvas>
-            <input type="hidden" name="firma_empresa" id="firma_empresa">
-          </div>
-        </div>
-      </section>
 
-      <div class="flex justify-end gap-4 pt-2">
-        <button type="button" onclick="volverADatos()" class="px-4 py-2 text-slate-700 bg-white ring-1 ring-slate-200 rounded-xl hover:bg-slate-50">Volver a los Datos</button>
-        <button type="submit" id="submitBtn" disabled class="px-6 py-2 font-semibold text-white bg-green-600 rounded-xl shadow hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
-          Finalizar Registro
-        </button>
-      </div>
-    </div>
-  </form>
+            <div class="flex items-center justify-between border-t border-slate-200 pt-6 mt-8">
+                <a href="{{ url_for('hub') }}" class="text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors">Cancelar Registro</a>
+                <button type="button" id="btnContinuar" onclick="avanzarAlContrato()" class="inline-flex items-center justify-center gap-2 bg-slate-900 text-white px-8 py-3 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5">
+                    Revisar Contrato y Firmar <i class="bi bi-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <div id="seccion-contrato" class="hidden space-y-6 animate-fade-in">
+            <div class="glass-card overflow-hidden">
+                <div class="bg-slate-50 border-b border-slate-200 p-6 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center"><i class="bi bi-file-earmark-check-fill text-xl"></i></div>
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900 tracking-tight">Acuerdo de Adhesión Legal</h3>
+                            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Lectura Obligatoria</p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="volverADatos()" class="text-sm font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1"><i class="bi bi-arrow-left"></i> Editar Datos</button>
+                </div>
+
+                <div class="p-6 md:p-8 bg-white h-[450px] overflow-y-auto custom-scrollbar text-sm text-slate-600 leading-relaxed text-justify relative">
+                    <div class="absolute top-0 left-0 w-full h-4 bg-gradient-to-b from-white to-transparent z-10 sticky pointer-events-none"></div>
+
+                    <h4 class="font-black text-center mb-6 text-base text-slate-900 tracking-tight">CLÁUSULAS DEL CONTRATO DE ADHESIÓN</h4>
+                    
+                    <p class="mb-4">Entre las partes, por un lado, <strong class="text-slate-900">MOTO PLAN MOTORS, C.A.</strong>, sociedad mercantil constituida bajo las leyes de la República Bolivariana de Venezuela, inscrita en el Registro Mercantil Primero del Estado Portuguesa bajo el número de tomo 66-A RM410, número 18 del año 2023, con RIF J-50408959-1 e inscrita en el RUPDAE, en lo sucesivo denominada “LA EMPRESA”, y por otro lado, el (la) ciudadano (a) <strong id="preview-nombre" class="uppercase text-orange-600 bg-orange-50 px-1 rounded">________</strong>, titular de la Cédula de Identidad Nro. V-<strong id="preview-cedula" class="text-orange-600 bg-orange-50 px-1 rounded">________</strong>, domiciliado(a) en <strong id="preview-direccion" class="text-slate-800">________</strong>, en lo sucesivo denominado “EL CLIENTE”, convienen en celebrar el presente Contrato de Adhesión, el cual se regirá por las siguientes cláusulas:</p>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <h5 class="font-bold text-slate-900 mb-1">CAPÍTULO I: DISPOSICIONES GENERALES Y NATURALEZA</h5>
+                            <p><strong class="text-slate-800">Cláusula 1 y 2.</strong> LA EMPRESA es una persona jurídica legalmente constituida. EL CLIENTE se adhiere voluntariamente a este contrato cuyo objeto es la incorporación a un plan de ahorro programado con fines de autofinanciamiento. LA EMPRESA no vende bienes directamente.</p>
+                            <p><strong class="text-slate-800">Cláusula 3 y 4.</strong> EL CLIENTE declara haber recibido asesoría clara. La asesoría fue grabada con consentimiento expreso de EL CLIENTE y podrá usarse como prueba válida en caso de controversia.</p>
+                        </div>
+                        
+                        <div>
+                            <h5 class="font-bold text-slate-900 mb-1">CAPÍTULO II: DE LOS GRUPOS Y EL BIEN A ADQUIRIR</h5>
+                            <p><strong class="text-slate-800">Cláusula 5, 6 y 7.</strong> Cuota de inscripción única equivalente al 13.93% del monto contratado. Los grupos se conforman por 54 personas y se activan al alcanzar al menos el 85% de integración. Duración máxima del plan: 24 meses.</p>
+                            <p><strong class="text-slate-800">Cláusula 8.</strong> El monto adjudicado se ajusta al precio del bien. LA EMPRESA no garantiza disponibilidad inmediata de modelos específicos.</p>
+                        </div>
+
+                        <div>
+                            <h5 class="font-bold text-slate-900 mb-1">CAPÍTULO III: DE LA CUOTA MENSUAL Y LOS PAGOS</h5>
+                            <p><strong class="text-slate-800">Cláusula 9 y 10.</strong> La cuota mensual incluye el aporte neto al fondo, costos operativos, y utilidad. Se exige el pago completo y puntual de las cuotas mensuales, sin interrupciones ni fraccionamientos.</p>
+                        </div>
+
+                        <div id="clausulas-bcv" class="hidden bg-slate-50 p-4 rounded-lg border border-slate-200 border-l-4 border-l-blue-500 my-4">
+                            <p class="text-slate-700"><strong class="text-blue-700">Cláusula 11 (Modalidad Bolívares).</strong> Los pagos deben realizarse preferentemente en Bolívares (Bs.), al valor equivalente según la tasa oficial del Banco Central de Venezuela (BCV). También se aceptan pagos en divisas convertibles, bajo el principio de libre convertibilidad. <br><span class="text-xs text-slate-500 mt-1 block">Fundamento Legal: Ley del BCV (Art. 3 y 121), Convenio Cambiario N.º 1, TSJ Sala Civil N.º 703/2016.</span></p>
+                        </div>
+
+                        <div id="clausulas-usd" class="hidden bg-slate-50 p-4 rounded-lg border border-slate-200 border-l-4 border-l-emerald-500 my-4">
+                            <p class="text-slate-700"><strong class="text-emerald-700">Cláusula 11 (Modalidad Divisas).</strong> Los pagos deben realizarse estrictamente en Divisas (USD). No se aceptarán pagos en Bolívares (Bs.) bajo esta modalidad de contrato. <br><span class="text-xs text-slate-500 mt-1 block">Fundamento Legal: Ley del BCV (Art. 3 y 121), Convenio Cambiario N.º 1, Código de Comercio (Art. 115 y 128).</span></p>
+                        </div>
+
+                        <div>
+                            <h5 class="font-bold text-slate-900 mb-1">CAPÍTULO IV: DEL PROCESO DE ENTREGA (ADJUDICACIÓN)</h5>
+                            <p><strong class="text-slate-800">Cláusula 12 y 13.</strong> El evento de adjudicación se realiza una vez al mes entre clientes solventes mediante Oferta, Asignación por Antigüedad (A partir de la cuota 12) o por Finiquito.</p>
+                            <p><strong class="text-slate-800">Cláusula 14 y 15.</strong> Para recibir el monto adjudicado, EL CLIENTE debe presentar garantías vigentes. LA EMPRESA dispone de hasta 60 días hábiles para materializar la entrega.</p>
+                        </div>
+
+                        <div>
+                            <h5 class="font-bold text-slate-900 mb-1">CAPÍTULOS FINALES: INCUMPLIMIENTO Y JURISDICCIÓN</h5>
+                            <p><strong class="text-slate-800">Cláusula 16 al 21.</strong> El impago de 3 cuotas permite anular el contrato. En caso de mora se aplicará un 0,2% diario. EL CLIENTE tiene derecho a retracto en 7 días hábiles. Las partes acuerdan que este contrato podrá ser firmado electrónicamente garantizando su total validez jurídica.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-100 border-t border-slate-200 p-6">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 text-center">Confirmación de Aceptación Legal</p>
+                    <div class="flex flex-col sm:flex-row justify-center gap-4 sm:gap-8">
+                        <label class="relative flex items-center justify-center gap-3 p-4 rounded-xl border-2 border-slate-200 bg-white cursor-pointer hover:border-emerald-500 transition-colors group w-full max-w-sm">
+                            <input type="radio" name="confirmacion_lectura" value="acepto" onchange="gestionarAccesoFirmas(this.value)" class="w-5 h-5 text-emerald-600 focus:ring-emerald-500 border-slate-300">
+                            <span class="font-bold text-slate-700 group-hover:text-emerald-700 text-sm">Acepto los términos y condiciones</span>
+                        </label>
+                        <label class="relative flex items-center justify-center gap-3 p-4 rounded-xl border-2 border-slate-200 bg-white cursor-pointer hover:border-rose-500 transition-colors group w-full max-w-sm">
+                            <input type="radio" name="confirmacion_lectura" value="no_acepto" onchange="gestionarAccesoFirmas(this.value)" class="w-5 h-5 text-rose-600 focus:ring-rose-500 border-slate-300">
+                            <span class="font-bold text-slate-700 group-hover:text-rose-700 text-sm">No acepto (Bloquear firmas)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="contenedor-firmas" class="grid grid-cols-1 md:grid-cols-2 gap-px bg-slate-200 opacity-30 pointer-events-none transition-opacity duration-500">
+                    <div class="bg-white p-6 md:p-8">
+                        <div class="flex justify-between items-center mb-4">
+                            <label class="text-sm font-bold text-slate-800 uppercase tracking-tight">Firma del Cliente Titular</label>
+                            <button type="button" onclick="padCliente.clear()" class="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors px-2 py-1 rounded bg-slate-50 hover:bg-rose-50">Borrar y Repetir</button>
+                        </div>
+                        <div class="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 overflow-hidden shadow-inner">
+                            <canvas id="signature-pad-cliente" class="w-full h-48 touch-none cursor-crosshair"></canvas>
+                        </div>
+                        <input type="hidden" name="firma_cliente" id="firma_cliente">
+                    </div>
+                    
+                    <div class="bg-white p-6 md:p-8">
+                        <div class="flex justify-between items-center mb-4">
+                            <label class="text-sm font-bold text-slate-800 uppercase tracking-tight">Firma Funcionario (Empresa)</label>
+                            <button type="button" onclick="padEmpresa.clear()" class="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors px-2 py-1 rounded bg-slate-50 hover:bg-rose-50">Borrar y Repetir</button>
+                        </div>
+                        <div class="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 overflow-hidden shadow-inner">
+                            <canvas id="signature-pad-empresa" class="w-full h-48 touch-none cursor-crosshair"></canvas>
+                        </div>
+                        <input type="hidden" name="firma_empresa" id="firma_empresa">
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 p-6 flex justify-end border-t border-slate-200">
+                    <button type="submit" id="submitBtn" disabled class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 text-white px-10 py-3.5 rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/30 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed disabled:hover:bg-emerald-600">
+                        <i class="bi bi-shield-lock-fill"></i> Sellar Contrato y Crear Cliente
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
 </div>
 
-<div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
+<div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true" data-bs-backdrop="static">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content rounded-2xl overflow-hidden">
-      <div class="modal-header">
-        <h5 class="modal-title" id="cameraModalLabel">Capturar Foto</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+    <div class="modal-content border-0 shadow-2xl rounded-2xl overflow-hidden bg-slate-900">
+      <div class="modal-header border-slate-800 bg-slate-900 px-5 py-4">
+        <h5 class="modal-title font-bold text-white tracking-tight flex items-center gap-2" id="cameraModalLabel"><i class="bi bi-camera-fill text-slate-400"></i> <span id="modal-title-text">Sistema de Captura</span></h5>
+        <button type="button" class="text-slate-400 hover:text-white transition-colors" data-bs-dismiss="modal" aria-label="Cerrar"><i class="bi bi-x-lg text-xl"></i></button>
       </div>
-      <div class="modal-body text-center">
-        <div class="live-view">
-          <video id="video-feed" autoplay playsinline muted class="bg-black rounded w-100"></video>
+      <div class="modal-body p-0 bg-black relative">
+        <div class="live-view relative">
+          <div class="absolute inset-0 border-2 border-white/20 z-10 m-8 rounded-lg pointer-events-none flex items-center justify-center">
+              <div class="w-16 h-16 border-4 border-white/30 rounded-full"></div>
+          </div>
+          <video id="video-feed" autoplay playsinline muted class="w-full h-auto aspect-video object-cover"></video>
         </div>
-        <div class="confirmation-view" style="display:none;">
-          <p class="font-medium text-slate-700">¿Desea usar esta foto?</p>
-          <canvas id="capture-canvas" class="rounded w-100"></canvas>
+        <div class="confirmation-view relative" style="display:none;">
+          <div class="absolute top-4 left-0 w-full text-center z-10"><span class="bg-black/60 backdrop-blur text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Vista Previa</span></div>
+          <canvas id="capture-canvas" class="w-full h-auto aspect-video object-cover"></canvas>
         </div>
       </div>
-      <div class="modal-footer">
-        <div class="live-view-footer w-100 d-flex justify-content-between">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="button" id="flip-camera-btn" class="btn btn-info"><i class="bi bi-arrow-repeat"></i> Cambiar Cámara</button>
-          <button type="button" id="capture-btn" class="btn btn-primary"><i class="bi bi-camera-fill"></i> Capturar</button>
+      <div class="modal-footer border-slate-800 bg-slate-900 px-5 py-4">
+        <div class="live-view-footer w-full flex justify-between gap-3">
+          <button type="button" id="flip-camera-btn" class="w-12 h-12 rounded-full bg-slate-800 text-white flex items-center justify-center hover:bg-slate-700 transition-colors border border-slate-700"><i class="bi bi-arrow-repeat text-xl"></i></button>
+          <button type="button" id="capture-btn" class="flex-1 bg-white text-slate-900 font-bold rounded-full hover:bg-slate-200 transition-colors flex items-center justify-center gap-2 text-sm shadow-[0_0_15px_rgba(255,255,255,0.2)]"><i class="bi bi-camera"></i> Tomar Fotografía</button>
         </div>
-        <div class="confirmation-view-footer w-100 d-flex justify-content-between" style="display:none;">
-          <button type="button" class="btn btn-secondary" id="retake-btn"><i class="bi bi-arrow-clockwise"></i> Volver a Tomar</button>
-          <button type="button" class="btn btn-success" id="save-photo-btn"><i class="bi bi-check-circle-fill"></i> Guardar Foto</button>
+        <div class="confirmation-view-footer w-full flex justify-between gap-3" style="display:none;">
+          <button type="button" class="flex-1 bg-slate-800 text-white font-semibold rounded-full hover:bg-slate-700 transition-colors text-sm py-2.5" id="retake-btn">Descartar</button>
+          <button type="button" class="flex-1 bg-orange-500 text-white font-bold rounded-full hover:bg-orange-600 transition-colors text-sm shadow-[0_0_15px_rgba(249,115,22,0.4)] py-2.5" id="save-photo-btn">Confirmar y Usar</button>
         </div>
       </div>
     </div>
@@ -414,72 +444,92 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 
 <script>
-// --- Funciones de Navegación y Firmas ---
-  let padCliente, padEmpresa;
-  
-  function inicializarFirmas() {
-    if (padCliente) return; // Evita reinicializar si ya se abrieron
+// ==========================================
+// 1. LÓGICA DE FIRMAS DIGITALES
+// ==========================================
+let padCliente, padEmpresa;
+
+function inicializarFirmas() {
+    if (padCliente) return; 
     
     const canvasC = document.getElementById('signature-pad-cliente');
     const canvasE = document.getElementById('signature-pad-empresa');
     
-    // Ajustar resolución para que el trazo siga exactamente al dedo/mouse
     function resizeCanvas(canvas) {
-      const ratio = Math.max(window.devicePixelRatio || 1, 1);
-      canvas.width = canvas.offsetWidth * ratio;
-      canvas.height = canvas.offsetHeight * ratio;
-      canvas.getContext("2d").scale(ratio, ratio);
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        canvas.width = canvas.offsetWidth * ratio;
+        canvas.height = canvas.offsetHeight * ratio;
+        canvas.getContext("2d").scale(ratio, ratio);
     }
     
     resizeCanvas(canvasC);
     resizeCanvas(canvasE);
 
-    padCliente = new SignaturePad(canvasC, { backgroundColor: 'rgb(255, 255, 255)' });
-    padEmpresa = new SignaturePad(canvasE, { backgroundColor: 'rgb(255, 255, 255)' });
-    
-    // Guardar los dibujos en los inputs ocultos cada vez que levantan el dedo
-    padCliente.addEventListener("endStroke", () => {
-      document.getElementById('firma_cliente').value = padCliente.toDataURL();
-    });
-    padEmpresa.addEventListener("endStroke", () => {
-      document.getElementById('firma_empresa').value = padEmpresa.toDataURL();
-    });
-  }
+    const padOptions = { 
+        backgroundColor: 'rgba(255, 255, 255, 0)', 
+        penColor: '#0f172a',
+        minWidth: 1.5,
+        maxWidth: 3.5
+    };
 
-  // Nueva función para habilitar/deshabilitar firmas
-  function gestionarAccesoFirmas(valor) {
+    padCliente = new SignaturePad(canvasC, padOptions);
+    padEmpresa = new SignaturePad(canvasE, padOptions);
+
+    padCliente.addEventListener("endStroke", () => { document.getElementById('firma_cliente').value = padCliente.toDataURL(); });
+    padEmpresa.addEventListener("endStroke", () => { document.getElementById('firma_empresa').value = padEmpresa.toDataURL(); });
+}
+
+function gestionarAccesoFirmas(valor) {
     const contenedor = document.getElementById('contenedor-firmas');
     const botonFinalizar = document.getElementById('submitBtn');
     
     if (valor === 'acepto') {
-      contenedor.classList.remove('opacity-25', 'pointer-events-none');
-      botonFinalizar.disabled = false;
-      // Pequeño efecto visual de éxito
-      Swal.fire({
-        icon: 'success',
-        title: 'Términos Aceptados',
-        text: 'Ya puede proceder a realizar las firmas.',
-        timer: 1500,
-        showConfirmButton: false
-      });
+        contenedor.classList.remove('opacity-30', 'pointer-events-none');
+        botonFinalizar.disabled = false;
+        
+        const Toast = Swal.mixin({ toast: true, position: "top-end", showConfirmButton: false, timer: 2000, timerProgressBar: true });
+        Toast.fire({ icon: "success", title: "Contrato desbloqueado. Por favor firme abajo." });
     } else {
-      contenedor.classList.add('opacity-25', 'pointer-events-none');
-      botonFinalizar.disabled = true;
-      if (padCliente) padCliente.clear();
-      if (padEmpresa) padEmpresa.clear();
+        contenedor.classList.add('opacity-30', 'pointer-events-none');
+        botonFinalizar.disabled = true;
+        if (padCliente) padCliente.clear();
+        if (padEmpresa) padEmpresa.clear();
+        document.getElementById('firma_cliente').value = "";
+        document.getElementById('firma_empresa').value = "";
     }
-  }
+}
 
-  function avanzarAlContrato() {
-    // 1. Inyectar datos personales en vivo
+// ==========================================
+// 2. NAVEGACIÓN ENTRE PASOS
+// ==========================================
+function avanzarAlContrato() {
+    // Validar requeridos del PASO 1 visualmente
+    const form = document.getElementById('registroForm');
+    const inputsPaso1 = document.getElementById('seccion-datos').querySelectorAll('[required]');
+    let paso1Valido = true;
+    
+    inputsPaso1.forEach(input => {
+        if (!input.value.trim() && input.type !== 'hidden') {
+            input.classList.add('border-rose-500', 'ring-1', 'ring-rose-500');
+            paso1Valido = false;
+        } else {
+            input.classList.remove('border-rose-500', 'ring-1', 'ring-rose-500');
+        }
+    });
+
+    if (!paso1Valido) {
+        Swal.fire({ icon: 'warning', title: 'Datos Incompletos', text: 'Por favor complete todos los campos marcados en rojo antes de avanzar al contrato.', confirmButtonColor: '#0f172a' });
+        return;
+    }
+
+    // Inyectar variables en el contrato
     document.getElementById('preview-nombre').innerText = document.getElementById('nombre_apellido').value || '________';
     document.getElementById('preview-cedula').innerText = document.getElementById('cedula').value || '________';
     document.getElementById('preview-direccion').innerText = document.getElementById('direccion').value || '________';
     
-    // 2. Lógica dinámica para la Cláusula de Moneda
     const monedaSeleccionada = document.getElementById('moneda_pago').value;
     if (monedaSeleccionada === 'BsBCV') {
         document.getElementById('clausulas-bcv').classList.remove('hidden');
@@ -489,192 +539,197 @@
         document.getElementById('clausulas-bcv').classList.add('hidden');
     }
 
-    // 3. Resetear las firmas y casillas por seguridad
+    // Reset firmas
     const radios = document.getElementsByName('confirmacion_lectura');
     radios.forEach(r => r.checked = false);
     gestionarAccesoFirmas('reset');
 
-    // 4. Cambiar de pantalla
+    // Cambiar vista
     document.getElementById('seccion-datos').classList.add('hidden');
     document.getElementById('seccion-contrato').classList.remove('hidden');
-    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     
-    // 5. Inicializar pads (permanecerán bloqueados hasta que marquen "Acepto")
+    // Inicializar canvas si no lo estaban
     inicializarFirmas();
-  }
+}
 
-  function volverADatos() {
+function volverADatos() {
     document.getElementById('seccion-contrato').classList.add('hidden');
     document.getElementById('seccion-datos').classList.remove('hidden');
-    window.scrollTo(0, 0);
-  }
-  // ------------------------------------------------------
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
-  function handleFormSubmit(form) {
-    const submitBtn = form.querySelector('button[type="submit"]');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = `<i class="bi bi-arrow-repeat animate-spin"></i> Procesando...`;
-  }
-
-  document.addEventListener('DOMContentLoaded', function() {
-    const adminsPorRol = {{ admins_por_rol | tojson | safe }};
-
-    // --- Filtro Asesor por Escenario ---
+// ==========================================
+// 3. MOTOR MATEMÁTICO CORE Y SELECTORES
+// ==========================================
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // -- Lógica de Asignación de Asesor --
+    const adminsPorRol = {{ admins_por_rol | tojson | safe if admins_por_rol else 'null' }};
     const escenarioSelect = document.getElementById('escenario_dueño');
     const duenoSelect = document.getElementById('asesor_id');
 
-    escenarioSelect.addEventListener('change', function() {
-      const escenario = this.value;
-      duenoSelect.innerHTML = '<option value="">Seleccione un asesor...</option>';
+    if (escenarioSelect && duenoSelect && adminsPorRol) {
+        escenarioSelect.addEventListener('change', function() {
+            const escenario = this.value;
+            duenoSelect.innerHTML = '<option value="">Seleccione un asesor titular...</option>';
 
-      const lista = adminsPorRol && adminsPorRol[escenario] ? adminsPorRol[escenario] : null;
-      if (lista && lista.length) {
-        duenoSelect.disabled = false;
-        lista.forEach(function(admin) {
-          const opt = document.createElement('option');
-          opt.value = admin.id;
-          opt.textContent = admin.nombre_completo || admin.nombre;
-          duenoSelect.appendChild(opt);
+            const lista = adminsPorRol[escenario];
+            if (lista && lista.length) {
+                duenoSelect.disabled = false;
+                duenoSelect.classList.remove('bg-slate-50');
+                lista.forEach(admin => {
+                    const opt = document.createElement('option');
+                    opt.value = admin.id;
+                    opt.textContent = admin.nombre_completo || admin.nombre;
+                    duenoSelect.appendChild(opt);
+                });
+            } else {
+                duenoSelect.disabled = true;
+                duenoSelect.classList.add('bg-slate-50');
+                duenoSelect.innerHTML = '<option value="">Sin personal en esta área...</option>';
+            }
         });
-      } else {
-        duenoSelect.disabled = true;
-        duenoSelect.innerHTML = '<option value="">Primero seleccione un cargo...</option>';
-      }
-    });
+    }
 
-    // --- NUEVO MOTOR MATEMÁTICO E INTELIGENTE (FILTROS NATIVOS Y TRABAJO AUTOMÁTICO) ---
+    // -- Motor de Cuotas y Filtros --
     const planSelect = document.getElementById('plan_contratado');
     const inscripcionInput = document.getElementById('inscripcion_monto');
     const plazoSelect = document.getElementById('cuotas_totales');
     const monedaSelect = document.getElementById('moneda_pago');
     const cuotaInput = document.getElementById('valor_cuota');
-    const cuotaLabel = document.querySelector('label[for="valor_cuota"]');
-
-    // Guardamos los elementos option nativos del HTML original para manipularlos con seguridad
+    
     const originalesPlanes = Array.from(planSelect.options);
     const originalesPlazos = Array.from(plazoSelect.options);
 
     function actualizarFiltrosMoneda() {
-      const moneda = monedaSelect.value;
-      const planPrevia = planSelect.value;
-      const plazoPrevia = plazoSelect.value;
+        const moneda = monedaSelect.value;
+        const planPrevia = planSelect.value;
+        const plazoPrevia = plazoSelect.value;
 
-      // 1. FILTRAR Y DEPURAR PLANES
-      planSelect.innerHTML = '';
-      originalesPlanes.forEach(opt => {
-        if (opt.value !== "") {
-          const valor = parseInt(opt.value, 10);
-          // Si es Bolívares, descartamos físicamente los planes menores a 1800
-          if (moneda === 'BsBCV' && valor < 1800) return;
+        // Limpiar
+        planSelect.innerHTML = '';
+        originalesPlanes.forEach(opt => {
+            if (opt.value !== "") {
+                const valor = parseInt(opt.value, 10);
+                if (moneda === 'BsBCV' && valor < 1800) return; // Restricción de negocio
+            }
+            planSelect.appendChild(opt.cloneNode(true));
+        });
+
+        plazoSelect.innerHTML = '';
+        originalesPlazos.forEach(opt => {
+            if (opt.value !== "") {
+                const valor = parseInt(opt.value, 10);
+                if (moneda === 'BsBCV' && valor !== 24) return; // Restricción de negocio
+            }
+            plazoSelect.appendChild(opt.cloneNode(true));
+        });
+
+        // Restaurar estado
+        if (planPrevia && planSelect.querySelector(`option[value="${planPrevia}"]`)) {
+            planSelect.value = planPrevia;
+        } else {
+            planSelect.value = "";
         }
-        planSelect.appendChild(opt);
-      });
 
-      // 2. FILTRAR Y DEPURAR PLAZOS (CUOTAS)
-      plazoSelect.innerHTML = '';
-      originalesPlazos.forEach(opt => {
-        if (opt.value !== "") {
-          const valor = parseInt(opt.value, 10);
-          // Si es Bolívares, descartamos plazos diferentes a 24
-          if (moneda === 'BsBCV' && valor !== 24) return;
+        if (moneda === 'BsBCV') {
+            plazoSelect.value = "24";
+        } else if (plazoPrevia && plazoSelect.querySelector(`option[value="${plazoPrevia}"]`)) {
+            plazoSelect.value = plazoPrevia;
+        } else {
+            plazoSelect.value = "24";
         }
-        plazoSelect.appendChild(opt);
-      });
 
-      // 3. RESTAURAR SELECCIONES O REAJUSTAR VALORES
-      if (planPrevia && planSelect.querySelector(`option[value="${planPrevia}"]`)) {
-        planSelect.value = planPrevia;
-      } else {
-        planSelect.value = "";
-      }
-
-      if (moneda === 'BsBCV') {
-        plazoSelect.value = "24";
-      } else if (plazoPrevia && plazoSelect.querySelector(`option[value="${plazoPrevia}"]`)) {
-        plazoSelect.value = plazoPrevia;
-      } else {
-        plazoSelect.value = "24";
-      }
-
-      // 4. FORZAR CÁLCULOS EN VIVO INMEDIATOS
-      actualizarMontoInscripcion();
-      calcularYActualizarCuota();
+        actualizarMontoInscripcion();
+        calcularYActualizarCuota();
     }
 
     function actualizarMontoInscripcion() {
-      const valorPlan = parseFloat(planSelect.value);
-      if (!isNaN(valorPlan)) {
-        // 1. Cálculo exacto del 13.93%
-        const inscripcionBruta = +(valorPlan * 0.1393).toFixed(2);
-        
-        // 2. Separamos la parte entera de los centavos
-        const parteEntera = Math.floor(inscripcionBruta);
-        const parteDecimal = +(inscripcionBruta - parteEntera).toFixed(2);
+        const valorPlan = parseFloat(planSelect.value);
+        if (!isNaN(valorPlan)) {
+            const inscripcionBruta = +(valorPlan * 0.1393).toFixed(2);
+            const parteEntera = Math.floor(inscripcionBruta);
+            const parteDecimal = +(inscripcionBruta - parteEntera).toFixed(2);
 
-        // 3. Aplicamos la Regla de Carlos: > 0.30 sube, <= 0.30 se queda igual
-        let inscripcionRedondeada;
-        if (parteDecimal > 0.30) {
-          inscripcionRedondeada = parteEntera + 1;
+            let inscripcionRedondeada = (parteDecimal > 0.30) ? parteEntera + 1 : parteEntera;
+            
+            inscripcionInput.value = inscripcionRedondeada.toFixed(2);
         } else {
-          inscripcionRedondeada = parteEntera;
+            inscripcionInput.value = '0.00';
         }
-
-        // 4. Asignamos el valor formateado con .00
-        inscripcionInput.value = inscripcionRedondeada.toFixed(2);
-        inscripcionInput.dispatchEvent(new Event('input', { bubbles: true }));
-      } else {
-        inscripcionInput.value = '';
-      }
     }
 
     function calcularYActualizarCuota() {
-      const montoPlan = parseFloat(planSelect.value);
-      const plazo = parseInt(plazoSelect.value, 10);
-      const tipoMoneda = monedaSelect.value;
+        const montoPlan = parseFloat(planSelect.value);
+        const plazo = parseInt(plazoSelect.value, 10);
+        
+        if (isNaN(montoPlan) || isNaN(plazo)) {
+            cuotaInput.value = '0.00'; 
+            return;
+        }
 
-      cuotaLabel.textContent = `Cuota Mensual (${tipoMoneda === 'USD' ? 'USD' : 'Bs'})`;
+        let factorCuota = 0;
+        if (plazo === 24) factorCuota = 0.06458;
+        else if (plazo === 36) factorCuota = 0.04306;
+        else if (plazo === 48) factorCuota = 0.03229;
 
-      if (isNaN(montoPlan) || isNaN(plazo)) {
-        cuotaInput.value = ''; 
-        return;
-      }
+        const cuotaBruta = +(montoPlan * factorCuota).toFixed(2);
+        const parteEntera = Math.floor(cuotaBruta);
+        const parteDecimal = +(cuotaBruta - parteEntera).toFixed(2);
 
-      // Factores de cálculo exactos según el plazo seleccionado
-      let factorCuota = 0;
-      if (plazo === 24) factorCuota = 0.06458;
-      else if (plazo === 36) factorCuota = 0.04306;
-      else if (plazo === 48) factorCuota = 0.03229;
-
-      const cuotaBruta = +(montoPlan * factorCuota).toFixed(2);
-      const parteEntera = Math.floor(cuotaBruta);
-      const parteDecimal = +(cuotaBruta - parteEntera).toFixed(2);
-
-      // Regla de Redondeo: > 0.30 sube al entero, <= 0.30 se queda abajo
-      let cuotaRedondeada;
-      if (parteDecimal > 0.30) {
-        cuotaRedondeada = parteEntera + 1;
-      } else {
-        cuotaRedondeada = parteEntera;
-      }
-
-      cuotaInput.value = cuotaRedondeada.toFixed(2);
-      cuotaInput.dispatchEvent(new Event('input', { bubbles: true }));
+        let cuotaRedondeada = (parteDecimal > 0.30) ? parteEntera + 1 : parteEntera;
+        
+        cuotaInput.value = cuotaRedondeada.toFixed(2);
     }
 
-    // OYENTES DE EVENTOS NATIVOS
-    planSelect.addEventListener('change', function() {
-      actualizarMontoInscripcion();
-      calcularYActualizarCuota();
-    });
-
+    planSelect.addEventListener('change', () => { actualizarMontoInscripcion(); calcularYActualizarCuota(); });
     plazoSelect.addEventListener('change', calcularYActualizarCuota);
     monedaSelect.addEventListener('change', actualizarFiltrosMoneda);
 
-    // Inicialización obligatoria al cargar la página por primera vez
     actualizarFiltrosMoneda();
-    // -------------------------------------------------------------------------------
 
-    // --- Cámara (flip + espejado en selfie) ---
+    // ==========================================
+    // 4. PREVENCIÓN DE DOBLE SUBMIT
+    // ==========================================
+    const form = document.getElementById('registroForm');
+    form.addEventListener('submit', function(e) {
+        if(document.getElementById('submitBtn').hasAttribute('data-submitting')) {
+            e.preventDefault();
+            return;
+        }
+        
+        // Verificación final de firmas
+        if (!document.getElementById('firma_cliente').value || !document.getElementById('firma_empresa').value) {
+            e.preventDefault();
+            Swal.fire({ icon: 'error', title: 'Firmas Faltantes', text: 'Ambas firmas son obligatorias para generar el contrato legal.', confirmButtonColor: '#0f172a' });
+            return;
+        }
+
+        e.preventDefault(); // Pausamos para mostrar alerta
+        Swal.fire({
+            title: '¿Confirmar Contrato?',
+            text: "Se procesarán las firmas y se habilitará el perfil del cliente en el sistema.",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#059669', // emerald-600
+            cancelButtonColor: '#64748b',  // slate-500
+            confirmButtonText: 'Sí, registrar formalmente',
+            cancelButtonText: 'Revisar datos'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const btn = document.getElementById('submitBtn');
+                btn.setAttribute('data-submitting', 'true');
+                btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Procesando registro...`;
+                btn.classList.replace('bg-emerald-600', 'bg-emerald-800');
+                form.submit();
+            }
+        });
+    });
+
+    // ==========================================
+    // 5. SISTEMA DE CÁMARA (APP NATIVA STYLE)
+    // ==========================================
     const cameraModalEl  = document.getElementById('cameraModal');
     const video          = document.getElementById('video-feed');
     const canvas         = document.getElementById('capture-canvas');
@@ -682,120 +737,85 @@
     const retakeBtn      = document.getElementById('retake-btn');
     const savePhotoBtn   = document.getElementById('save-photo-btn');
     const flipCameraBtn  = document.getElementById('flip-camera-btn');
+    
     let stream, currentCaptureType, capturedImageDataUrl;
     let currentFacingMode = 'user';
 
     function toggleViews(showConfirmation) {
-      cameraModalEl.querySelector('.live-view').style.display = showConfirmation ? 'none' : 'block';
-      cameraModalEl.querySelector('.live-view-footer').style.display = showConfirmation ? 'none' : 'flex';
-      cameraModalEl.querySelector('.confirmation-view').style.display = showConfirmation ? 'block' : 'none';
-      cameraModalEl.querySelector('.confirmation-view-footer').style.display = showConfirmation ? 'flex' : 'none';
+        cameraModalEl.querySelector('.live-view').style.display = showConfirmation ? 'none' : 'block';
+        cameraModalEl.querySelector('.live-view-footer').style.display = showConfirmation ? 'none' : 'flex';
+        cameraModalEl.querySelector('.confirmation-view').style.display = showConfirmation ? 'block' : 'none';
+        cameraModalEl.querySelector('.confirmation-view-footer').style.display = showConfirmation ? 'flex' : 'none';
     }
 
     async function startCamera(facingMode) {
-      if (stream) stream.getTracks().forEach(track => track.stop());
-      try {
-        const constraints = { video: { facingMode } };
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-        video.srcObject = stream;
-        await video.play();
-        video.style.transform = (facingMode === 'user') ? 'scaleX(-1)' : 'scaleX(1)';
-      } catch (err) {
-        console.error("Error al iniciar la cámara: ", err);
-        alert("No se pudo acceder a la cámara. Por favor, permita los permisos.");
-        bootstrap.Modal.getInstance(cameraModalEl).hide();
-      }
+        if (stream) stream.getTracks().forEach(track => track.stop());
+        try {
+            const constraints = { video: { facingMode: facingMode, width: { ideal: 1280 }, height: { ideal: 720 } } };
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+            video.srcObject = stream;
+            await video.play();
+            // Espejar solo si es cámara frontal (selfie)
+            video.style.transform = (facingMode === 'user') ? 'scaleX(-1)' : 'scaleX(1)';
+        } catch (err) {
+            console.error("Cámara error: ", err);
+            Swal.fire({ icon: 'error', title: 'Error de Cámara', text: 'No se pudo acceder a la cámara. Revise los permisos del navegador.', confirmButtonColor: '#0f172a' });
+            bootstrap.Modal.getInstance(cameraModalEl).hide();
+        }
     }
 
     cameraModalEl.addEventListener('show.bs.modal', async (event) => {
-      currentCaptureType = event.relatedTarget.getAttribute('data-capture-type');
-      const modalTitle = cameraModalEl.querySelector('.modal-title');
-      if (currentCaptureType === 'cedula') {
-        modalTitle.textContent = 'Capturar Foto de la Cédula';
-        currentFacingMode = 'environment';
-      } else {
-        modalTitle.textContent = 'Capturar Foto del Cliente (Selfie)';
-        currentFacingMode = 'user';
-      }
-      toggleViews(false);
-      await startCamera(currentFacingMode);
+        currentCaptureType = event.relatedTarget.getAttribute('data-capture-type');
+        const modalTitle = document.getElementById('modal-title-text');
+        
+        if (currentCaptureType === 'cedula') {
+            modalTitle.textContent = 'Documento de Identidad';
+            currentFacingMode = 'environment';
+        } else {
+            modalTitle.textContent = 'Captura Facial (Selfie)';
+            currentFacingMode = 'user';
+        }
+        
+        toggleViews(false);
+        await startCamera(currentFacingMode);
     });
-    
-    cameraModalEl.addEventListener('hide.bs.modal', () => {
-      if (stream) stream.getTracks().forEach(track => track.stop());
-    });
-    
-    flipCameraBtn.addEventListener('click', () => {
-      currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
-      startCamera(currentFacingMode);
-    });
-    
-    captureBtn.addEventListener('click', () => {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
 
-      if (currentFacingMode === 'user') {
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-      }
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      capturedImageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-      toggleViews(true);
+    cameraModalEl.addEventListener('hide.bs.modal', () => {
+        if (stream) stream.getTracks().forEach(track => track.stop());
     });
-    
+
+    flipCameraBtn.addEventListener('click', () => {
+        currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+        startCamera(currentFacingMode);
+    });
+
+    captureBtn.addEventListener('click', () => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+
+        if (currentFacingMode === 'user') {
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+        }
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        capturedImageDataUrl = canvas.toDataURL('image/jpeg', 0.85); // 85% calidad para optimizar Base64
+        toggleViews(true);
+    });
+
     retakeBtn.addEventListener('click', () => toggleViews(false));
 
     savePhotoBtn.addEventListener('click', () => {
-      if (capturedImageDataUrl && currentCaptureType) {
-        document.getElementById(`preview-${currentCaptureType}`).src = capturedImageDataUrl;
-        const hiddenInput = document.getElementById(`foto_${currentCaptureType}`);
-        hiddenInput.value = capturedImageDataUrl;
-        hiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-      bootstrap.Modal.getInstance(cameraModalEl).hide();
-    });
-    
-    // --- Validación y submit con confirm ---
-    const submitBtn = document.getElementById('submitBtn');
-    const form = document.getElementById('registroForm');
-    
-    const validateForm = () => {
-      // Modificado para no exigir required en campos ocultos si estamos en la vista de datos
-      const seccionDatosVisible = !document.getElementById('seccion-datos').classList.contains('hidden');
-      for (const field of form.querySelectorAll('[required]')) {
-        // Si la sección de datos está visible, omitimos validar firmas por ahora
-        if (seccionDatosVisible && (field.id === 'firma_cliente' || field.id === 'firma_empresa')) {
-            continue;
+        if (capturedImageDataUrl && currentCaptureType) {
+            document.getElementById(`preview-${currentCaptureType}`).src = capturedImageDataUrl;
+            document.getElementById(`preview-${currentCaptureType}`).parentElement.classList.replace('border-slate-300', 'border-emerald-500');
+            
+            const hiddenInput = document.getElementById(`foto_${currentCaptureType}`);
+            hiddenInput.value = capturedImageDataUrl;
         }
-        if (!field.value || field.value.trim() === '') return false;
-      }
-      return true;
-    };
-    
-    const updateButtonState = () => { submitBtn.disabled = !validateForm(); };
-    form.addEventListener('input', updateButtonState);
-    form.addEventListener('change', updateButtonState);
-    updateButtonState();
+        bootstrap.Modal.getInstance(cameraModalEl).hide();
+    });
 
-    form.addEventListener('submit', function(e) {
-      e.preventDefault();
-      Swal.fire({
-        title: '¿Confirmar Registro?',
-        text: "Se creará un nuevo perfil de cliente. ¿Está seguro?",
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#2563eb',
-        cancelButtonColor: '#6b7280',
-        confirmButtonText: 'Sí, registrar',
-        cancelButtonText: 'Cancelar'
-      }).then((result) => {
-        if (result.isConfirmed) {
-          handleFormSubmit(form);
-          form.submit();
-        }
-      });
-    });
-  });
+});
 </script>
 {% endblock %}
