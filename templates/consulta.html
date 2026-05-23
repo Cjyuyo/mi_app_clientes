@@ -7,10 +7,16 @@
 {% block head_extra %}
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        /* Estilos corporativos para scrollbars internas */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
 {% endblock %}
 
 {% block body %}
-
 <div x-data="{
     isAnnulModalOpen: false,
     pagoIdToAnnul: null,
@@ -23,528 +29,390 @@
         this.bulkIdToAnnul = id;
         this.processAnnulReason = '';
         this.isAnnulProcessModalOpen = true;
-        this.$nextTick(() => {
-            document.getElementById('processAnnulReason').focus();
-        });
+        this.$nextTick(() => { document.getElementById('processAnnulReason').focus(); });
     },
-    closeAnnulProcessModal() {
-        this.isAnnulProcessModalOpen = false;
-    },
+    closeAnnulProcessModal() { this.isAnnulProcessModalOpen = false; },
     submitProcessAnnulment() {
         if (!this.processAnnulReason.trim()) {
             Swal.fire('Error', 'Debe proporcionar un motivo para la anulación del proceso.', 'error');
             return;
         }
         this.isLoading = true;
-        
         const formData = new FormData();
         formData.append('motivo', this.processAnnulReason.trim());
-
-        fetch(`/admin/anular_proceso_pago/${this.bulkIdToAnnul}`, {
-            method: 'POST',
-            body: formData
-        })
+        fetch(`/admin/anular_proceso_pago/${this.bulkIdToAnnul}`, { method: 'POST', body: formData })
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
                 this.closeAnnulProcessModal();
-                Swal.fire({
-                    icon: 'success',
-                    title: '¡Proceso Anulado!',
-                    text: data.message,
-                    timer: 2500,
-                    showConfirmButton: false,
-                    timerProgressBar: true
-                }).then(() => {
-                    if (data.cedula) {
-                        window.location.href = `/consulta?busqueda=${encodeURIComponent(data.cedula)}`;
-                    } else {
-                        window.location.reload();
-                    }
+                Swal.fire({ icon: 'success', title: '¡Proceso Anulado!', text: data.message, timer: 2500, showConfirmButton: false, timerProgressBar: true })
+                .then(() => {
+                    if (data.cedula) { window.location.href = `/consulta?busqueda=${encodeURIComponent(data.cedula)}`; } 
+                    else { window.location.reload(); }
                 });
-            } else {
-                Swal.fire('Error', data.message, 'error');
-            }
+            } else { Swal.fire('Error', data.message, 'error'); }
         })
-        .catch(error => {
-            console.error('Error:', error);
-            Swal.fire('Error', 'Ocurrió un problema al comunicarse con el servidor.', 'error');
-        })
-        .finally(() => {
-            this.isLoading = false;
-        });
+        .catch(error => { console.error('Error:', error); Swal.fire('Error', 'Ocurrió un problema al comunicarse con el servidor.', 'error'); })
+        .finally(() => { this.isLoading = false; });
     },
     openAnnulModal(id) {
         this.pagoIdToAnnul = id;
         this.annulReason = '';
         this.isLoading = false;
         this.isAnnulModalOpen = true;
-        this.$nextTick(() => {
-            document.getElementById('annulReason').focus();
-        });
+        this.$nextTick(() => { document.getElementById('annulReason').focus(); });
     },
-    closeAnnulModal() {
-        this.isAnnulModalOpen = false;
-    },
+    closeAnnulModal() { this.isAnnulModalOpen = false; },
     submitAnnulment() {
         if (!this.annulReason.trim()) {
             Swal.fire('Error', 'Debe proporcionar un motivo para la anulación.', 'error');
             return;
         }
         this.isLoading = true;
-        
         const formData = new FormData();
         formData.append('motivo', this.annulReason.trim());
-
-        fetch(`/admin/anular_reporte/${this.pagoIdToAnnul}`, {
-            method: 'POST',
-            body: formData
-        })
+        fetch(`/admin/anular_reporte/${this.pagoIdToAnnul}`, { method: 'POST', body: formData })
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
                 this.closeAnnulModal();
-                Swal.fire({
-                    icon: 'success',
-                    title: '¡Anulado!',
-                    text: data.message,
-                    timer: 2500,
-                    showConfirmButton: false,
-                    timerProgressBar: true
-                }).then(() => {
+                Swal.fire({ icon: 'success', title: '¡Anulado!', text: data.message, timer: 2500, showConfirmButton: false, timerProgressBar: true })
+                .then(() => {
                     const searchParams = new URLSearchParams(window.location.search);
                     const busqueda = searchParams.get('busqueda');
-                    if (busqueda) {
-                        window.location.href = `/consulta?busqueda=${encodeURIComponent(busqueda)}`;
-                    } else {
-                        window.location.reload();
-                    }
+                    if (busqueda) { window.location.href = `/consulta?busqueda=${encodeURIComponent(busqueda)}`; } 
+                    else { window.location.reload(); }
                 });
-            } else {
-                Swal.fire('Error', data.message, 'error');
-            }
+            } else { Swal.fire('Error', data.message, 'error'); }
         })
-        .catch(error => {
-            console.error('Error:', error);
-            Swal.fire('Error', 'Ocurrió un problema al comunicarse con el servidor.', 'error');
-        })
-        .finally(() => {
-            this.isLoading = false;
-        });
+        .catch(error => { console.error('Error:', error); Swal.fire('Error', 'Ocurrió un problema al comunicarse con el servidor.', 'error'); })
+        .finally(() => { this.isLoading = false; });
     }
 }">
 
     {% for cliente in clientes %}
-<div x-data="{ 
-    showOfferForm: false, 
-    activeTab: 'resumen',
-    openCards: { progress: true, dossier: true } 
-}" 
-class="cliente-card w-full space-y-6 mb-8"
-data-estatus="{{ (cliente.estatus_cliente or '')|upper }}"
-data-estado="{{ (cliente.estado_del_plan or '')|upper }}"
-data-condicion="{{ (cliente.condicion or cliente.condicion_pago or '')|upper }}"
-data-inconsistente="{% set _incs = cliente.pagos|selectattr('estado_reporte','equalto','Inconsistente')|list %}{{ '1' if _incs|length > 0 else '0' }}"
->
+    <div x-data="{ 
+        showOfferForm: false, 
+        activeTab: 'resumen',
+        openCards: { progress: true, dossier: true } 
+    }" 
+    class="cliente-card w-full space-y-6 mb-12"
+    data-estatus="{{ (cliente.estatus_cliente or '')|upper }}"
+    data-estado="{{ (cliente.estado_del_plan or '')|upper }}"
+    data-condicion="{{ (cliente.condicion or cliente.condicion_pago or '')|upper }}"
+    data-inconsistente="{% set _incs = cliente.pagos|selectattr('estado_reporte','equalto','Inconsistente')|list %}{{ '1' if _incs|length > 0 else '0' }}"
+    >
 
         {% set bucket_url = 'https://sistema-integral-moto-plan-motors-2025.s3.amazonaws.com/' %}
+        {% set total_financiado = (cliente.valor_cuota|float(0) * cliente.cuotas_totales|int(0)) %}
+        {% set total_pagado_plan = (cliente.cuotas_pagadas_progresivas|int(0) * cliente.valor_cuota|float(0)) %}
+        {% set saldo_pendiente = total_financiado - total_pagado_plan %}
 
-        <div class="bg-white rounded-xl shadow-md border border-slate-200 p-4 md:p-6">
-            <div class="flex flex-col md:flex-row items-center gap-4 md:gap-6">
-                <div class="flex-shrink-0 flex items-center gap-4 w-full md:w-auto">
-                    {% if cliente.ruta_foto_cliente_s3 %}
-                        <img src="{{ bucket_url }}{{ cliente.ruta_foto_cliente_s3 }}" alt="Foto de {{ cliente.nombre }} {{ cliente.apellido }}" class="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg">
-                    {% else %}
-                        <div class="w-20 h-20 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center border-4 border-white shadow-lg flex-shrink-0">
-                            <svg class="w-14 h-14" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
-                        </div>
-                    {% endif %}
-                    <div>
-                        <h1 class="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">
-  <a href="{{ url_for('consulta') }}?busqueda={{ cliente.cedula }}" class="hover:text-blue-600">
-    {{ cliente.nombre }} {{ cliente.apellido }}
-  </a>
-</h1>
-                        <p class="text-slate-500 font-mono text-sm">C.I: {{ cliente.cedula }}</p>
-                        <div class="mt-2 flex items-center gap-2">
-                            <span class="text-xs font-semibold py-1 px-3 rounded-full bg-blue-100 text-blue-800">{{ cliente.estado_del_plan }}</span>
-                            <span class="text-xs font-semibold py-1 px-3 rounded-full
-                                {% set estatus = cliente.estatus_cliente | upper if cliente.estatus_cliente else '' %}
-                                {% if estatus == 'ACTIVO' or estatus == 'AHORRADOR' or estatus == 'ADJUDICADO' %} bg-green-100 text-green-800
-                                {% elif estatus == 'INACTIVO' or estatus == 'RETIRO' %} bg-red-100 text-red-800
-                                {% else %} bg-yellow-100 text-yellow-800
-                                {% endif %}">{{ cliente.estatus_cliente }}</span>
-                        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
+
+            <div class="flex items-center gap-5 relative z-10 w-full lg:w-auto">
+                {% if cliente.ruta_foto_cliente_s3 %}
+                    <img src="{{ bucket_url }}{{ cliente.ruta_foto_cliente_s3 }}" alt="Foto" class="w-16 h-16 rounded-full object-cover border border-slate-200 shadow-sm flex-shrink-0">
+                {% else %}
+                    <div class="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center border border-slate-200 shadow-sm flex-shrink-0">
+                        <i class="bi bi-person-fill text-3xl"></i>
                     </div>
-                </div>
-
-                {% set total_financiado = (cliente.valor_cuota|float(0) * cliente.cuotas_totales|int(0)) %}
-                {% set total_pagado_plan = (cliente.cuotas_pagadas_progresivas|int(0) * cliente.valor_cuota|float(0)) %}
-                {% set saldo_pendiente = total_financiado - total_pagado_plan %}
+                {% endif %}
                 
-                <div class="flex-grow w-full bg-slate-50 border border-slate-200 rounded-lg p-3">
-                    <div class="grid grid-cols-3 gap-2 text-center divide-x divide-slate-200">
-                        <div>
-                            <p class="text-xs text-slate-500 uppercase font-semibold tracking-wider">Total Financiado</p>
-                            <p class="text-xl font-bold text-slate-800">${{ "%.2f"|format(total_financiado) }}</p>
-                        </div>
-                        <div class="pl-2">
-                            <p class="text-xs text-slate-500 uppercase font-semibold tracking-wider">Pagado al Plan</p>
-                            <p class="text-xl font-bold text-green-600">${{ "%.2f"|format(total_pagado_plan) }}</p>
-                        </div>
-                        <div class="pl-2">
-                            <p class="text-xs text-slate-500 uppercase font-semibold tracking-wider">Saldo Pendiente</p>
-                            <p class="text-xl font-bold text-red-600">${{ "%.2f"|format(saldo_pendiente) }}</p>
-                        </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900 tracking-tight leading-tight">
+                        <a href="{{ url_for('consulta') }}?busqueda={{ cliente.cedula }}" class="hover:text-blue-600 transition-colors">
+                            {{ cliente.nombre }} {{ cliente.apellido }}
+                        </a>
+                    </h1>
+                    <p class="text-slate-500 font-mono text-sm mt-0.5">C.I: {{ cliente.cedula }}</p>
+                    
+                    <div class="mt-2.5 flex flex-wrap items-center gap-2">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 shadow-sm">
+                            <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span> {{ cliente.estado_del_plan or 'Formalizado' }}
+                        </span>
+                        {% set estatus = cliente.estatus_cliente | upper if cliente.estatus_cliente else '' %}
+                        {% set estatus_color = 'bg-emerald-500' if estatus in ['ACTIVO', 'AHORRADOR', 'ADJUDICADO'] else ('bg-rose-500' if estatus in ['INACTIVO', 'RETIRO'] else 'bg-amber-500') %}
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 shadow-sm">
+                            <span class="w-1.5 h-1.5 rounded-full {{ estatus_color }}"></span> {{ cliente.estatus_cliente or 'Pendiente por activación' }}
+                        </span>
                     </div>
                 </div>
+            </div>
 
-                <div class="flex-shrink-0 w-full md:w-auto border-t md:border-t-0 md:border-l pt-4 md:pt-0 md:pl-6 border-slate-200">
-                    <div class="flex md:flex-col gap-2">
-                        {% if g.admin.rol != 'asesor' %}
-                        <a href="{{ url_for('registrar_pago', client_id=cliente.id|int) }}" class="flex-1 text-center text-sm bg-green-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"><i class="bi bi-cash-coin"></i><span class="hidden xl:inline">Registrar Pago</span></a>
-                        <button @click="showOfferForm = !showOfferForm" class="flex-1 text-center text-sm bg-blue-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"><i class="bi bi-gem"></i><span class="hidden xl:inline">Oferta</span></button>
-                        {% endif %}
-                        <div x-data="{ open: false }" class="relative flex-1">
-                            <button @click="open = !open" class="w-full text-center text-sm bg-slate-100 text-slate-700 font-semibold py-2 px-3 rounded-lg hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"><i class="bi bi-three-dots"></i> <span class="hidden xl:inline">Más</span></button>
-                            <div x-show="open" @click.away="open = false" x-cloak x-transition class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50 border border-slate-200 origin-top-right">
-                                <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" target="_blank" class="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"><i class="bi bi-file-earmark-pdf-fill mr-3"></i>Contrato</a>
-                                {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
-                                <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="flex items-center w-full px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"><i class="bi bi-pencil-square mr-3"></i>Editar</a>
-                                {% endif %}
-                                {% if g.admin.rol == 'superadmin' %}
-                                <div class="border-t my-1"></div>
-                                <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" onsubmit="event.preventDefault(); confirmDelete(this);">
-                                    <button type="submit" class="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"><i class="bi bi-trash-fill mr-3"></i>Eliminar</button>
-                                </form>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
+            <div class="flex gap-6 lg:gap-10 w-full lg:w-auto overflow-x-auto custom-scrollbar pb-2 lg:pb-0 relative z-10">
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Total Financiado</p>
+                    <p class="text-xl font-bold text-slate-800 font-mono">${{ "%.2f"|format(total_financiado) }}</p>
+                </div>
+                <div class="w-px bg-slate-200 hidden sm:block"></div>
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Pagado al Plan</p>
+                    <p class="text-xl font-bold text-slate-800 font-mono">${{ "%.2f"|format(total_pagado_plan) }}</p>
+                </div>
+                <div class="w-px bg-slate-200 hidden sm:block"></div>
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Saldo Pendiente</p>
+                    <p class="text-xl font-bold text-slate-800 font-mono">${{ "%.2f"|format(saldo_pendiente) }}</p>
                 </div>
             </div>
         </div>
 
         {% if g.admin.rol != 'asesor' %}
-        <div x-show="showOfferForm" x-cloak x-transition class="bg-white rounded-xl shadow-md border border-slate-200 p-4 md:p-6">
-            <h3 class="font-bold mb-4 text-lg text-slate-800 flex items-center gap-2"><i class="bi bi-gem text-blue-600"></i>Registrar Nueva Oferta para {{ cliente.nombre }} {{ cliente.apellido }}</h3>
-            <form class="oferta-form-admin" 
-                  action="{{ url_for('guardar_oferta', client_id=cliente.id) }}" 
-                  method="POST" 
-                  data-plan="{{ cliente.plan_contratado|float(0) }}">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        <div x-show="showOfferForm" x-cloak x-transition.opacity class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="font-bold text-slate-800 flex items-center gap-2"><i class="bi bi-tag text-slate-400"></i> Registrar Oferta de Adjudicación</h3>
+                <button @click="showOfferForm = false" class="text-slate-400 hover:text-slate-600"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <form class="oferta-form-admin" action="{{ url_for('guardar_oferta', client_id=cliente.id) }}" method="POST" data-plan="{{ cliente.plan_contratado|float(0) }}">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5 items-end">
                     <div>
-                        <label class="block text-sm font-medium text-slate-700">Modelo a Ofertar</label>
-                        <select class="mt-1 block w-full rounded-md border-slate-300 shadow-sm text-sm modelo-select" name="modelo_ofertado" required>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Modelo a Ofertar</label>
+                        <select class="block w-full rounded-lg border-slate-300 shadow-sm text-sm focus:ring-slate-800 focus:border-slate-800 bg-slate-50 modelo-select" name="modelo_ofertado" required>
                             <option>Cargando...</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700">Cuotas a Ofertar</label>
-                        <select class="mt-1 block w-full rounded-md border-slate-300 shadow-sm text-sm" name="cuotas_ofertadas" required>
-                            {% for i in range(1, (cliente.cuotas_totales or 0) + 1) %}
-                                <option value="{{ i }}">{{ i }}</option>
-                            {% endfor %}
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Cuotas a Ofertar</label>
+                        <select class="block w-full rounded-lg border-slate-300 shadow-sm text-sm focus:ring-slate-800 focus:border-slate-800 bg-slate-50" name="cuotas_ofertadas" required>
+                            {% for i in range(1, (cliente.cuotas_totales or 0) + 1) %}<option value="{{ i }}">{{ i }}</option>{% endfor %}
                         </select>
                     </div>
-                    <div class="flex gap-2">
-                        <button type="submit" class="w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg text-sm">Guardar Oferta</button>
-                        <button @click="showOfferForm = false" type="button" class="w-full bg-slate-200 text-slate-700 font-semibold py-2 px-4 rounded-lg text-sm">Cancelar</button>
+                    <div class="flex gap-3">
+                        <button type="button" @click="showOfferForm = false" class="flex-1 bg-white border border-slate-300 text-slate-700 font-semibold py-2 px-4 rounded-lg text-sm hover:bg-slate-50 transition-colors shadow-sm">Cancelar</button>
+                        <button type="submit" class="flex-1 bg-slate-900 text-white font-semibold py-2 px-4 rounded-lg text-sm hover:bg-slate-800 transition-colors shadow-sm">Confirmar</button>
                     </div>
                 </div>
             </form>
         </div>
         {% endif %}
-        
+
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
             <div class="lg:col-span-1 space-y-6">
-                <div class="bg-white rounded-xl shadow-md border border-slate-200">
-                    <button @click="openCards.progress = !openCards.progress" class="w-full p-4 md:p-5 flex justify-between items-center">
-                        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2"><i class="bi bi-graph-up-arrow"></i> Resumen de Progreso</h3>
-                        <i class="bi bi-chevron-down transition-transform" :class="{ 'rotate-180': openCards.progress }"></i>
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 space-y-3">
+                    <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Acciones Rápidas</h3>
+                    {% if g.admin.rol != 'asesor' %}
+                    <a href="{{ url_for('registrar_pago', client_id=cliente.id|int) }}" class="w-full flex justify-center items-center gap-2 py-2.5 px-4 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors shadow-sm">
+                        <i class="bi bi-wallet2"></i> Registrar Pago
+                    </a>
+                    <button @click="showOfferForm = !showOfferForm" class="w-full flex justify-center items-center gap-2 py-2.5 px-4 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors shadow-sm">
+                        <i class="bi bi-tag"></i> Registrar Oferta
                     </button>
-                    <div x-show="openCards.progress" x-transition class="p-4 md:p-5 pt-0 md:pt-0 border-t border-slate-200">
-                        <div class="space-y-4 pt-4">
-                            <div>
-                                <h4 class="text-sm font-semibold text-slate-600 mb-1">Progreso Inscripción</h4>
-                                
-                                {% set inscripcion_pagada_final = cliente.inscripcion_pagada|float(0) %}
-                                {% set inscripcion_monto = cliente.inscripcion_monto|float(1) %}
-                                {% set inscripcion_percent_final = (inscripcion_pagada_final / inscripcion_monto * 100) if inscripcion_monto > 0 else 0 %}
-                                <div class="pt-1">
-                                    <div class="flex justify-between items-center mb-1">
-                                        <span class="text-sm font-semibold text-slate-600">{{ "%.0f"|format(inscripcion_percent_final) }}%</span>
-                                        <span class="text-xs font-medium text-slate-500">${{ "%.2f"|format(inscripcion_pagada_final) }} / ${{ "%.2f"|format(inscripcion_monto) }}</span>
-                                    </div>
-                                    <div class="w-full bg-slate-200 rounded-full h-2.5">
-                                        <div class="bg-yellow-400 h-2.5 rounded-full" style="width: {{ inscripcion_percent_final }}%"></div>
-                                    </div>
+                    {% endif %}
+                    <div x-data="{ openMenu: false }" class="relative w-full">
+                        <button @click="openMenu = !openMenu" class="w-full flex justify-center items-center gap-2 py-2.5 px-4 bg-slate-50 border border-slate-200 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-100 transition-colors">
+                            <i class="bi bi-three-dots"></i> Opciones de Contrato
+                        </button>
+                        <div x-show="openMenu" @click.away="openMenu = false" x-cloak x-transition class="absolute left-0 mt-2 w-full bg-white rounded-xl shadow-lg py-2 z-50 border border-slate-200">
+                            <a href="{{ url_for('generar_contrato', client_id=cliente.id) }}" target="_blank" class="flex items-center px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"><i class="bi bi-file-earmark-text mr-3 text-slate-400"></i> Ver Contrato Legal</a>
+                            {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
+                            <a href="{{ url_for('edit_client', client_id=cliente.id) }}" class="flex items-center px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"><i class="bi bi-pencil-square mr-3 text-slate-400"></i> Editar Datos</a>
+                            {% endif %}
+                            {% if g.admin.rol == 'superadmin' %}
+                            <div class="border-t border-slate-100 my-1"></div>
+                            <form action="{{ url_for('delete_client', client_id=cliente.id) }}" method="POST" onsubmit="event.preventDefault(); confirmDelete(this);">
+                                <button type="submit" class="flex items-center w-full px-4 py-2 text-sm text-rose-600 hover:bg-rose-50"><i class="bi bi-trash mr-3"></i> Eliminar Cliente</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                    <button @click="openCards.progress = !openCards.progress" class="w-full p-5 flex justify-between items-center bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                        <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2"><i class="bi bi-bar-chart-fill text-slate-400"></i> Avance del Plan</h3>
+                        <i class="bi bi-chevron-down text-slate-400 transition-transform" :class="{ 'rotate-180': openCards.progress }"></i>
+                    </button>
+                    <div x-show="openCards.progress" x-transition class="p-5 border-t border-slate-100 space-y-5">
+                        {% set inscripcion_pagada_final = cliente.inscripcion_pagada|float(0) %}
+                        {% set inscripcion_monto = cliente.inscripcion_monto|float(1) %}
+                        {% set inscripcion_percent_final = (inscripcion_pagada_final / inscripcion_monto * 100) if inscripcion_monto > 0 else 0 %}
+                        <div>
+                            <div class="flex justify-between items-end mb-2">
+                                <span class="text-xs font-semibold text-slate-600 uppercase tracking-wider">Inscripción</span>
+                                <div class="text-right">
+                                    <span class="text-xs font-bold text-slate-800">{{ "%.0f"|format(inscripcion_percent_final) }}%</span><br>
+                                    <span class="text-[10px] text-slate-400 font-mono">${{ "%.2f"|format(inscripcion_pagada_final) }} / ${{ "%.2f"|format(inscripcion_monto) }}</span>
                                 </div>
+                            </div>
+                            <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                <div class="bg-slate-800 h-1.5 rounded-full transition-all duration-500" style="width: {{ inscripcion_percent_final }}%"></div>
+                            </div>
+                        </div>
+
+                        {% set cuotas_pagas = cliente.cuotas_pagadas_progresivas|int(0) %}
+                        {% set cuotas_totales = cliente.cuotas_totales|int(1) %}
+                        {% set progresivas_percent = (cuotas_pagas / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}
+                        <div>
+                            <div class="flex justify-between items-end mb-2">
+                                <span class="text-xs font-semibold text-slate-600 uppercase tracking-wider">Cuotas del Plan</span>
+                                <div class="text-right">
+                                    <span class="text-xs font-bold text-slate-800">{{ cuotas_pagas }} de {{ cuotas_totales }}</span><br>
+                                    <span class="text-[10px] text-slate-400 font-mono">{{ "%.1f"|format(progresivas_percent) }}% completado</span>
                                 </div>
-                            <div>
-                                <h4 class="text-sm font-semibold text-slate-600 mb-1">Progreso del Plan</h4>
-                                {% set cuotas_pagas = cliente.cuotas_pagadas_progresivas|int(0) %}
-                                {% set cuotas_totales = cliente.cuotas_totales|int(1) %}
-                                {% set progresivas_percent = (cuotas_pagas / cuotas_totales * 100) if cuotas_totales > 0 else 0 %}{% set regresivas_percent = 0 %}
-                                <div class="pt-1">
-                                    <div class="flex justify-between items-center text-sm mb-2"><span class="font-semibold text-slate-600">Cuotas: {{ cuotas_pagas }} / {{ cuotas_totales }}</span><span class="font-semibold text-slate-500">{{ "%.1f"|format(progresivas_percent + regresivas_percent) }}%</span></div>
-                                    <div class="w-full flex h-3 rounded-full overflow-hidden bg-slate-200"><div class="bg-blue-600" style="width: {{ progresivas_percent }}%"></div><div class="bg-teal-500" style="width: {{ regresivas_percent }}%"></div></div>
-                                </div>
+                            </div>
+                            <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                <div class="bg-orange-500 h-1.5 rounded-full transition-all duration-500" style="width: {{ progresivas_percent }}%"></div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="bg-white rounded-xl shadow-md border border-slate-200">
-                    <button @click="openCards.dossier = !openCards.dossier" class="w-full p-4 md:p-5 flex justify-between items-center">
-                        <h3 class="text-base font-bold text-slate-800 flex items-center gap-2"><i class="bi bi-folder-fill"></i> Expediente Digital</h3>
-                        <i class="bi bi-chevron-down transition-transform" :class="{ 'rotate-180': openCards.dossier }"></i>
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                    <button @click="openCards.dossier = !openCards.dossier" class="w-full p-5 flex justify-between items-center bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                        <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2"><i class="bi bi-folder2-open text-slate-400"></i> Archivos y Documentos</h3>
+                        <i class="bi bi-chevron-down text-slate-400 transition-transform" :class="{ 'rotate-180': openCards.dossier }"></i>
                     </button>
-                    <div x-show="openCards.dossier" x-transition class="p-4 md:p-5 pt-0 md:pt-0 border-t border-slate-200">
-                        <div class="space-y-4 pt-4">
-                            <form action="{{ url_for('subir_documento', cliente_id=cliente.id) }}" method="POST" enctype="multipart/form-data" class="space-y-3 border-b pb-4">
-                                <div>
-                                    <input type="text" name="descripcion" class="mt-1 block w-full text-sm rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-slate-50" placeholder="Descripción del archivo" required>
-                                </div>
-                                <div>
-                                    <input type="file" name="documento" class="mt-1 block w-full text-sm text-slate-500 file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required>
-                                </div>
-                                <button type="submit" class="w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg text-sm hover:bg-blue-700 flex items-center justify-center gap-2">
-                                    <i class="bi bi-cloud-arrow-up-fill"></i> Subir Archivo
-                                </button>
-                            </form>
-                            <div class="space-y-2 pt-2">
-                                <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50">
-                                    <div class="flex items-center gap-3"><i class="bi bi-person-vcard-fill text-slate-400"></i><span class="text-sm font-medium text-slate-700">Foto del Cliente</span></div>
-                                    {% if cliente.ruta_foto_cliente_s3 %}<a href="{{ bucket_url }}{{ cliente.ruta_foto_cliente_s3 }}" target="_blank" class="text-xs bg-slate-200 text-slate-700 font-semibold py-1 px-2 rounded-full hover:bg-slate-300">Ver</a>{% else %}<span class="text-xs text-slate-400">N/A</span>{% endif %}
-                                </div>
-                                <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50">
-                                    <div class="flex items-center gap-3"><i class="bi bi-credit-card-2-front-fill text-slate-400"></i><span class="text-sm font-medium text-slate-700">Documento de Identidad</span></div>
-                                    {% if cliente.ruta_foto_cedula_s3 %}<a href="{{ bucket_url }}{{ cliente.ruta_foto_cedula_s3 }}" target="_blank" class="text-xs bg-slate-200 text-slate-700 font-semibold py-1 px-2 rounded-full hover:bg-slate-300">Ver</a>{% else %}<span class="text-xs text-slate-400">N/A</span>{% endif %}
-                                </div>
-                                {% for doc in cliente.documentos %}
-                                <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50">
-                                    <div class="flex items-center gap-3"><i class="bi bi-file-earmark-text-fill text-slate-400"></i><span class="text-sm font-medium text-slate-700">{{ doc.nombre_archivo }}</span></div>
-                                    <a href="{{ bucket_url }}{{ doc.ruta_s3 }}" target="_blank" class="text-xs bg-slate-200 text-slate-700 font-semibold py-1 px-2 rounded-full hover:bg-slate-300">Descargar</a>
-                                </div>
-                                {% endfor %}
+                    <div x-show="openCards.dossier" x-transition class="p-5 border-t border-slate-100">
+                        <form action="{{ url_for('subir_documento', cliente_id=cliente.id) }}" method="POST" enctype="multipart/form-data" class="space-y-3 mb-5">
+                            <input type="text" name="descripcion" class="block w-full text-sm rounded-lg border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 bg-slate-50" placeholder="Nombre del documento" required>
+                            <input type="file" name="documento" class="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer" required>
+                            <button type="submit" class="w-full bg-white border border-slate-300 text-slate-700 font-semibold py-2 rounded-lg text-xs hover:bg-slate-50 transition-colors shadow-sm">
+                                <i class="bi bi-cloud-upload mr-1"></i> Subir Archivo
+                            </button>
+                        </form>
+                        
+                        <div class="space-y-1">
+                            <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
+                                <div class="flex items-center gap-2 text-slate-700"><i class="bi bi-image text-slate-400"></i><span class="text-xs font-medium">Foto Perfil</span></div>
+                                {% if cliente.ruta_foto_cliente_s3 %}<a href="{{ bucket_url }}{{ cliente.ruta_foto_cliente_s3 }}" target="_blank" class="text-[10px] uppercase tracking-wider font-bold text-blue-600 hover:text-blue-800">Ver</a>{% else %}<span class="text-[10px] text-slate-400">N/A</span>{% endif %}
                             </div>
+                            <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
+                                <div class="flex items-center gap-2 text-slate-700"><i class="bi bi-person-vcard text-slate-400"></i><span class="text-xs font-medium">Doc. Identidad</span></div>
+                                {% if cliente.ruta_foto_cedula_s3 %}<a href="{{ bucket_url }}{{ cliente.ruta_foto_cedula_s3 }}" target="_blank" class="text-[10px] uppercase tracking-wider font-bold text-blue-600 hover:text-blue-800">Ver</a>{% else %}<span class="text-[10px] text-slate-400">N/A</span>{% endif %}
+                            </div>
+                            {% for doc in cliente.documentos %}
+                            <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
+                                <div class="flex items-center gap-2 text-slate-700"><i class="bi bi-file-earmark-pdf text-slate-400"></i><span class="text-xs font-medium truncate w-32" title="{{ doc.nombre_archivo }}">{{ doc.nombre_archivo }}</span></div>
+                                <a href="{{ bucket_url }}{{ doc.ruta_s3 }}" target="_blank" class="text-[10px] uppercase tracking-wider font-bold text-blue-600 hover:text-blue-800">Abrir</a>
+                            </div>
+                            {% endfor %}
                         </div>
                     </div>
                 </div>
             </div>
+
             <div class="lg:col-span-2">
-                <div class="bg-white rounded-xl shadow-md border border-slate-200">
-                    <div class="px-4 md:px-6 border-b border-slate-200">
-                        <nav class="-mb-px flex space-x-6 overflow-x-auto">
-                            <button @click="activeTab = 'resumen'" :class="{ 'border-orange-500 text-orange-600': activeTab === 'resumen' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Resumen Detallado</button>
-                            <button @click="activeTab = 'pagos'" :class="{ 'border-orange-500 text-orange-600': activeTab === 'pagos' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Historial de Pagos ({{ cliente.conteo_pagos }})</button>
-                            <button @click="activeTab = 'actividad'" :class="{ 'border-orange-500 text-orange-600': activeTab === 'actividad' }" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">Línea de Tiempo ({{ cliente.conteo_ofertas + cliente.conteo_gestiones }})</button>
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden flex flex-col h-full">
+                    
+                    <div class="px-2 sm:px-6 border-b border-slate-200 bg-slate-50/30">
+                        <nav class="-mb-px flex space-x-6 overflow-x-auto custom-scrollbar">
+                            <button @click="activeTab = 'resumen'" :class="activeTab === 'resumen' ? 'border-slate-800 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'" class="whitespace-nowrap py-4 px-2 border-b-2 font-semibold text-sm transition-colors">Resumen General</button>
+                            <button @click="activeTab = 'pagos'" :class="activeTab === 'pagos' ? 'border-slate-800 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'" class="whitespace-nowrap py-4 px-2 border-b-2 font-semibold text-sm transition-colors">Historial de Pagos ({{ cliente.conteo_pagos }})</button>
+                            <button @click="activeTab = 'actividad'" :class="activeTab === 'actividad' ? 'border-slate-800 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'" class="whitespace-nowrap py-4 px-2 border-b-2 font-semibold text-sm transition-colors">Bitácora CRM ({{ cliente.conteo_ofertas + cliente.conteo_gestiones }})</button>
                         </nav>
                     </div>
                     
-                    <div class="p-4 md:p-6 bg-slate-50/50 min-h-[20rem]">
+                    <div class="p-6 flex-grow">
                         <div x-show="activeTab === 'resumen'" x-cloak class="space-y-6">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div class="bg-white border border-slate-200 rounded-lg p-5 h-full">
-                                <h3 class="text-base font-bold text-slate-800 border-b border-slate-200 pb-3 mb-4 flex items-center gap-3">
-                                    <i class="bi bi-telephone-fill text-slate-400"></i> Contacto
-                                </h3>
-                                <div class="space-y-4 text-sm">
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-slate-500 flex items-center gap-2"><i class="bi bi-whatsapp"></i> Teléfono</span>
-                                        <span class="font-semibold text-slate-700">{{ cliente.numero_telefono or 'N/A' }}</span>
-                                    </div>
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-slate-500 flex items-center gap-2"><i class="bi bi-envelope-fill"></i> Email</span>
-                                        <span class="font-semibold text-slate-700 break-all">{{ cliente.email or 'N/A' }}</span>
-                                    </div>
-                                    <div class="flex justify-between items-start">
-                                        <span class="text-slate-500 flex items-center gap-2 flex-shrink-0 mr-4"><i class="bi bi-geo-alt-fill"></i> Dirección</span>
-                                        <span class="font-semibold text-slate-700 text-right">{{ cliente.direccion or 'N/A' }}</span>
-                                    </div>
+                                <div>
+                                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Información de Contacto</h3>
+                                    <dl class="space-y-3 text-sm">
+                                        <div class="flex justify-between items-center"><dt class="text-slate-500 flex items-center gap-2"><i class="bi bi-telephone text-slate-400"></i> Celular</dt><dd class="font-medium text-slate-900">{{ cliente.numero_telefono or 'N/A' }}</dd></div>
+                                        <div class="flex justify-between items-center"><dt class="text-slate-500 flex items-center gap-2"><i class="bi bi-envelope text-slate-400"></i> Email</dt><dd class="font-medium text-slate-900">{{ cliente.email or 'N/A' }}</dd></div>
+                                        <div class="flex justify-between items-start mt-2"><dt class="text-slate-500 flex items-center gap-2 mt-0.5"><i class="bi bi-geo-alt text-slate-400"></i> Dirección</dt><dd class="font-medium text-slate-900 text-right w-2/3 leading-snug">{{ cliente.direccion or 'N/A' }}</dd></div>
+                                    </dl>
+                                </div>
+                                <div>
+                                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Estructura del Contrato</h3>
+                                    <dl class="space-y-3 text-sm">
+                                        <div class="flex justify-between items-center"><dt class="text-slate-500">Valor de Cuota</dt><dd class="font-mono font-bold text-slate-900">${{ "%.2f"|format(cliente.valor_cuota|float) if cliente.valor_cuota else '0.00' }}</dd></div>
+                                        <div class="flex justify-between items-center"><dt class="text-slate-500">N° Contrato</dt><dd class="font-mono font-medium text-slate-900">{{ cliente.numero_contrato or 'N/A' }}</dd></div>
+                                        <div class="flex justify-between items-center"><dt class="text-slate-500">Fecha Ingreso</dt><dd class="font-medium text-slate-900">{{ cliente.fecha_ingreso.strftime('%d/%m/%Y') if cliente.fecha_ingreso else 'N/A' }}</dd></div>
+                                        <div class="flex justify-between items-center"><dt class="text-slate-500">Asesor</dt><dd class="font-medium text-slate-900">{{ cliente.asesor or 'N/A' }}</dd></div>
+                                        <div class="flex justify-between items-center"><dt class="text-slate-500">Responsable</dt><dd class="font-medium text-slate-900">{{ cliente.responsable or 'N/A' }}</dd></div>
+                                    </dl>
                                 </div>
                             </div>
-
-                            <div class="bg-white border border-slate-200 rounded-lg p-5 h-full">
-                                <h3 class="text-base font-bold text-slate-800 border-b border-slate-200 pb-3 mb-4 flex items-center gap-3">
-                                    <i class="bi bi-journal-text text-slate-400"></i> Contrato
-                                </h3>
-                                <div class="space-y-4 text-sm">
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-slate-500">Valor del Bien/Plan:</span>
-                                        <span class="font-bold text-slate-800">${{ "%.2f"|format(cliente.plan_contratado|float) if cliente.plan_contratado else '0.00' }}</span>
-                                    </div>
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-slate-500">Valor de Cuota:</span>
-                                        <span class="font-bold text-slate-800">${{ "%.2f"|format(cliente.valor_cuota|float) if cliente.valor_cuota else '0.00' }}</span>
-                                    </div>
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-slate-500">N° Contrato:</span>
-                                        <span class="font-semibold font-mono text-slate-700">{{ cliente.numero_contrato or 'N/A' }}</span>
-                                    </div>
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-slate-500">Fecha Ingreso:</span>
-                                        <span class="font-semibold text-slate-700">{{ cliente.fecha_ingreso.strftime('%d/%m/%Y') if cliente.fecha_ingreso else 'N/A' }}</span>
-                                    </div>
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-slate-500">Asesor:</span>
-                                        <span class="font-semibold text-slate-700">{{ cliente.asesor or 'N/A' }}</span>
-                                    </div>
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-slate-500">Responsable:</span>
-                                        <span class="font-semibold text-slate-700">{{ cliente.responsable or 'N/A' }}</span>
-                                    </div>
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-slate-500">Grupo:</span>
-                                        <span class="font-semibold text-slate-700">{{ cliente.grupo or 'N/A' }}</span>
-                                    </div>
+                            <div class="mt-6 pt-6 border-t border-slate-100">
+                                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Salud de la Cuenta</h3>
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                    <div class="bg-slate-50 border border-slate-200/60 rounded-xl p-4 text-center"><p class="text-[10px] text-slate-500 uppercase font-semibold mb-1">Cuotas Mora</p><p class="font-bold text-xl text-slate-900">{{ cliente.cuotas_mora or '0' }}</p></div>
+                                    <div class="bg-slate-50 border border-slate-200/60 rounded-xl p-4 text-center"><p class="text-[10px] text-slate-500 uppercase font-semibold mb-1">Impuntuales</p><p class="font-bold text-xl text-slate-900">{{ cliente.pagos_impuntuales or '0' }}</p></div>
+                                    <div class="bg-slate-50 border border-slate-200/60 rounded-xl p-4 text-center"><p class="text-[10px] text-slate-500 uppercase font-semibold mb-1">Moneda</p><p class="font-bold text-base text-slate-900 mt-1">{{ cliente.moneda_pago or 'N/A' }}</p></div>
+                                    <div class="bg-slate-50 border border-slate-200/60 rounded-xl p-4 text-center"><p class="text-[10px] text-slate-500 uppercase font-semibold mb-1">Condición</p><p class="font-bold text-sm text-slate-900 mt-1">{{ cliente.condicion_pago or 'N/A' }}</p></div>
                                 </div>
+                                {% if cliente.observacion %}
+                                <div class="mt-4 bg-amber-50 border border-amber-100 p-4 rounded-xl"><p class="text-[10px] font-bold text-amber-700 uppercase tracking-wider mb-1"><i class="bi bi-pin-angle-fill mr-1"></i> Nota Interna</p><p class="text-sm text-amber-900 italic">{{ cliente.observacion }}</p></div>
+                                {% endif %}
                             </div>
                         </div>
-
-                        <div class="bg-white border border-slate-200 rounded-lg p-5">
-                            <h3 class="text-base font-bold text-slate-800 border-b border-slate-200 pb-3 mb-4 flex items-center gap-3">
-                                <i class="bi bi-wallet-fill text-slate-400"></i> Estado de Cuenta
-                            </h3>
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
-                               <div class="bg-slate-50 p-3 rounded-lg text-center md:text-left">
-                                   <p class="text-sm text-slate-500">Cuotas en Mora</p>
-                                   <p class="font-bold text-red-600 text-2xl">{{ cliente.cuotas_mora or '0' }}</p>
-                               </div>
-                               <div class="bg-slate-50 p-3 rounded-lg text-center md:text-left">
-                                   <p class="text-sm text-slate-500">Pagos Impuntuales</p>
-                                   <p class="font-bold text-slate-800 text-2xl">{{ cliente.pagos_impuntuales or '0' }}</p>
-                               </div>
-                               <div class="bg-slate-50 p-3 rounded-lg text-center md:text-left">
-                                   <p class="text-sm text-slate-500">Moneda de Pago</p>
-                                   <p class="font-semibold text-slate-800 text-lg">{{ cliente.moneda_pago or 'N/A' }}</p>
-                               </div>
-                               <div class="bg-slate-50 p-3 rounded-lg text-center md:text-left">
-                                   <p class="text-sm text-slate-500">Condición de Pago</p>
-                                   <p class="font-semibold text-slate-800 text-lg">{{ cliente.condicion_pago or 'N/A' }}</p>
-                               </div>
-                            </div>
-                            {% if cliente.observacion %}
-                            <div class="mt-5 pt-4 border-t border-slate-200">
-                                <p class="text-sm font-medium text-slate-600">Última Observación:</p>
-                                <p class="text-sm text-slate-800 italic bg-slate-50 p-3 rounded-md mt-2">"{{ cliente.observacion }}"</p>
-                            </div>
-                            {% endif %}
-                       </div>
-                        {% if cliente.beneficiario_nombre %}
-                        <div class="bg-white border border-slate-200 rounded-lg p-5">
-                             <h3 class="text-base font-bold text-slate-800 border-b pb-2 mb-4 flex items-center gap-2"><i class="bi bi-person-heart"></i> Beneficiario</h3>
-                             <div class="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-2 pt-2 text-sm">
-                                <div><p class="text-slate-500">Nombre:</p><p class="font-semibold text-slate-700">{{ cliente.beneficiario_nombre }} {{ cliente.beneficiario_apellido }}</p></div>
-                                <div><p class="text-slate-500">Cédula:</p><p class="font-semibold text-slate-700">{{ cliente.beneficiario_cedula or 'N/A' }}</p></div>
-                                <div><p class="text-slate-500">Teléfono:</p><p class="font-semibold text-slate-700">{{ cliente.beneficiario_telefono or 'N/A' }}</p></div>
-                             </div>
-                        </div>
-                        {% endif %}
-                            </div>
 
                         <div x-show="activeTab === 'pagos'" x-cloak class="space-y-3">
                             {% for pago in cliente.pagos %}
-                            <div class="bg-white border rounded-lg p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:shadow-sm transition-shadow">
+                            <div class="bg-white border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:border-slate-300 transition-colors shadow-sm">
                                 <div class="flex-grow">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">{{ pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else 'N/A' }}</span>
+                                        <span class="text-slate-300">•</span>
+                                        <span class="text-xs font-mono text-slate-400">Ref: {{ pago.referencia or 'N/A' }}</span>
+                                    </div>
                                     {% if pago.estado_pago == 'Conciliado' %}
-                                        <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" target="_blank" class="font-semibold text-slate-700 hover:text-blue-600 flex items-center gap-2">
-                                            <i class="bi bi-receipt-cutoff text-green-600"></i>
-                                            <span>{{ pago.por_concepto_de or pago.tipo_pago }} - ${{ "%.2f"|format(pago.monto|float) }}</span>
+                                        <a href="{{ url_for('generar_recibo_pago', pago_id=pago.id) }}" target="_blank" class="font-bold text-slate-900 hover:text-slate-600 flex items-center gap-2 transition-colors">
+                                            {{ pago.por_concepto_de or pago.tipo_pago }} <span class="font-mono ml-1">${{ "%.2f"|format(pago.monto|float) }}</span> <i class="bi bi-box-arrow-up-right text-xs text-slate-400"></i>
                                         </a>
                                     {% else %}
-                                        <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" target="_blank" class="font-semibold text-slate-700 hover:text-blue-600 flex items-center gap-2">
-                                            <i class="bi bi-eye-fill text-cyan-600"></i>
-                                            <span>{{ pago.por_concepto_de or pago.tipo_pago }} - ${{ "%.2f"|format(pago.monto|float) }}</span>
+                                        <a href="{{ url_for('ver_reporte', pago_id=pago.id) }}" target="_blank" class="font-bold text-slate-900 hover:text-slate-600 flex items-center gap-2 transition-colors">
+                                            {{ pago.por_concepto_de or pago.tipo_pago }} <span class="font-mono ml-1">${{ "%.2f"|format(pago.monto|float) }}</span> <i class="bi bi-box-arrow-up-right text-xs text-slate-400"></i>
                                         </a>
                                     {% endif %}
-                                    <p class="text-xs text-slate-500 pl-6">{{ pago.fecha_pago.strftime('%d/%m/%Y') if pago.fecha_pago else 'N/A' }} | Ref: {{ pago.referencia or 'N/A' }}</p>
                                 </div>
-                                <div class="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
-                                    <span class="text-xs font-bold py-1 px-2 rounded-full whitespace-nowrap
-                                        {% if pago.estado_pago == 'Conciliado' %} bg-green-100 text-green-800
-                                        {% elif pago.estado_pago == 'Anulado' or pago.estado_reporte == 'Anulado por Admin' %} bg-slate-100 text-slate-800
-                                        {% elif pago.estado_reporte == 'Inconsistente' %} bg-red-100 text-red-800
-                                        {% elif pago.estado_reporte == 'Pendiente de Revision' %} bg-cyan-100 text-cyan-800
-                                        {% elif pago.estado_reporte == 'Aprobado' and pago.estado_pago == 'Pendiente' %} bg-yellow-100 text-yellow-800
-                                        {% else %} bg-gray-100 text-gray-800
-                                        {% endif %}">
-                                        {% if pago.estado_pago == 'Conciliado' %}Conciliado
-                                        {% elif pago.estado_pago == 'Anulado' or pago.estado_reporte == 'Anulado por Admin' %}Anulado
-                                        {% elif pago.estado_reporte == 'Inconsistente' %}Inconsistente
-                                        {% elif pago.estado_reporte == 'Pendiente de Revision' %}En Verificación
-                                        {% elif pago.estado_reporte == 'Aprobado' and pago.estado_pago == 'Pendiente' %}Por Conciliar
-                                        {% else %}{{ pago.estado_pago or 'N/A' }}
-                                        {% endif %}
-                                    </span>
+                                <div class="flex flex-col sm:items-end gap-2 flex-shrink-0 w-full sm:w-auto">
+                                    {% set estado_print = 'Conciliado' if pago.estado_pago == 'Conciliado' else ('Anulado' if pago.estado_pago == 'Anulado' or pago.estado_reporte == 'Anulado por Admin' else ('Inconsistente' if pago.estado_reporte == 'Inconsistente' else ('En Verificación' if pago.estado_reporte == 'Pendiente de Revision' else ('Por Conciliar' if pago.estado_reporte == 'Aprobado' and pago.estado_pago == 'Pendiente' else pago.estado_pago or 'N/A')))) %}
+                                    {% set badge_class = 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20' if estado_print == 'Conciliado' else ('bg-slate-50 text-slate-600 ring-1 ring-inset ring-slate-500/20' if estado_print == 'Anulado' else ('bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20' if estado_print == 'Inconsistente' else ('bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-600/20' if estado_print == 'En Verificación' else ('bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20' if estado_print == 'Por Conciliar' else 'bg-slate-100 text-slate-700')))) %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold {{ badge_class }}">{{ estado_print }}</span>
                                     {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
                                         {% if pago.estado_reporte == 'Pendiente de Revision' %}
-                                        <button @click="openAnnulModal({{ pago.id }})" class="text-xs bg-red-100 text-red-700 font-semibold py-1 px-2 rounded-lg hover:bg-red-200 transition-colors" title="Anular este reporte">
-                                            Anular
-                                        </button>
+                                        <button @click="openAnnulModal({{ pago.id }})" class="text-xs text-rose-600 hover:text-rose-800 font-medium transition-colors">Anular Reporte</button>
                                         {% elif pago.estado_reporte == 'Inconsistente' and pago.bulk_id %}
-                                        <button @click="openAnnulProcessModal({{ pago.bulk_id }})" class="text-xs bg-slate-200 text-slate-700 font-semibold py-1 px-2 rounded-lg hover:bg-slate-300 transition-colors" title="Anular todo el proceso de pago">
-                                            Anular Proceso
-                                        </button>
+                                        <button @click="openAnnulProcessModal({{ pago.bulk_id }})" class="text-xs text-slate-500 hover:text-slate-800 font-medium transition-colors">Anular Proceso</button>
                                         {% endif %}
                                     {% endif %}
                                 </div>
                             </div>
                             {% else %}
-                            <div class="text-center py-8"><p class="text-slate-500">No hay pagos registrados.</p></div>
+                            <div class="text-center py-12 bg-slate-50 rounded-xl border border-slate-200 border-dashed"><i class="bi bi-receipt text-3xl text-slate-300"></i><p class="text-slate-500 text-sm mt-2 font-medium">No hay pagos registrados.</p></div>
                             {% endfor %}
                         </div>
-                        
-                        <div x-show="activeTab === 'actividad'" x-cloak class="space-y-4">
+
+                        <div x-show="activeTab === 'actividad'" x-cloak class="space-y-6">
                             {% if g.admin.rol != 'asesor' %}
-                            <form action="{{ url_for('agregar_gestion', cliente_id=cliente.id) }}" method="POST">
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div class="md:col-span-2">
-                                        <textarea name="nota" rows="2" class="w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="Añadir nota de gestión..." required></textarea>
-                                    </div>
-                                    <div class="flex flex-col gap-2">
-                                        <select name="tipo_gestion" class="w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
-                                            <option value="Llamada">Llamada</option>
-                                            <option value="Mensaje">Mensaje</option>
-                                            <option value="Visita">Visita</option>
-                                            <option value="Acuerdo de Pago">Acuerdo de Pago</option>
-                                            <option value="Otro">Otro</option>
-                                        </select>
-                                        <button type="submit" class="w-full bg-slate-700 text-white font-semibold py-2 px-4 rounded-lg text-sm hover:bg-slate-800">Guardar Gestión</button>
-                                    </div>
+                            <form action="{{ url_for('agregar_gestion', cliente_id=cliente.id) }}" method="POST" class="bg-slate-50 p-5 rounded-xl border border-slate-200">
+                                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Registrar Interacción</h3>
+                                <div class="flex flex-col sm:flex-row gap-3">
+                                    <select name="tipo_gestion" class="w-full sm:w-1/4 rounded-lg border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm" required>
+                                        <option value="Llamada">Llamada</option><option value="Mensaje">Mensaje</option><option value="Visita">Visita</option><option value="Acuerdo de Pago">Acuerdo de Pago</option><option value="Otro">Otro</option>
+                                    </select>
+                                    <input type="text" name="nota" class="w-full sm:w-2/4 rounded-lg border-slate-300 shadow-sm focus:ring-slate-500 focus:border-slate-500 text-sm" placeholder="Resumen de la interacción..." required>
+                                    <button type="submit" class="w-full sm:w-1/4 bg-slate-900 text-white font-semibold py-2 px-4 rounded-lg text-sm hover:bg-slate-800 shadow-sm transition-colors">Guardar</button>
                                 </div>
                             </form>
                             {% endif %}
-                            <div class="border-t pt-4 space-y-3">
+                            <div class="relative pl-4 space-y-6 before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
                                 {% set sorted_activity = (cliente.gestiones + cliente.ofertas)|sort(attribute='fecha_creacion' if 'fecha_creacion' in item else 'fecha_oferta', reverse=true) %}
                                 {% for item in sorted_activity %}
-                                <div class="p-3 rounded-lg flex items-start gap-3 {% if item.cuotas_ofertadas is defined %} bg-blue-50 border border-blue-200 {% else %} bg-slate-50 border border-slate-200 {% endif %}">
-                                    <div class="text-xl pt-1">
-                                        {% if item.cuotas_ofertadas is defined %} <i class="bi bi-gem text-blue-500"></i> {% else %} <i class="bi bi-chat-dots-fill text-slate-500"></i> {% endif %}
-                                    </div>
-                                    <div>
-                                        <p class="text-sm font-semibold text-slate-800">
-                                            {% if item.cuotas_ofertadas is defined %}
-                                                Oferta de Adjudicación
-                                            {% else %}
-                                                Gestión: {{ item.tipo_gestion }} ({{ item.gestor_nombre or 'N/A' }})
-                                            {% endif %}
-                                        </p>
-                                        <p class="text-sm text-slate-600">
-                                            {% if item.cuotas_ofertadas is defined %}
-                                                Ofertó {{ item.cuotas_ofertadas }} cuotas por el modelo '{{ item.modelo_ofertado }}'. Estado: <span class="font-semibold">{{ item.estado_oferta }}</span>
-                                            {% else %}
-                                                {{ item.nota }}
-                                            {% endif %}
-                                        </p>
-                                        <p class="text-xs text-slate-400 mt-1">
-                                            {{ (item.fecha_oferta or item.fecha_creacion)|time_ago }}
-                                        </p>
+                                <div class="relative flex items-start md:justify-center">
+                                    <div class="absolute left-0 md:left-1/2 -ml-2 md:-ml-2 mt-1.5 w-4 h-4 rounded-full border-2 border-white shadow-sm {% if item.cuotas_ofertadas is defined %} bg-orange-500 {% else %} bg-slate-400 {% endif %}"></div>
+                                    <div class="ml-6 md:ml-0 w-full md:w-5/12 {% if loop.index is odd %}md:pr-10 md:text-right md:mr-auto{% else %}md:pl-10 md:text-left md:ml-auto{% endif %}">
+                                        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200/80 hover:border-slate-300 transition-colors">
+                                            <div class="flex items-center {% if loop.index is odd %}md:justify-end{% endif %} gap-2 mb-1">
+                                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{{ (item.fecha_oferta or item.fecha_creacion)|time_ago }}</span>
+                                            </div>
+                                            <p class="text-sm font-bold text-slate-800">
+                                                {% if item.cuotas_ofertadas is defined %}<i class="bi bi-tag text-orange-500 mr-1"></i> Oferta Comercial{% else %}<i class="bi bi-chat-text text-slate-400 mr-1"></i> {{ item.tipo_gestion }}{% endif %}
+                                            </p>
+                                            <p class="text-sm text-slate-600 mt-1.5 leading-relaxed">
+                                                {% if item.cuotas_ofertadas is defined %}Ofertó <strong>{{ item.cuotas_ofertadas }} cuotas</strong> por el modelo '{{ item.modelo_ofertado }}'. <br>Estado: <span class="font-medium text-slate-900">{{ item.estado_oferta }}</span>{% else %}{{ item.nota }}{% endif %}
+                                            </p>
+                                            {% if not item.cuotas_ofertadas is defined %}<p class="text-[10px] font-medium text-slate-400 mt-2">Por: {{ item.gestor_nombre or 'N/A' }}</p>{% endif %}
+                                        </div>
                                     </div>
                                 </div>
                                 {% else %}
-                                    <p class="text-center text-sm text-slate-500 py-4">No hay actividad registrada.</p>
+                                <div class="text-center py-10 relative z-10 bg-white rounded-xl border border-slate-200 border-dashed ml-6 md:ml-0"><p class="text-sm font-medium text-slate-500">No hay interacciones registradas en la bitácora.</p></div>
                                 {% endfor %}
                             </div>
                         </div>
@@ -554,136 +422,59 @@ data-inconsistente="{% set _incs = cliente.pagos|selectattr('estado_reporte','eq
         </div>
     </div>
     {% else %}
-    <div class="text-center p-8">
-        <p class="text-slate-500">No se encontraron resultados para tu búsqueda.</p>
-        <p class="text-sm text-slate-400 mt-1">Intenta con una cédula, nombre completo o número de contrato diferente.</p>
+    <div class="text-center p-8 bg-slate-50 border border-slate-200 border-dashed rounded-xl mt-6">
+        <i class="bi bi-search text-3xl text-slate-300 mb-3 block"></i>
+        <p class="text-slate-600 font-medium">No se encontraron resultados para tu búsqueda.</p>
+        <p class="text-sm text-slate-500 mt-1">Intenta con una cédula, nombre completo o número de contrato diferente.</p>
     </div>
     {% endfor %}
 
-    <div x-show="isAnnulModalOpen" 
-         x-cloak 
-         x-transition:enter="ease-out duration-300"
-         x-transition:enter-start="opacity-0"
-         x-transition:enter-end="opacity-100"
-         x-transition:leave="ease-in duration-200"
-         x-transition:leave-start="opacity-100"
-         x-transition:leave-end="opacity-0"
-         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-        
-        <div @click.away="closeAnnulModal()"
-             x-show="isAnnulModalOpen"
-             x-transition:enter="ease-out duration-300"
-             x-transition:enter-start="opacity-0 scale-95"
-             x-transition:enter-end="opacity-100 scale-100"
-             x-transition:leave="ease-in duration-200"
-             x-transition:leave-start="opacity-100 scale-100"
-             x-transition:leave-end="opacity-0 scale-95"
-             class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto overflow-hidden transform">
-            
+    <div x-show="isAnnulModalOpen" x-cloak x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div @click.away="closeAnnulModal()" x-show="isAnnulModalOpen" x-transition.scale.95 class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto overflow-hidden">
             <form @submit.prevent="submitAnnulment()">
-                <div class="bg-red-50 p-5 border-b border-red-200">
-                    <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                            <i class="bi bi-exclamation-triangle-fill text-2xl text-red-600"></i>
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-bold text-red-800">Anular Reporte de Pago</h3>
-                            <p class="text-sm text-red-600">Esta acción es irreversible.</p>
-                        </div>
-                    </div>
+                <div class="p-6 border-b border-slate-100 flex items-start gap-4">
+                    <div class="w-10 h-10 bg-rose-100 rounded-full flex items-center justify-center flex-shrink-0"><i class="bi bi-exclamation-triangle text-xl text-rose-600"></i></div>
+                    <div><h3 class="text-lg font-bold text-slate-900">Anular Reporte</h3><p class="text-sm text-slate-500 mt-1">El cliente será notificado de la anulación.</p></div>
                 </div>
-                
-                <div class="p-6 space-y-4">
-                    <p class="text-sm text-slate-600">
-                        Estás a punto de anular este reporte. El cliente será notificado y deberá registrar el pago nuevamente. Por favor, especifica el motivo.
-                    </p>
+                <div class="p-6 bg-slate-50 space-y-4">
                     <div>
-                        <label for="annulReason" class="block text-sm font-medium text-slate-700 mb-1">Motivo de la anulación</label>
-                        <textarea x-model="annulReason" 
-                                  name="motivo" 
-                                  id="annulReason" 
-                                  rows="4" 
-                                  class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring focus:ring-red-500 focus:ring-opacity-50 transition" 
-                                  placeholder="Ej: El monto reportado es incorrecto, la referencia no coincide, etc." 
-                                  required></textarea>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Motivo Obligatorio</label>
+                        <textarea x-model="annulReason" id="annulReason" rows="3" class="w-full rounded-lg border-slate-300 shadow-sm focus:ring-slate-800 focus:border-slate-800 text-sm" placeholder="Especifica el error del reporte..." required></textarea>
                     </div>
                 </div>
-                
-                <div class="bg-slate-50 px-6 py-4 flex justify-end items-center gap-3 rounded-b-lg">
-                    <button type="button" @click="closeAnnulModal()" class="px-5 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition">
-                        Cancelar
-                    </button>
-                    <button type="submit" 
-                            :disabled="isLoading || !annulReason.trim()"
-                            class="inline-flex items-center justify-center px-5 py-2 text-sm font-semibold text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition disabled:bg-red-300 disabled:cursor-not-allowed">
-                        <svg x-show="isLoading" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span x-text="isLoading ? 'Anulando...' : 'Confirmar Anulación'"></span>
+                <div class="p-4 bg-white flex justify-end gap-3 border-t border-slate-100">
+                    <button type="button" @click="closeAnnulModal()" class="px-4 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition">Cancelar</button>
+                    <button type="submit" :disabled="isLoading || !annulReason.trim()" class="inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-rose-600 rounded-lg hover:bg-rose-700 disabled:opacity-50 transition">
+                        <span x-text="isLoading ? 'Procesando...' : 'Confirmar Anulación'"></span>
                     </button>
                 </div>
             </form>
         </div>
     </div>
-    
-    <div x-show="isAnnulProcessModalOpen" 
-         x-cloak 
-         x-transition:enter="ease-out duration-300"
-         x-transition:enter-start="opacity-0"
-         x-transition:enter-end="opacity-100"
-         x-transition:leave="ease-in duration-200"
-         x-transition:leave-start="opacity-100"
-         x-transition:leave-end="opacity-0"
-         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-        
-        <div @click.away="closeAnnulProcessModal()"
-             x-show="isAnnulProcessModalOpen"
-             x-transition
-             class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto overflow-hidden transform">
-            
+
+    <div x-show="isAnnulProcessModalOpen" x-cloak x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div @click.away="closeAnnulProcessModal()" x-show="isAnnulProcessModalOpen" x-transition.scale.95 class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto overflow-hidden">
             <form @submit.prevent="submitProcessAnnulment()">
-                <div class="bg-slate-50 p-5 border-b border-slate-200">
-                    <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center flex-shrink-0">
-                            <i class="bi bi-trash3-fill text-2xl text-slate-600"></i>
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-bold text-slate-800">Anular Proceso de Pago</h3>
-                            <p class="text-sm text-slate-600">Esto anulará todos los pagos y órdenes asociados.</p>
-                        </div>
-                    </div>
+                <div class="p-6 border-b border-slate-100 flex items-start gap-4">
+                    <div class="w-10 h-10 bg-rose-100 rounded-full flex items-center justify-center flex-shrink-0"><i class="bi bi-trash text-xl text-rose-600"></i></div>
+                    <div><h3 class="text-lg font-bold text-slate-900">Anular Proceso Completo</h3><p class="text-sm text-slate-500 mt-1">Se descartarán todos los pagos de este lote.</p></div>
                 </div>
-                
-                <div class="p-6 space-y-4">
-                    <p class="text-sm text-slate-600">
-                        Estás a punto de anular todo el proceso de pago. El cliente deberá iniciar el reporte desde cero.
-                    </p>
+                <div class="p-6 bg-slate-50 space-y-4">
                     <div>
-                        <label for="processAnnulReason" class="block text-sm font-medium text-slate-700 mb-1">Motivo de la anulación</label>
-                        <textarea x-model="processAnnulReason" 
-                                  id="processAnnulReason" 
-                                  rows="4" 
-                                  class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500" 
-                                  placeholder="Ej: El cliente reportó un monto incorrecto y se reiniciará el proceso." 
-                                  required></textarea>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">Motivo Obligatorio</label>
+                        <textarea x-model="processAnnulReason" id="processAnnulReason" rows="3" class="w-full rounded-lg border-slate-300 shadow-sm focus:ring-slate-800 focus:border-slate-800 text-sm" placeholder="Ej: Se reiniciará la cobranza..." required></textarea>
                     </div>
                 </div>
-                
-                <div class="bg-slate-50 px-6 py-4 flex justify-end items-center gap-3 rounded-b-lg">
-                    <button type="button" @click="closeAnnulProcessModal()" class="px-5 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-100">
-                        Cancelar
-                    </button>
-                    <button type="submit" 
-                            :disabled="isLoading || !processAnnulReason.trim()"
-                            class="inline-flex items-center justify-center px-5 py-2 text-sm font-semibold text-white bg-slate-700 hover:bg-slate-800 rounded-lg disabled:bg-slate-400">
-                        <span x-text="isLoading ? 'Anulando...' : 'Confirmar Anulación de Proceso'"></span>
+                <div class="p-4 bg-white flex justify-end gap-3 border-t border-slate-100">
+                    <button type="button" @click="closeAnnulProcessModal()" class="px-4 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition">Cancelar</button>
+                    <button type="submit" :disabled="isLoading || !processAnnulReason.trim()" class="inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 disabled:opacity-50 transition">
+                        <span x-text="isLoading ? 'Procesando...' : 'Anular Proceso'"></span>
                     </button>
                 </div>
             </form>
         </div>
     </div>
-    </div>
+</div>
 {% endblock %}
 
 {% block scripts_extra %}
@@ -694,19 +485,13 @@ data-inconsistente="{% set _incs = cliente.pagos|selectattr('estado_reporte','eq
       text: "¡Esta acción eliminará al cliente y todos sus datos permanentemente!",
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Sí, ¡eliminar!',
+      confirmButtonColor: '#e11d48',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Sí, eliminar',
       cancelButtonText: 'Cancelar'
     }).then((result) => {
-      if (result.isConfirmed) {
-        form.submit();
-      }
+      if (result.isConfirmed) { form.submit(); }
     });
-  }
-
-  function confirmEdit(url) {
-    window.location.href = url;
   }
 
   // Poblar modelos de oferta
@@ -737,7 +522,6 @@ data-inconsistente="{% set _incs = cliente.pagos|selectattr('estado_reporte','eq
         5900: ['Carguero Transporte', 'Carguero Cava'],
         6300: ['Zontes 350']
       };
-
       const clientPlan = parseFloat(offerForm.dataset.plan);
       const modeloSelect = offerForm.querySelector('.modelo-select');
 
@@ -746,12 +530,10 @@ data-inconsistente="{% set _incs = cliente.pagos|selectattr('estado_reporte','eq
         const models = planModels[clientPlan];
 
         if (models && models.length > 0) {
-          modeloSelect.appendChild(new Option('-- Seleccione un modelo --', '', true, true));
-          models.forEach(model => {
-            modeloSelect.appendChild(new Option(model, model));
-          });
+          modeloSelect.appendChild(new Option('-- Seleccione modelo --', '', true, true));
+          models.forEach(model => modeloSelect.appendChild(new Option(model, model)));
         } else {
-          const option = new Option('No hay modelos para este plan', '', true, true);
+          const option = new Option('Sin modelos para este plan', '', true, true);
           option.disabled = true;
           modeloSelect.appendChild(option);
         }
@@ -765,9 +547,8 @@ data-inconsistente="{% set _incs = cliente.pagos|selectattr('estado_reporte','eq
     const estatusQ = (params.get('estatus') || '').toUpperCase().trim();
     const estadoQ  = (params.get('estado')  || '').toUpperCase().trim();
     const condQ    = (params.get('condicion') || '').toUpperCase().trim();
-    const incQ     = (params.get('inconsistentes') || '').trim(); // '1' => solo inconsistentes
+    const incQ     = (params.get('inconsistentes') || '').trim();
 
-    // Normalización de familias de estatus
     const retiroSet    = new Set(['RETIRO','RETIRADO','RETIRADA','RETIRADOS']);
     const activoSet    = new Set(['ACTIVO','ACTIVOS']);
     const inactivoSet  = new Set(['INACTIVO','INACTIVOS']);
@@ -784,7 +565,6 @@ data-inconsistente="{% set _incs = cliente.pagos|selectattr('estado_reporte','eq
         (estatusQ === 'INACTIVO' && inactivoSet.has(estatus)) ||
         estatus === estatusQ
       );
-
       const okEstado  = !estadoQ || estado === estadoQ;
       const okCond    = !condQ   || cond === condQ;
       const okInc     = !incQ    || card.dataset.inconsistente === '1';
