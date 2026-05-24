@@ -5001,10 +5001,9 @@ def _procesar_bloques(conn, bloques: list[dict], start_date: date, end_date: dat
                     len(bloques), len(clientes_a_cobrar), ingresos_totales, (time.perf_counter() - T0)*1000)
     return ingresos_totales, resultados_por_bloque, clientes_a_cobrar
 
-# ---------------------------------------------------------------------
-# Ruta /reportes/proyecciones
-# ---------------------------------------------------------------------
-
+# =================================================================================
+# Ruta /reportes/proyecciones (NUEVO MOTOR INTELIGENTE)
+# =================================================================================
 @app.route('/reportes/proyecciones', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -5014,467 +5013,153 @@ def reporte_proyecciones():
         flash("Error de conexión a la base de datos.", "danger")
         return redirect(url_for('gestion_administrativa'))
 
-    # ----------------- Helpers locales -----------------
-    from datetime import date as _date, timedelta as _timedelta
-    from calendar import monthrange as _monthrange
-    from types import SimpleNamespace
-    import json, time
+    hoy = get_venezuela_current_date()
+    tasas_now = _fetch_tasas_now(conn)
+    bcv_actual = tasas_now.get('usd', 0) or 0
+    binance_actual = tasas_now.get('tasa_binance', 0) or 0
 
-    def _ns(obj):
-        if isinstance(obj, dict):
-            return SimpleNamespace(**{k: _ns(v) for k, v in obj.items()})
-        if isinstance(obj, list):
-            return [_ns(v) for v in obj]
-        return obj
+    simulacion_realizada = False
+    
+    # Estructura de resultados unificada
+    proyeccion = {
+        'recaudo_total_usd': 0.0,
+        'clientes_activos': 0,
+        'egresos_total_usd': 0.0,
+        'perdida_spread_usd': 0.0,
+        'balance_neto_usd': 0.0,
+        'recaudo_desglose': {'USD_EFECTIVO': 0.0, 'USDT_BINANCE': 0.0, 'VES_BCV': 0.0},
+        'distribucion_egresos': {'USD_EFECTIVO': 0.0, 'USDT_BINANCE': 0.0, 'VES_BCV': 0.0},
+        'lista_egresos': []
+    }
 
-    def __month_add(d: _date, months: int) -> _date:
-        y = d.year + (d.month - 1 + months) // 12
-        m = (d.month - 1 + months) % 12 + 1
-        return _date(y, m, min(d.day, _monthrange(y, m)[1]))
-
-    def __parse_date(s: str | None):
-        if not s: return None
+    if request.method == 'POST':
+        simulacion_realizada = True
         try:
-            y, m, d = (int(x) for x in s.strip().split('-'))
-            return _date(y, m, d)
-        except Exception:
-            return None
+            tasa_bcv = float(request.form.get('usd_bcv') or bcv_actual)
+            tasa_binance = float(request.form.get('binance_prevision') or binance_actual)
+            
+            if tasa_bcv <= 0: tasa_bcv = 1.0
+            if tasa_binance <= 0: tasa_binance = 1.0
 
-    def __compute_period(hoy: _date, mode: str, start_s: str, end_s: str) -> tuple[_date, _date]:
-        mode = (mode or 'auto').lower()
-        if mode == 'manual':
-            a = __parse_date(start_s); b = __parse_date(end_s)
-            if a and b: return (b, a) if a > b else (a, b)
-            if a and not b: return (a, a)
-            if b and not a: return (b, b)
-        # AUTO 13→12
-        if hoy.day >= 13:
-            start = _date(hoy.year, hoy.month, 13)
-            end   = __month_add(start, 1) - _timedelta(days=1)
-        else:
-            end   = _date(hoy.year, hoy.month, 12)
-            start = __month_add(end, -1) + _timedelta(days=1)
-        return (start, end)
+            with conn.cursor() as cur:
+                # 1. RECAUDO (Suma valor_cuota de todos los Ahorradores/Activos)
+                cur.execute("""
+                    SELECT COUNT(id) as total, COALESCE(SUM(valor_cuota), 0) as recaudo 
+                    FROM clientes 
+                    WHERE UPPER(TRIM(estatus_cliente)) = 'ACTIVO' AND valor_cuota > 0
+                """)
+                row_clientes = cur.fetchone()
+                proyeccion['clientes_activos'] = row_clientes['total']
+                recaudo_base = float(row_clientes['recaudo'])
 
-    # ----------------- Parámetros del request -----------------
-    src = request.form if request.method == 'POST' else request.args
-
-    # Fecha de referencia (usa helper global si existe; si no, date.today)
-    _get_today = globals().get('get_venezuela_current_date', None)
-    hoy = _get_today() if callable(_get_today) else _date.today()
-
-    period_mode = (src.get('period_mode') or 'auto').lower()
-    start_s = (src.get('start_date') or '').strip()
-    end_s   = (src.get('end_date') or '').strip()
-    dev_target_pct = src.get('dev_target_pct')
-    fijada_flag    = (src.get('fijada') or '') == '1'
-
-    bloques_iniciales = _parse_bloques(src)
-    simulacion_realizada = bool(bloques_iniciales)
-
-    # Período 13→12 o manual
-    start_date, end_date = __compute_period(hoy, period_mode, start_s, end_s)
-    period_key = f"{start_date.isoformat()}_{end_date.isoformat()}"
-
-    # Tasas
-    tasas_anchor = _fetch_bcv_anchor(conn, start_date)
-    tasas_now    = _fetch_tasas_now(conn)
-
-    # -------- FX params (flexibles) --------
-    params_map = get_params_map(conn)
-    SLIPPAGE_PCT         = float(params_map.get('SLIPPAGE_PCT', 0.006))
-    COLCHON_LIQUIDEZ_PCT = float(params_map.get('COLCHON_LIQUIDEZ_PCT', 0.07))
-    FACT_CONDICION = params_map.get('FACT_CONDICION', {'SOLVENTE':1.0,'NORMAL':0.98,'MOROSO':0.90,'EN GESTIÓN':0.85})
-    FACT_ESTATUS  = params_map.get('FACT_ESTATUS',  {'ACTIVO':1.0,'PENDIENTE POR ENTREGA':0.95,'SUSPENDIDO':0.80})
-    DEPRECIACION_MENSUAL = float(params_map.get('DEPRECIACION_MENSUAL_USD', 0.0))
-
-    bcv_anchor = (tasas_anchor or {}).get('usd') or 0.0
-    bcv_now    = (tasas_now    or {}).get('usd') or 0.0
-    tasa_bin   = (tasas_now    or {}).get('tasa_binance') or 0.0
-
-    # Selectores
-    try:
-        empresas_opciones, estados_opciones, condicion_opciones, estatus_opciones = _selector_opciones(conn)
-    except Exception as e:
-        try: conn.rollback()
-        except Exception: pass
-        app.logger.exception("proyecciones/selectores error: %s", e)
-        empresas_opciones, estados_opciones, condicion_opciones, estatus_opciones = [], [], [], []
-
-    # Proyecciones / Gastos
-    proyecciones = {}
-    gastos = {'totales': {'programado': 0.0}}
-
-    if simulacion_realizada:
-        try:
-            ingresos_totales, resultados_por_bloque, clientes_a_cobrar = _procesar_bloques(
-                conn, bloques_iniciales, start_date, end_date
-            )
-            try:
-                gastos = _get_egresos_totales_periodo(conn, start_date, end_date) or {'totales': {'programado': 0.0}}
-            except Exception as e:
-                try: conn.rollback()
-                except Exception: pass
-                app.logger.exception("proyecciones/egresos error: %s", e)
-
-            # --- Ingresos ajustados con haircut + colchón y exposición VES ---
-            fx_aplicada = _fx_rate_effective(bcv_anchor, bcv_now, tasa_bin, SLIPPAGE_PCT, fijada_flag)
-
-            ingresos_ajustados = 0.0
-            exposicion_ves     = 0.0
-            for it in clientes_a_cobrar or []:
-                monto = float(it.get('monto_usd') or 0)
-                factor = _haircut_row(it.get('condicion'), it.get('estado_del_plan'), FACT_CONDICION, FACT_ESTATUS)
-                monto_aj = monto * factor
-                ingresos_ajustados += monto_aj
-                exposicion_ves     += (monto_aj * fx_aplicada)
-
-            colchon_liquidez = ingresos_ajustados * COLCHON_LIQUIDEZ_PCT
-            ingreso_caja_proyectado = max(0.0, ingresos_ajustados - colchon_liquidez)
-
-            gastos_programados = float(((gastos or {}).get('totales') or {}).get('programado') or 0)
-            balance = ingreso_caja_proyectado - gastos_programados
-
-            proyecciones = {
-                'resumen': {
-                    'ingresos_totales_proyectados': round(ingreso_caja_proyectado, 2),
-                    'balance_neto_proyectado': round(balance, 2),
-                    'period_key': period_key,
-                    'fx_rate_aplicada': round(fx_aplicada, 4),
-                    'colchon_liquidez': round(colchon_liquidez, 2),
-                    'exposicion_ves': round(exposicion_ves, 2),
-                    'depreciacion_contable': round(DEPRECIACION_MENSUAL, 2),
-                },
-                'resultados_por_bloque': resultados_por_bloque,
-                'clientes_a_cobrar': clientes_a_cobrar,
-            }
-
-            # --- Egresos valorados + plan de cobertura contra saldos de caja ---
-            egresos_val = []
-            try:
-                # Asegurar ocurrencias generadas en el periodo para que la proyección no las pierda
-                generar_ocurrencias_periodo(conn, 'mensual', period_key, start_date, end_date)
+                # 1.1 Distribución de Recaudo (Simulación de qué monedas entrarán)
+                pct_bs = float(request.form.get('pct_bs') or 50)
+                pct_usdt = float(request.form.get('pct_usdt') or 30)
+                pct_usd = float(request.form.get('pct_usd') or 20)
                 
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        SELECT ep.id, ep.tipo AS categoria, ep.titulo AS descripcion, 
-                               'USD' AS moneda_origen, 
-                               (eo.monto_programado_usd - COALESCE(eo.monto_pagado_usd, 0)) AS monto_origen, 
-                               'USD' AS moneda_pago, 
-                               ep.metodo_referencia AS corredor_fx,
-                               NULL AS tasa_param, 1 AS prioridad, 'DURO' AS obligatoriedad, 
-                               ep.frecuencia AS recurrencia, eo.fecha_programada AS fecha_compromiso, 
-                               'EFECTIVO_USD' AS cartera_preferida, ep.estado AS activo
-                        FROM egresos_ocurrencias eo
-                        JOIN egresos_planificados ep ON ep.id = eo.egreso_id
-                        WHERE COALESCE(ep.estado, 'activo') IN ('activo', 'Activo')
-                          AND eo.fecha_programada BETWEEN %s AND %s
-                          AND (eo.monto_programado_usd - COALESCE(eo.monto_pagado_usd, 0)) > 0
-                    """, (start_date, end_date))
-                    rows = cur.fetchall() or []
-                    cols = [d[0] for d in cur.description]
-                    egresos_raw = [dict(zip(cols, r)) for r in rows]
+                total_pct = pct_bs + pct_usdt + pct_usd
+                if total_pct == 0: total_pct = 100
 
-                tasas_map = {'bcv_anchor': bcv_anchor, 'bcv_now': bcv_now, 'binance': tasa_bin}
-                for e in egresos_raw:
-                    # Adaptación para valorar_egreso
-                    ref = (e.get('corredor_fx') or 'USD_EFECTIVO').upper()
-                    if 'VES' in ref or 'BS' in ref:
-                        e['moneda_origen'] = 'VES'
-                        e['moneda_pago'] = 'VES'
-                        e['corredor_fx'] = 'BCV' if 'BCV' in ref else ('BINANCE' if 'BINANCE' in ref else 'BCV')
-                    elif 'USDT' in ref:
-                        e['moneda_origen'] = 'USDT'
-                        e['moneda_pago'] = 'USDT'
-                        e['corredor_fx'] = 'BINANCE'
-                    else:
-                        e['moneda_origen'] = 'USD'
-                        e['moneda_pago'] = 'USD'
-                        e['corredor_fx'] = 'USD_DIRECTO'
+                proyeccion['recaudo_desglose']['VES_BCV'] = recaudo_base * (pct_bs / total_pct)
+                proyeccion['recaudo_desglose']['USDT_BINANCE'] = recaudo_base * (pct_usdt / total_pct)
+                proyeccion['recaudo_desglose']['USD_EFECTIVO'] = recaudo_base * (pct_usd / total_pct)
 
-                    v = valorar_egreso(e, tasas_map, SLIPPAGE_PCT, fijada_global=fijada_flag)
-                    v.update({
-                        'id': e.get('id'),
-                        'categoria': e.get('categoria'),
-                        'descripcion': e.get('descripcion'),
-                        'prioridad': e.get('prioridad'),
-                        'obligatoriedad': e.get('obligatoriedad'),
-                        'fecha_compromiso': e.get('fecha_compromiso'),
-                        'cartera_preferida': e.get('cartera_preferida'),
-                        'fx_corredor': e.get('corredor_fx')
+                # 1.2 Sumar Ingresos Extra (Cajas)
+                ing_extra = float(request.form.get('ing_efectivo') or 0) + \
+                            float(request.form.get('ing_usdt') or 0) + \
+                            float(request.form.get('ing_bs_sc') or 0) / tasa_bcv + \
+                            float(request.form.get('ing_bs_cc') or 0) / tasa_bcv
+                
+                proyeccion['recaudo_total_usd'] = recaudo_base + ing_extra
+
+                # 2. EGRESOS AUTOMÁTICOS (Importados directo de la BD con su moneda original)
+                cur.execute("""
+                    SELECT titulo, monto_base_usd, metodo_referencia, tipo 
+                    FROM egresos_planificados 
+                    WHERE LOWER(COALESCE(estado, 'activo')) IN ('activo', 'activa')
+                """)
+                egresos_bd = cur.fetchall()
+
+                for eg in egresos_bd:
+                    monto = float(eg['monto_base_usd'])
+                    metodo = str(eg['metodo_referencia']).upper()
+                    
+                    perdida = 0.0
+                    cat = 'USD_EFECTIVO'
+
+                    if 'BCV' in metodo or 'EUR' in metodo:
+                        cat = 'VES_BCV'
+                    elif 'BINANCE' in metodo or 'USDT' in metodo:
+                        cat = 'USDT_BINANCE'
+                        # FÓRMULA DE SPREAD: Si el gasto es en Binance, cuesta más dólares reales al pagarse con la cobranza en Bolívares.
+                        perdida = (monto * tasa_binance / tasa_bcv) - monto
+
+                    proyeccion['distribucion_egresos'][cat] += monto
+                    proyeccion['egresos_total_usd'] += monto
+                    proyeccion['perdida_spread_usd'] += perdida
+                    
+                    proyeccion['lista_egresos'].append({
+                        'titulo': eg['titulo'],
+                        'monto': monto,
+                        'metodo': cat.replace('_', ' '),
+                        'perdida': perdida
                     })
-                    egresos_val.append(v)
+
+                # 3. EGRESOS MANUALES ADICIONALES (Formulario)
+                keys = request.form.getlist('eg_div_key[]')
+                vals = request.form.getlist('eg_div_monto[]')
+                metodos = request.form.getlist('eg_div_metodo[]')
                 
-                # Saldos reales del día
-                balances_reales = calcular_balances_tesoreria()
-                saldos = {
-                    'VES_BANCOS': float(balances_reales.get('CAJA_BS_TOTAL', 0.0)),
-                    'USD_EFECTIVO': float(balances_reales.get('EFECTIVO_USD', 0.0)),
-                    'USDT_BINANCE': float(balances_reales.get('BINANCE_USDT', 0.0))
-                }
+                for i, k in enumerate(keys):
+                    k = k.strip()
+                    if k:
+                        monto = float(vals[i] or 0)
+                        metodo = metodos[i] if i < len(metodos) else 'USD_EFECTIVO'
+                        
+                        perdida = 0.0
+                        if metodo == 'USDT_BINANCE':
+                            perdida = (monto * tasa_binance / tasa_bcv) - monto
+                            
+                        proyeccion['distribucion_egresos'][metodo] += monto
+                        proyeccion['egresos_total_usd'] += monto
+                        proyeccion['perdida_spread_usd'] += perdida
+                        
+                        proyeccion['lista_egresos'].append({
+                            'titulo': f"{k} (Extra)",
+                            'monto': monto,
+                            'metodo': metodo.replace('_', ' '),
+                            'perdida': perdida
+                        })
 
-                plan = cubrir_egresos(egresos_val, saldos, tasas_map, SLIPPAGE_PCT)
+                # 4. BALANCE NETO FINAL
+                proyeccion['balance_neto_usd'] = proyeccion['recaudo_total_usd'] - proyeccion['egresos_total_usd'] - proyeccion['perdida_spread_usd']
 
-                usd_sum = sum(e['usd_equivalente'] for e in egresos_val) or 0.0
-                ves_sum = sum(e['ves_equivalente'] for e in egresos_val) or 0.0
-                fx_blend = round((ves_sum / usd_sum), 4) if usd_sum > 0 else 0.0
-                costo_rebalanceo_total = round(sum(m.get('costo',0) for m in plan.get('rebalanceos',[])), 2)
-
-                proyecciones['egresos'] = {
-                    'valorados': egresos_val,
-                    'fx_blend_egresos': fx_blend,
-                    'costo_rebalanceo_total': costo_rebalanceo_total,
-                    'plan_cobertura': plan
-                }
-            except Exception as e:
-                try: conn.rollback()
-                except Exception: pass
-                app.logger.exception("proyecciones/egresos cobertura error: %s", e)
+                # 5. GUARDAR PROYECCIÓN (Para Tesorería y Flujo de Caja)
+                payload_json = json.dumps({
+                    'resumen': {
+                        'ingresos_totales_proyectados': proyeccion['recaudo_total_usd'],
+                        'balance_neto_proyectado': proyeccion['balance_neto_usd']
+                    },
+                    'kpis': {'perdida_devaluacion_usd': proyeccion['perdida_spread_usd']}
+                })
+                
+                cur.execute("""
+                    INSERT INTO proyecciones_activas (mes_proyeccion, ano_proyeccion, estado, resultados_resumen, fecha_actualizacion)
+                    VALUES (%s, %s, 'Activa', %s, NOW())
+                    ON CONFLICT (mes_proyeccion, ano_proyeccion) 
+                    DO UPDATE SET resultados_resumen = EXCLUDED.resultados_resumen, fecha_actualizacion = NOW()
+                """, (hoy.month, hoy.year, payload_json))
+                conn.commit()
 
         except Exception as e:
-            try: conn.rollback()
-            except Exception: pass
-            app.logger.exception("proyecciones/procesamiento error: %s", e)
-            proyecciones = {
-                'resumen': {'ingresos_totales_proyectados': 0.0, 'balance_neto_proyectado': 0.0, 'period_key': period_key},
-                'resultados_por_bloque': [], 'clientes_a_cobrar': [],
-            }
-
-    # =============== Proyección financiera (escenarios) ===============
-    def __to_float(v, default=0.0) -> float:
-        try:
-            if v is None or (isinstance(v, str) and not v.strip()):
-                return float(default)
-            return float(v)
-        except Exception:
-            return float(default)
-
-    def __getlist(name: str) -> list[str]:
-        return src.getlist(name) if hasattr(src, 'getlist') else []
-
-    proyeccion_financiera = None
-    proyeccion_error = None
-
-    try:
-        # Solo corre si tienes implementado calcular_proyeccion
-        _calc = globals().get('calcular_proyeccion', None)
-
-        # 1) Ingresos
-        ingresos_pf = {
-            "solv_imp": {
-                "efectivo": __to_float(src.get("ing_efectivo", 0)),
-                "euro":     __to_float(src.get("ing_euro", 0)),
-                "usdt":     __to_float(src.get("ing_usdt", 0)),
-                "nequi":    __to_float(src.get("ing_nequi", 0)),
-                "bs_sc":    __to_float(src.get("ing_bs_sc", 0)),
-                "bs_cc":    __to_float(src.get("ing_bs_cc", 0)),
-            },
-            "mora": {
-                "efectivo": __to_float(src.get("mora_efectivo", 0)),
-                "bs_sc":    __to_float(src.get("mora_bs_sc", 0)),
-                "bs_cc":    __to_float(src.get("mora_bs_cc", 0)),
-            },
-        }
-
-        # 2) Egresos en USD por clave:
-        egresos_divisas_pf = {}
-        eg_json = src.get("eg_divisas_json")
-        if eg_json:
-            try:
-                parsed = json.loads(eg_json)
-                if isinstance(parsed, dict):
-                    egresos_divisas_pf = {str(k): __to_float(v, 0.0) for k, v in parsed.items()}
-            except Exception:
-                pass
-        if not egresos_divisas_pf:
-            keys = __getlist("eg_div_key[]")
-            vals = __getlist("eg_div_monto[]")
-            for i, k in enumerate(keys or []):
-                k = (k or "").strip()
-                if not k:
-                    continue
-                v = __to_float(vals[i]) if i < len(vals) else 0.0
-                if v != 0.0:
-                    egresos_divisas_pf[k] = v
-
-        # 3) Ítems del carril 225→247
-        carril_items = []
-        carril_raw = (src.get("carril_json") or "").strip()
-        if carril_raw:
-            try:
-                parsed = json.loads(carril_raw)
-                if isinstance(parsed, list):
-                    for it in parsed:
-                        if not isinstance(it, dict): 
-                            continue
-                        concepto = str(it.get("concepto", "")).strip()
-                        monto    = __to_float(it.get("monto_usd", 0))
-                        venta    = __to_float(it.get("venta", 0))
-                        recompra = __to_float(it.get("recompra", 0))
-                        if concepto and monto > 0 and venta > 0 and recompra > 0:
-                            carril_items.append({
-                                "concepto": concepto, "monto_usd": monto, "venta": venta, "recompra": recompra
-                            })
-            except Exception:
-                carril_items = []
-
-        if not carril_items:
-            carril_conceptos = __getlist("carril_concepto[]")
-            carril_montos    = __getlist("carril_monto_usd[]")
-            carril_ventas    = __getlist("carril_venta[]")
-            carril_recompras = __getlist("carril_recompra[]")
-            for i in range(len(carril_conceptos or [])):
-                c = (carril_conceptos[i] or "").strip()
-                if not c:
-                    continue
-                monto = __to_float(carril_montos[i]) if i < len(carril_montos) else 0.0
-                venta = __to_float(carril_ventas[i]) if i < len(carril_ventas) else 0.0
-                recompra = __to_float(carril_recompras[i]) if i < len(carril_recompras) else 0.0
-                if monto > 0 and venta > 0 and recompra > 0:
-                    carril_items.append({
-                        "concepto": c, "monto_usd": monto, "venta": venta, "recompra": recompra
-                    })
-
-        # 4) Egresos en Bs directos (USD-eq)
-        egresos_pf = {
-            "divisas": egresos_divisas_pf,
-            "carril_225_247_items": carril_items,
-            "bs_bcv":      __to_float(src.get("eg_bs_bcv", 0)),
-            "bs_euro_bcv": __to_float(src.get("eg_bs_euro_bcv", 0)),
-            "variables_bs": {
-                "devoluciones_bs": __to_float(src.get("eg_dev_bs", 0)),
-                "registro":        __to_float(src.get("eg_registro_bs", 0)),
-            },
-            "variables_usd": {
-                "devoluciones_usd": __to_float(src.get("eg_dev_usd", 0)),
-            },
-        }
-
-        # 5) Tasas del mes (escenarios)
-        usd_bcv = float((tasas_now.get('usd') or tasas_anchor.get('usd') or 0.0))
-        eur_bcv = float(usd_bcv)
-        tasas_pf = {
-            "usd_bcv": __to_float(src.get("usd_bcv", usd_bcv), usd_bcv),
-            "eur_bcv": __to_float(src.get("eur_bcv", eur_bcv), eur_bcv),
-            "binance_actual": __to_float(src.get("binance_actual", tasas_now.get('tasa_binance') or 0.0), 0.0),
-            "binance_prevision": __to_float(src.get("binance_prevision", 0), 0.0),
-            "venta_usd": __to_float(src.get("venta_usd_global", 0)),
-            "recompra_usd": __to_float(src.get("recompra_usd_global", 0)),
-        }
-
-        # 6) Parámetros de la proyección
-        parametros_pf = {
-            "colchon_pct": __to_float(src.get("colchon_pct", 0.20), 0.20),
-            "bloque_directo_keys": [x.strip() for x in __getlist("bloque_directo_keys[]") if (x or "").strip()],
-            "pagan_por_225_247_keys": [x.strip() for x in __getlist("pagan_por_225_247_keys[]") if (x or "").strip()],
-        }
-
-        # 7) ¿Disparamos el cálculo?
-        has_any_input = any([
-            src.get("ing_efectivo"), src.get("ing_usdt"), src.get("ing_bs_sc"), src.get("mora_efectivo"),
-            src.get("eg_dev_usd"), src.get("eg_bs_bcv"), src.get("venta_usd_global"),
-            egresos_divisas_pf, carril_items
-        ])
-        force_run = (src.get("run_proyeccion") == "1")
-
-        if (has_any_input or force_run) and callable(_calc):
-            proyeccion_financiera = _calc(ingresos_pf, egresos_pf, tasas_pf, parametros_pf)
-
-        # Calculo de depreciacion del carril P2P
-        devaluacion_carril = 0.0
-        for it in carril_items:
-            v, r, m = float(it.get('venta', 0)), float(it.get('recompra', 0)), float(it.get('monto_usd', 0))
-            if v > 0 and r > v:
-                recibido_bs = m * v
-                usd_recomprado = recibido_bs / r
-                devaluacion_carril += (m - usd_recomprado)
-        gastos['totales']['devaluacion_carril'] = round(devaluacion_carril, 2)
-
-        # =======================================================================
-        # >>> CORE FINANCIERO: PERSISTIR RESULTADOS PARA TESORERÍA Y FLUJO DE CAJA
-        # =======================================================================
-        if simulacion_realizada and proyecciones:
-            try:
-                # Ajustar el balance neto restando la pérdida cambiaria del carril
-                proyecciones['resumen']['balance_neto_proyectado'] = round(
-                    proyecciones['resumen'].get('balance_neto_proyectado', 0) - devaluacion_carril, 2
-                )
-
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        CREATE TABLE IF NOT EXISTS proyecciones_activas (
-                            mes_proyeccion INT, ano_proyeccion INT, estado VARCHAR(50),
-                            resultados_resumen TEXT, fecha_actualizacion TIMESTAMP,
-                            PRIMARY KEY(mes_proyeccion, ano_proyeccion)
-                        )
-                    """)
-                    
-                    payload_json = json.dumps({
-                        'resumen': proyecciones.get('resumen', {}),
-                        'kpis': {'perdida_devaluacion_usd': round(devaluacion_carril, 2)}
-                    }, default=str)
-                    
-                    cur.execute("""
-                        INSERT INTO proyecciones_activas (mes_proyeccion, ano_proyeccion, estado, resultados_resumen, fecha_actualizacion)
-                        VALUES (%s, %s, 'Activa', %s, NOW())
-                        ON CONFLICT (mes_proyeccion, ano_proyeccion) 
-                        DO UPDATE SET resultados_resumen = EXCLUDED.resultados_resumen, fecha_actualizacion = NOW()
-                    """, (hoy.month, hoy.year, payload_json))
-                    conn.commit()
-            except Exception as e:
-                conn.rollback()
-                app.logger.exception("Error guardando proyeccion activa: %s", e)
-        # =======================================================================
- 
-
-    except Exception as e:
-        proyeccion_error = str(e)
-        app.logger.exception("proyecciones/proyeccion_financiera error: %s", e)
-    # =============== FIN bloque de escenarios ===============
-
-    # Empaquetado para Jinja
-    tasas_ns = _ns({'bcv_anchor': tasas_anchor, 'bcv_now': tasas_now})
-    proyecciones_ns = _ns(proyecciones) if proyecciones else None
-    gastos_ns = _ns(gastos)
-    parametros_view = {
-        'period_mode': period_mode,
-        'start_date': start_date.isoformat(),
-        'end_date': end_date.isoformat(),
-        'dev_target_pct': dev_target_pct,
-        'fijada': '1' if fijada_flag else '0',
-        'period_key': period_key,
-    }
-    # >>> CORE FINANCIERO: EXTRAER ETIQUETAS REALES DE EGRESOS PARA LOS DROPDOWNS <<<
-    egresos_titulos_opciones = []
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT DISTINCT titulo, metodo_referencia 
-                FROM egresos_planificados 
-                WHERE LOWER(COALESCE(estado, 'activo')) IN ('activo', 'activa')
-                ORDER BY titulo
-            """)
-            egresos_titulos_opciones = cur.fetchall() or []
-    except Exception as e:
-        app.logger.error(f"Error cargando titulos de egresos para proyecciones: {e}")
-        try: conn.rollback()
-        except: pass
+            conn.rollback()
+            flash(f"Error al calcular proyecciones: {e}", "danger")
 
     return render_template(
         'reporte_proyecciones.html',
-        proyecciones=proyecciones_ns,
-        gastos=gastos_ns,
-        tasas=tasas_ns,
-        empresas_opciones=empresas_opciones,
-        estados_opciones=estados_opciones,
-        condicion_opciones=condicion_opciones,
-        estatus_opciones=estatus_opciones,
-        simulacion_realizada=simulacion_realizada,
-        parametros=parametros_view,
-        bloques_iniciales=bloques_iniciales,
-        proyeccion_financiera=proyeccion_financiera,
-        proyeccion_error=proyeccion_error,
-        egresos_titulos_opciones=egresos_titulos_opciones
+        tasas={'bcv_now': {'usd': bcv_actual, 'tasa_binance': binance_actual}},
+        proyeccion=proyeccion,
+        simulacion_realizada=simulacion_realizada
     )
 
 # =========================
