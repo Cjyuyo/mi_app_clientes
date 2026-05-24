@@ -5014,9 +5014,22 @@ def reporte_proyecciones():
         return redirect(url_for('gestion_administrativa'))
 
     hoy = get_venezuela_current_date()
-    tasas_now = _fetch_tasas_now(conn)
-    bcv_actual = tasas_now.get('usd', 0) or 0
-    binance_actual = tasas_now.get('tasa_binance', 0) or 0
+    
+    # --- LECTURA CORRECTA DE TASAS DESDE EL SISTEMA ACTUAL ---
+    bcv_actual = 0.0
+    binance_actual = 0.0
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT tasa, tasa_binance_p2p FROM historial_tasas_bcv WHERE fecha <= %s ORDER BY fecha DESC LIMIT 1", (hoy,))
+            t_row = cur.fetchone()
+            if t_row:
+                bcv_actual = float(t_row['tasa'] or 0.0)
+                binance_actual = float(t_row['tasa_binance_p2p'] or 0.0)
+    except Exception as e:
+        app.logger.error(f"Error leyendo tasas en proyecciones: {e}")
+        try: conn.rollback()
+        except: pass
+    # ---------------------------------------------------------
 
     simulacion_realizada = False
     
