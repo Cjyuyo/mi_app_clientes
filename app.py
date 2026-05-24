@@ -5444,7 +5444,23 @@ def reporte_proyecciones():
         'fijada': '1' if fijada_flag else '0',
         'period_key': period_key,
     }
+    # >>> CORE FINANCIERO: EXTRAER ETIQUETAS REALES DE EGRESOS PARA LOS DROPDOWNS <<<
+    egresos_titulos_opciones = []
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT DISTINCT titulo, metodo_referencia 
+                FROM egresos_planificados 
+                WHERE LOWER(COALESCE(estado, 'activo')) IN ('activo', 'activa')
+                ORDER BY titulo
+            """)
+            egresos_titulos_opciones = cur.fetchall() or []
+    except Exception as e:
+        app.logger.error(f"Error cargando titulos de egresos para proyecciones: {e}")
+        try: conn.rollback()
+        except: pass
 
+    # Retorno ÚNICO y unificado con todas las variables empaquetadas
     return render_template(
         'reporte_proyecciones.html',
         proyecciones=proyecciones_ns,
@@ -5459,6 +5475,7 @@ def reporte_proyecciones():
         bloques_iniciales=bloques_iniciales,
         proyeccion_financiera=proyeccion_financiera,
         proyeccion_error=proyeccion_error,
+        egresos_titulos_opciones=egresos_titulos_opciones
     )
 
 # =========================
