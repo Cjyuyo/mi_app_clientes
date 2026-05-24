@@ -257,10 +257,11 @@
                 <table class="w-full text-sm text-left">
                     <thead class="bg-white border-b border-slate-100">
                         <tr>
-                            <th class="py-3.5 px-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest w-1/3">Gasto (Planificado + Manual)</th>
+                            <th class="py-3.5 px-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest w-1/4">Gasto (Planificado + Manual)</th>
                             <th class="py-3.5 px-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest w-1/4">Moneda de Pago Requerida</th>
-                            <th class="py-3.5 px-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Monto a Pagar</th>
-                            <th class="py-3.5 px-6 text-[9px] font-bold text-rose-500 uppercase tracking-widest text-right">Pérdida al cruzar (Spread)</th>
+                            <th class="py-3.5 px-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Monto Base</th>
+                            <th class="py-3.5 px-6 text-[9px] font-bold text-rose-500 uppercase tracking-widest text-right">Fuga (Spread)</th>
+                            <th class="py-3.5 px-6 text-[9px] font-bold text-slate-900 uppercase tracking-widest text-right bg-slate-50">Costo Real (Salida eq. USD)</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
@@ -272,7 +273,7 @@
                             <td class="px-6 py-3.5 whitespace-nowrap">
                                 <div class="flex items-center justify-end gap-2">
                                     <span class="text-[10px] text-slate-400 font-medium">$</span>
-                                    <span class="font-bold text-slate-900 tabular-nums text-right w-24 tracking-tight">{{ "{:,.2f}".format(e.monto) }}</span>
+                                    <span class="font-bold text-slate-600 tabular-nums text-right w-20 tracking-tight">{{ "{:,.2f}".format(e.monto) }}</span>
                                 </div>
                             </td>
                             
@@ -280,16 +281,66 @@
                                 <div class="flex items-center justify-end gap-2">
                                     {% if e.perdida > 0 %}
                                         <span class="text-[10px] text-rose-400 font-bold">$</span>
-                                        <span class="font-bold text-rose-600 tabular-nums text-right w-24 tracking-tight">{{ "{:,.2f}".format(e.perdida) }}</span>
+                                        <span class="font-bold text-rose-500 tabular-nums text-right w-20 tracking-tight">+ {{ "{:,.2f}".format(e.perdida) }}</span>
                                     {% else %}
-                                        <span class="text-slate-300 tabular-nums text-right w-24 font-medium">—</span>
+                                        <span class="text-slate-300 tabular-nums text-right w-20 font-medium">—</span>
                                     {% endif %}
+                                </div>
+                            </td>
+
+                            <td class="px-6 py-3.5 whitespace-nowrap bg-slate-50/50">
+                                <div class="flex items-center justify-end gap-2">
+                                    <span class="text-[10px] text-slate-500 font-bold">$</span>
+                                    <span class="font-black text-slate-900 tabular-nums text-right w-24 tracking-tight">{{ "{:,.2f}".format(e.salida_real) }}</span>
                                 </div>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+            <div class="lg:col-span-1"></div> <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+                <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Recálculo de Liquidación de Caja</h4>
+                
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="font-medium text-slate-500">Recaudo Estimado de Cartera (Bruto)</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-slate-400 font-medium">$</span>
+                            <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.recaudo_total_usd) }}</span>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="font-medium text-slate-500">(-) Egresos Operativos Base</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-slate-400 font-medium">$</span>
+                            <span class="font-bold text-slate-600 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.egresos_total_usd) }}</span>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="font-medium text-rose-500">(-) Costo Adicional de Reposición (Spread)</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-rose-400 font-bold">$</span>
+                            <span class="font-bold text-rose-600 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.perdida_spread_usd) }}</span>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-double border-slate-300 pt-3 flex justify-between items-center">
+                        <div>
+                            <span class="text-xs font-bold text-slate-900 block">Disponibilidad Real Proyectada</span>
+                            <span class="text-[10px] font-medium text-slate-400">Patrimonio neto real indexado en caja al cierre</span>
+                        </div>
+                        <div class="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-md border border-slate-800">
+                            <span class="text-xs font-bold text-slate-400">$</span>
+                            <span class="text-lg font-black tabular-nums text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.balance_neto_usd) }}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -308,8 +359,8 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('btn-add-egdiv').addEventListener('click', () => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="py-2 pr-1 w-1/2"><input type="text" name="eg_div_key[]" class="fintech-input-sm" placeholder="Concepto del Gasto"></td>
-      <td class="py-2 px-1 w-1/4"><input type="number" step="0.01" name="eg_div_monto[]" class="fintech-input-sm text-right font-semibold" placeholder="$0.00"></td>
+      <td class="py-2 pr-1 w-1/2"><input type="text" name="eg_div_key[]" class="fintech-input-sm" placeholder="Concepto del Gasto" required></td>
+      <td class="py-2 px-1 w-1/4"><input type="number" step="0.01" name="eg_div_monto[]" class="fintech-input-sm text-right font-semibold" placeholder="0.00" required></td>
       <td class="py-2 px-1 w-1/4">
         <select name="eg_div_metodo[]" class="form-select-sm">
             <option value="USD_EFECTIVO">USD Físico</option>
