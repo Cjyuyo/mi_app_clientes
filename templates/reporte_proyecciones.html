@@ -1,6 +1,5 @@
 {% extends "base_sidebar.html" %}
 
-{# -- MACROS CORPORATIVAS (Estilo Pastel Premium) -- #}
 {% macro pill_status(estatus) -%}
     {% set e = (estatus or '')|upper %}
     {% set cls = {
@@ -18,53 +17,43 @@
 {% block head_extra %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
 <style>
-    /* Forzamos que los números tengan el mismo ancho (Tabular Nums) esencial en Fintech */
     .tabular-nums { font-variant-numeric: tabular-nums; }
-    
-    /* Scrollbar invisible para tablas limpias */
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-    /* Estilos Premium para inputs */
     .form-input {
-        @apply w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-semibold rounded-xl p-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium shadow-sm;
+        @apply w-full bg-white border border-slate-200 text-slate-900 text-sm font-semibold rounded-xl p-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium shadow-sm;
+    }
+    .form-input-sm {
+        @apply w-full bg-white border border-slate-200 text-slate-900 text-xs font-semibold rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 shadow-sm;
     }
 
-    /* Rediseño total de Choices.js para que parezca nativo */
     .choices__inner { 
-        @apply w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-semibold rounded-xl p-1 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-sm min-h-[46px];
+        @apply w-full bg-white border border-slate-200 text-slate-900 text-sm font-semibold rounded-xl p-1 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-sm min-h-[46px];
     }
     .choices__list--multiple .choices__item {
-        @apply bg-blue-100 border border-blue-200 text-blue-800 rounded-lg text-xs font-bold px-2 py-1;
+        @apply bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-bold px-2 py-1;
     }
-    .choices__list--multiple .choices__item.is-highlighted { @apply bg-blue-200; }
-    .choices[data-type*="select-multiple"] .choices__button, .choices[data-type*="text"] .choices__button {
-        @apply border-l border-blue-300 ml-2 pl-2 opacity-70 hover:opacity-100 transition-opacity;
+    .choices__list--multiple .choices__item.is-highlighted { @apply bg-slate-200; }
+    .choices[data-type*="select-multiple"] .choices__button {
+        @apply border-l border-slate-300 ml-2 pl-2 opacity-60 hover:opacity-100 transition-opacity;
     }
 </style>
 {% endblock %}
 
 {% block body %}
-<div class="min-h-screen bg-[#f7f9fc] -m-6 p-6 sm:p-10 font-sans">
-<div class="max-w-[1400px] mx-auto space-y-8 mb-12">
+<div class="min-h-screen bg-slate-50 -m-6 p-6 sm:p-10 font-sans">
+<div class="max-w-[1200px] mx-auto space-y-8 mb-12">
 
-  <div class="bg-[#0B1121] rounded-3xl shadow-lg border border-slate-800 p-8 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-      <div class="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
-      
-      <div class="flex items-center gap-5 relative z-10">
-          <div class="w-14 h-14 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center backdrop-blur-md shadow-inner">
-              <i class="bi bi-cpu-fill text-2xl text-blue-400"></i>
-          </div>
-          <div>
-              <h1 class="text-3xl font-extrabold text-white tracking-tight">Simulador de Proyecciones</h1>
-              <p class="text-slate-400 text-sm mt-1 font-medium">Motor predictivo de cobranza, gastos variables y cruce de divisas.</p>
-          </div>
+  <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-4 border-b border-slate-200">
+      <div>
+          <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Proyecciones y Riesgo Cambiario</h1>
+          <p class="text-sm font-medium text-slate-500 mt-1">Simula cobranza, ajusta egresos y calcula el spread de conversión BCV-Binance.</p>
       </div>
-
-      <div class="flex items-center gap-3 flex-shrink-0 relative z-10">
-          <a href="{{ url_for('reporte_proyecciones') }}" class="px-5 py-2.5 text-sm font-bold text-white bg-white/10 border border-white/20 hover:bg-white/20 rounded-xl transition-all shadow-sm backdrop-blur-md">Limpiar Todo</a>
-          <button type="submit" form="simulation-form" class="px-6 py-2.5 text-sm font-bold text-slate-900 bg-white hover:bg-slate-100 rounded-xl shadow-lg transition-all focus:outline-none focus:ring-4 focus:ring-white/30 flex items-center gap-2">
-              <i class="bi bi-play-fill text-blue-600 text-lg leading-none"></i> Ejecutar Simulación
+      <div class="flex items-center gap-3">
+          <a href="{{ url_for('reporte_proyecciones') }}" class="px-5 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-all shadow-sm">Restablecer</a>
+          <button type="submit" form="simulation-form" class="px-6 py-2 text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-md transition-all flex items-center gap-2">
+              Ejecutar Simulación <i class="bi bi-arrow-right"></i>
           </button>
       </div>
   </div>
@@ -73,149 +62,105 @@
     
     <input type="hidden" name="bloques_json" id="bloques_json" />
     <input type="hidden" name="carril_json" id="carril_json" />
+    <input type="hidden" name="run_proyeccion" value="1" />
 
-    <div class="bg-white rounded-3xl border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.02)] overflow-hidden">
-      <div class="p-6 border-b border-slate-100 bg-white flex flex-wrap items-center justify-between gap-4">
-        <h2 class="text-base font-bold text-slate-900 flex items-center gap-3">
-          <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><i class="bi bi-sliders2"></i></div>
-          Parámetros Globales
-        </h2>
-        <div class="flex items-center gap-3">
-          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">BCV Ancla:</span>
-          <span class="text-sm font-black px-3 py-1 bg-emerald-50 text-emerald-700 rounded-md border border-emerald-200/60 tabular-nums">
-            ${{ "{:,.2f}".format((tasas.bcv_now.usd or 0) | float) }}
-          </span>
-        </div>
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
+      <div class="flex items-center gap-3 mb-6">
+          <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center"><i class="bi bi-calendar-range"></i></div>
+          <h2 class="text-base font-bold text-slate-900">1. Período de Análisis</h2>
       </div>
       
-      <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-8 items-start bg-slate-50/30">
-        <div class="col-span-1">
-          <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Rango de Proyección</label>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-end">
+        <div class="lg:col-span-1">
+          <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Modo de Período</label>
           <div class="inline-flex bg-slate-100 rounded-xl p-1 shadow-inner w-full">
             <label class="flex-1 relative text-center cursor-pointer">
               <input type="radio" name="period_mode" value="auto" class="sr-only" x-model="period_mode">
-              <div class="px-4 py-2 text-xs font-bold rounded-lg transition-all" :class="period_mode === 'auto' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'">
-                Automático (13 al 12)
-              </div>
+              <div class="px-4 py-2 text-xs font-bold rounded-lg transition-all" :class="period_mode === 'auto' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'">Automático</div>
             </label>
             <label class="flex-1 relative text-center cursor-pointer">
               <input type="radio" name="period_mode" value="manual" class="sr-only" x-model="period_mode">
-              <div class="px-4 py-2 text-xs font-bold rounded-lg transition-all" :class="period_mode === 'manual' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'">
-                Manual
-              </div>
+              <div class="px-4 py-2 text-xs font-bold rounded-lg transition-all" :class="period_mode === 'manual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'">Manual</div>
             </label>
           </div>
         </div>
 
-        <div x-show="period_mode === 'manual'" x-transition class="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div x-show="period_mode === 'manual'" x-transition class="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label for="start_date" class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 pl-1">Fecha Desde</label>
-            <input type="date" name="start_date" id="start_date" value="{{ parametros.start_date or '' }}" class="form-input">
+            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Desde</label>
+            <input type="date" name="start_date" value="{{ parametros.start_date or '' }}" class="form-input bg-slate-50">
           </div>
           <div>
-            <label for="end_date" class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 pl-1">Fecha Hasta</label>
-            <input type="date" name="end_date" id="end_date" value="{{ parametros.end_date or '' }}" class="form-input">
+            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Hasta</label>
+            <input type="date" name="end_date" value="{{ parametros.end_date or '' }}" class="form-input bg-slate-50">
           </div>
         </div>
       </div>
     </div>
 
     <div>
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 px-2">
-        <div>
-            <h2 class="text-base font-bold text-slate-900 tracking-tight">Filtros Multidimensionales (Bloques)</h2>
-            <p class="text-xs text-slate-500 font-medium mt-1">Crea combinaciones de clientes, estatus y planes a simular.</p>
+      <div class="flex items-center justify-between mb-4 px-1">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center"><i class="bi bi-people"></i></div>
+          <h2 class="text-base font-bold text-slate-900">2. Filtro de Cobranza Esperada</h2>
         </div>
-        <button type="button" id="add-block-btn" class="text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 transition-all px-4 py-2 rounded-xl shadow-sm flex items-center gap-2">
-            <i class="bi bi-plus-lg"></i> Añadir Bloque de Filtro
+        <button type="button" id="add-block-btn" class="text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition-all px-4 py-2 rounded-xl shadow-sm flex items-center gap-2">
+            <i class="bi bi-plus-lg"></i> Añadir Filtro
         </button>
       </div>
-      
       <div id="simulation-blocks-container" class="space-y-4"></div>
     </div>
 
-    <div class="bg-white rounded-3xl border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.02)] overflow-hidden">
-      
-      <div class="p-6 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
-        <h2 class="text-base font-bold text-slate-900 flex items-center gap-3">
-          <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100"><i class="bi bi-cash-coin"></i></div>
-          Base de Cálculo Financiera
-        </h2>
-        
-        <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" name="run_proyeccion" value="1" checked class="sr-only peer">
-          <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
-          <span class="ml-3 text-xs font-bold text-slate-700">Incluir cálculos financieros</span>
-        </label>
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="p-6 sm:p-8 border-b border-slate-100 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center"><i class="bi bi-currency-exchange"></i></div>
+            <h2 class="text-base font-bold text-slate-900">3. Variables, Egresos y Riesgo Cambiario</h2>
+          </div>
       </div>
       
-      <div class="p-8 grid grid-cols-1 xl:grid-cols-2 gap-12 bg-slate-50/30">
+      <div class="p-6 sm:p-8 grid grid-cols-1 xl:grid-cols-2 gap-12 bg-slate-50/50">
         
         <div class="space-y-10">
-            
             <section>
-              <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">A. Estimación de Ingresos</h3>
-              
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-8">
-                <div class="space-y-3">
-                  <p class="text-[10px] font-bold text-emerald-600 uppercase bg-emerald-50 px-2 py-1 rounded inline-block mb-1">Cajas (Imputables)</p>
-                  <div class="grid grid-cols-2 gap-3">
-                    <div><label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">Efectivo USD</label><input type="number" step="0.01" name="ing_efectivo" class="form-input px-3 py-2 text-xs" placeholder="0.00"></div>
-                    <div><label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">Euro</label><input type="number" step="0.01" name="ing_euro" class="form-input px-3 py-2 text-xs" placeholder="0.00"></div>
-                    <div><label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">USDT</label><input type="number" step="0.01" name="ing_usdt" class="form-input px-3 py-2 text-xs" placeholder="0.00"></div>
-                    <div><label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">Nequi</label><input type="number" step="0.01" name="ing_nequi" class="form-input px-3 py-2 text-xs" placeholder="0.00"></div>
-                    <div><label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">Bs. SC</label><input type="number" step="0.01" name="ing_bs_sc" class="form-input px-3 py-2 text-xs" placeholder="0.00"></div>
-                    <div><label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">Bs. CC</label><input type="number" step="0.01" name="ing_bs_cc" class="form-input px-3 py-2 text-xs" placeholder="0.00"></div>
-                  </div>
-                </div>
-
-                <div class="space-y-3">
-                  <p class="text-[10px] font-bold text-rose-500 uppercase bg-rose-50 px-2 py-1 rounded inline-block mb-1">Recuperación Mora</p>
-                  <div class="space-y-3">
-                    <div><label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">Efectivo USD</label><input type="number" step="0.01" name="mora_efectivo" class="form-input px-3 py-2 text-xs" placeholder="0.00"></div>
-                    <div><label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">Bs. SC</label><input type="number" step="0.01" name="mora_bs_sc" class="form-input px-3 py-2 text-xs" placeholder="0.00"></div>
-                    <div><label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">Bs. CC</label><input type="number" step="0.01" name="mora_bs_cc" class="form-input px-3 py-2 text-xs" placeholder="0.00"></div>
-                  </div>
-                </div>
+              <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">Abonos Extraordinarios (Cajas)</h3>
+              <div class="grid grid-cols-3 gap-3">
+                <div><label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Efectivo USD</label><input type="number" step="0.01" name="ing_efectivo" class="form-input-sm" placeholder="0.00"></div>
+                <div><label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Euro</label><input type="number" step="0.01" name="ing_euro" class="form-input-sm" placeholder="0.00"></div>
+                <div><label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">USDT</label><input type="number" step="0.01" name="ing_usdt" class="form-input-sm" placeholder="0.00"></div>
+                <div><label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Bs. SC</label><input type="number" step="0.01" name="ing_bs_sc" class="form-input-sm" placeholder="0.00"></div>
+                <div><label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Bs. CC</label><input type="number" step="0.01" name="ing_bs_cc" class="form-input-sm" placeholder="0.00"></div>
               </div>
             </section>
 
             <section>
-              <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">B. Variables de Entorno (Tasas)</h3>
-              
-              <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">Tasas Base de Proyección</h3>
+              <div class="grid grid-cols-2 gap-4">
                   <div>
-                      <label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">USD BCV (Proyectado)</label>
-                      <input type="number" step="0.0001" name="usd_bcv" class="form-input px-3 py-2 text-xs border-blue-200 bg-blue-50 focus:bg-white" value="{{ (tasas.bcv_now.usd or tasas.bcv_anchor.usd or 0) | float }}">
+                      <label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Tasa Oficial (BCV)</label>
+                      <input type="number" step="0.0001" name="usd_bcv" class="form-input-sm" value="{{ (tasas.bcv_now.usd or tasas.bcv_anchor.usd or 0) | float }}">
                   </div>
                   <div>
-                      <label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">EUR BCV</label>
-                      <input type="number" step="0.0001" name="eur_bcv" class="form-input px-3 py-2 text-xs" placeholder="Usa USD si vacío">
-                  </div>
-                  <div>
-                      <label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">Binance Actual</label>
-                      <input type="number" step="0.0001" name="binance_actual" class="form-input px-3 py-2 text-xs" value="{{ (tasas.bcv_now.tasa_binance or 0) | float }}">
-                  </div>
-                  <div>
-                      <label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">Binance (Previsión)</label>
-                      <input type="number" step="0.0001" name="binance_prevision" class="form-input px-3 py-2 text-xs" placeholder="0.00">
-                  </div>
-                  <div>
-                      <label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">Tasa Venta USD</label>
-                      <input type="number" step="0.0001" name="venta_usd_global" class="form-input px-3 py-2 text-xs" placeholder="0.00">
-                  </div>
-                  <div>
-                      <label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">Tasa Recompra USD</label>
-                      <input type="number" step="0.0001" name="recompra_usd_global" class="form-input px-3 py-2 text-xs" placeholder="0.00">
+                      <label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Tasa Mercado (Binance)</label>
+                      <input type="number" step="0.0001" name="binance_prevision" class="form-input-sm" value="{{ (tasas.bcv_now.tasa_binance or 0) | float }}" placeholder="0.00">
                   </div>
               </div>
-
-              <div class="mt-4 p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
-                <label class="relative inline-flex items-center cursor-pointer w-full">
+              <div class="mt-4 pt-3 border-t border-slate-100">
+                <label class="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" name="fijada" value="1" class="sr-only peer">
-                  <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
-                  <span class="ml-3 text-xs font-bold text-slate-600">Usar BCV Anchor (Fijada) para valuación de egresos</span>
+                  <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-slate-800"></div>
+                  <span class="ml-3 text-xs font-semibold text-slate-600">Usar BCV Ancla para valuar egresos estáticos</span>
                 </label>
+              </div>
+            </section>
+
+            <section>
+              <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">Gastos Operativos (Fijos)</h3>
+              <div class="grid grid-cols-2 gap-4">
+                  <div><label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Directo Bs (BCV)</label><input type="number" step="0.01" name="eg_bs_bcv" class="form-input-sm" placeholder="0.00"></div>
+                  <div><label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Registro Notaría (Bs)</label><input type="number" step="0.01" name="eg_registro_bs" class="form-input-sm" placeholder="0.00"></div>
+                  <div><label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Devoluciones ($)</label><input type="number" step="0.01" name="eg_dev_usd" class="form-input-sm" placeholder="0.00"></div>
+                  <div><label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Fondo Liquidez (%)</label><input type="number" step="0.0001" name="colchon_pct" class="form-input-sm bg-white border-indigo-200" value="0.20"></div>
               </div>
             </section>
         </div>
@@ -224,42 +169,20 @@
             
             <section>
               <div class="flex items-center justify-between mb-3 border-b border-slate-200 pb-2">
-                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest">C. Egresos Programados (USD/USDT)</h3>
-                <button type="button" class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 transition-colors uppercase tracking-wider" id="btn-add-egdiv">+ Fila</button>
-              </div>
-              <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                <table class="w-full text-left" id="tbl-egdiv">
-                  <tbody class="divide-y divide-slate-100">
-                      </tbody>
-                </table>
-              </div>
-            </section>
-
-            <section>
-              <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">D. Egresos Bolívares y Operativos</h3>
-              <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  <div><label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">Directo Bs (BCV)</label><input type="number" step="0.01" name="eg_bs_bcv" class="form-input px-3 py-2 text-xs" placeholder="0.00"></div>
-                  <div><label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">€ convert. a BCV</label><input type="number" step="0.01" name="eg_bs_euro_bcv" class="form-input px-3 py-2 text-xs" placeholder="0.00"></div>
-                  <div><label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">Devoluciones (Bs)</label><input type="number" step="0.01" name="eg_dev_bs" class="form-input px-3 py-2 text-xs" placeholder="0.00"></div>
-                  <div><label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">Registro (Bs)</label><input type="number" step="0.01" name="eg_registro_bs" class="form-input px-3 py-2 text-xs" placeholder="0.00"></div>
-                  <div><label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">Devoluciones (USD)</label><input type="number" step="0.01" name="eg_dev_usd" class="form-input px-3 py-2 text-xs" placeholder="0.00"></div>
-                  <div><label class="text-[10px] font-bold text-slate-500 block mb-1 pl-1">Liquidez (Colchón %)</label><input type="number" step="0.0001" name="colchon_pct" class="form-input px-3 py-2 text-xs border-indigo-200 bg-indigo-50" value="0.20"></div>
-              </div>
-            </section>
-
-            <section>
-              <div class="flex items-center justify-between mb-3 border-b border-slate-200 pb-2">
-                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest">E. Operaciones Cambiarias (Carril 225→247)</h3>
-                <button type="button" class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 transition-colors uppercase tracking-wider" id="btn-add-carril">+ Fila</button>
+                <div>
+                    <h3 class="text-[10px] font-bold text-rose-500 uppercase tracking-widest">Brecha Cambiaria (FX Spread)</h3>
+                    <p class="text-[9px] font-medium text-slate-500 mt-0.5">Calcula pérdida al recibir a tasa baja y comprar a tasa alta.</p>
+                </div>
+                <button type="button" class="text-[9px] font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded border border-rose-100 hover:bg-rose-100 transition-colors uppercase" id="btn-add-carril">+ Fila</button>
               </div>
               <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                 <table class="w-full text-left" id="tbl-carril">
                   <thead class="bg-slate-50 border-b border-slate-100">
                     <tr>
-                      <th class="px-3 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest w-1/3">Concepto</th>
-                      <th class="px-2 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Monto $</th>
-                      <th class="px-2 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Venta</th>
-                      <th class="px-2 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Recompra</th>
+                      <th class="px-2 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest w-1/3">Concepto Op.</th>
+                      <th class="px-2 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Monto ($)</th>
+                      <th class="px-2 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest" title="Tasa a la que cobras">Recepción</th>
+                      <th class="px-2 py-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest" title="Tasa a la que recompras USDT">Recompra</th>
                       <th class="w-8"></th>
                     </tr>
                   </thead>
@@ -269,126 +192,127 @@
               </div>
             </section>
 
-            <section class="grid grid-cols-2 gap-6 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <section class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-5">
                 <div>
-                  <div class="flex justify-between items-center mb-2">
-                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Bloque Directo (Keys)</label>
-                    <button type="button" id="btn-add-bdk" class="text-[10px] font-bold text-slate-400 hover:text-blue-500"><i class="bi bi-plus-lg"></i></button>
-                  </div>
-                  <div id="bdk-wrap" class="space-y-2"></div>
+                  <h3 class="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-1">Enrutamiento de Egresos</h3>
+                  <p class="text-[10px] text-slate-500 mb-4">Usa estas etiquetas para enlazar los pagos operativos con su comportamiento cambiario.</p>
                 </div>
-                <div>
-                  <div class="flex justify-between items-center mb-2">
-                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Pagan 225→247 (Keys)</label>
-                    <button type="button" id="btn-add-p225" class="text-[10px] font-bold text-slate-400 hover:text-blue-500"><i class="bi bi-plus-lg"></i></button>
-                  </div>
-                  <div id="p225-wrap" class="space-y-2"></div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-[9px] font-bold text-emerald-600 uppercase tracking-widest">Pagan a Tasa Directa</label>
+                            <button type="button" id="btn-add-bdk" class="text-[10px] font-bold text-emerald-500 hover:text-emerald-700"><i class="bi bi-plus-circle-fill"></i></button>
+                        </div>
+                        <div id="bdk-wrap" class="space-y-2"></div>
+                    </div>
+                    
+                    <div class="border-l border-slate-100 pl-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-[9px] font-bold text-rose-600 uppercase tracking-widest">Pagan c/ Brecha Cambiaria</label>
+                            <button type="button" id="btn-add-p225" class="text-[10px] font-bold text-rose-500 hover:text-rose-700"><i class="bi bi-plus-circle-fill"></i></button>
+                        </div>
+                        <div id="p225-wrap" class="space-y-2"></div>
+                    </div>
                 </div>
             </section>
-        </div>
 
+            <section>
+              <div class="flex items-center justify-between mb-3 border-b border-slate-200 pb-2">
+                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Egresos Adicionales (USD)</h3>
+                <button type="button" class="text-[9px] font-bold text-slate-600 hover:text-slate-900 transition-colors uppercase" id="btn-add-egdiv">+ Añadir Fila</button>
+              </div>
+              <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <table class="w-full text-left" id="tbl-egdiv">
+                  <tbody class="divide-y divide-slate-100">
+                      </tbody>
+                </table>
+              </div>
+            </section>
+        </div>
       </div>
     </div>
   </form>
 
   {% if simulacion_realizada %}
-  <div class="space-y-8 pt-6 border-t border-slate-200">
+  <div class="space-y-6 pt-10 border-t border-slate-200 mt-10">
     
     <div>
-      <h2 class="text-2xl font-black text-slate-900 tracking-tight">Reporte Financiero Proyectado</h2>
-      <p class="text-sm font-medium text-slate-500 mt-1">Análisis de la corrida matemática según parámetros.</p>
+      <h2 class="text-xl font-bold text-slate-900 tracking-tight">Reporte Financiero de la Simulación</h2>
     </div>
     
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-      <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-        <div class="flex justify-between items-start mb-4">
-            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Ingreso Proyectado</p>
-            <i class="bi bi-graph-up-arrow text-emerald-500 text-lg"></i>
-        </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Ingreso Proyectado</p>
         <div class="flex items-baseline gap-1">
-            <span class="text-lg font-semibold text-slate-400">$</span>
-            <h3 class="text-3xl font-black text-slate-900 tracking-tight tabular-nums">{{ "{:,.2f}".format((proyecciones.resumen.ingresos_totales_proyectados or 0) | float) }}</h3>
+            <span class="text-sm font-semibold text-slate-400">$</span>
+            <h3 class="text-2xl font-bold text-slate-900 tracking-tight tabular-nums">{{ "{:,.2f}".format((proyecciones.resumen.ingresos_totales_proyectados or 0) | float) }}</h3>
         </div>
       </div>
 
-      <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-        <div class="flex justify-between items-start mb-4">
-            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Clientes a Cobrar</p>
-            <i class="bi bi-people-fill text-blue-500 text-lg"></i>
-        </div>
-        <h3 class="text-3xl font-black text-slate-900 tracking-tight tabular-nums">{{ proyecciones.clientes_a_cobrar|length }}</h3>
-      </div>
-
-      <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-        <div class="flex justify-between items-start mb-4">
-            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Gastos Programados</p>
-            <i class="bi bi-graph-down-arrow text-rose-500 text-lg"></i>
-        </div>
+      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Pérdida por Brecha (FX)</p>
         <div class="flex items-baseline gap-1">
-            <span class="text-lg font-semibold text-rose-400">$</span>
-            <h3 class="text-3xl font-black text-rose-600 tracking-tight tabular-nums">{{ "{:,.2f}".format((gastos.totales.programado or 0) | float) }}</h3>
+            <span class="text-sm font-semibold text-rose-400">$</span>
+            <h3 class="text-2xl font-bold text-rose-600 tracking-tight tabular-nums">
+               {# Asumiendo que tu backend expone la devaluación calculada en gastos o resumen #}
+               {{ "{:,.2f}".format((gastos.totales.devaluacion_carril or 0) | float) }}
+            </h3>
         </div>
       </div>
 
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl relative overflow-hidden">
-        <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-500/20 rounded-full blur-2xl"></div>
-        <div class="flex justify-between items-start mb-4 relative z-10">
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Balance Neto Final</p>
-            <i class="bi bi-safe-fill text-blue-400 text-lg"></i>
+      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Gastos Computados</p>
+        <div class="flex items-baseline gap-1">
+            <span class="text-sm font-semibold text-slate-400">$</span>
+            <h3 class="text-2xl font-bold text-slate-900 tracking-tight tabular-nums">{{ "{:,.2f}".format((gastos.totales.programado or 0) | float) }}</h3>
         </div>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 relative z-10">Balance Neto Final</p>
         <div class="flex items-baseline gap-1 relative z-10">
-            <span class="text-lg font-semibold text-blue-300">$</span>
-            <h3 class="text-3xl font-black text-white tracking-tight tabular-nums">{{ "{:,.2f}".format((proyecciones.resumen.balance_neto_proyectado or 0) | float) }}</h3>
+            <span class="text-sm font-semibold text-slate-400">$</span>
+            <h3 class="text-2xl font-bold text-white tracking-tight tabular-nums">{{ "{:,.2f}".format((proyecciones.resumen.balance_neto_proyectado or 0) | float) }}</h3>
         </div>
       </div>
     </div>
 
-    <div class="bg-white border border-slate-200 rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.02)] overflow-hidden">
-      <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
-          <h3 class="text-sm font-bold text-slate-900">Desglose de Cobranza (Clientes)</h3>
-          <span class="px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-md">{{ proyecciones.clientes_a_cobrar|length }} Registros</span>
+    <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mt-6">
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h3 class="text-sm font-bold text-slate-900">Desglose de Cartera</h3>
       </div>
-
       <div class="overflow-x-auto hide-scrollbar">
         <table class="w-full text-sm text-left">
-          <thead class="bg-slate-50/80 border-b border-slate-100">
+          <thead class="bg-slate-50 border-b border-slate-100">
             <tr>
-              <th class="py-3 px-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Cliente</th>
-              <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Identificación</th>
-              <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Estado / Condición</th>
-              <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Nº Cuota</th>
-              <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Fecha Límite</th>
-              <th class="py-3 px-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Proyección USD</th>
+              <th class="py-3 px-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Cliente</th>
+              <th class="py-3 px-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Identificación</th>
+              <th class="py-3 px-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Estado</th>
+              <th class="py-3 px-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Cuota</th>
+              <th class="py-3 px-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Fecha Límite</th>
+              <th class="py-3 px-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Proyección USD</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
             {% set lista = proyecciones.clientes_a_cobrar if proyecciones else [] %}
             {% if lista %}
               {% for r in lista %}
-              <tr class="hover:bg-slate-50/50 transition-colors group">
-                <td class="px-6 py-4 font-bold text-slate-900 whitespace-nowrap">{{ r.nombre }} {{ r.apellido }}</td>
-                <td class="px-4 py-4 text-xs font-medium text-slate-500 whitespace-nowrap">{{ r.cedula }}</td>
-                <td class="px-4 py-4">
-                  <div class="flex items-center gap-2">
-                    {{ pill_status(r.estado_del_plan) }}
-                    {% if r.condicion %}<span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{{ r.condicion | title }}</span>{% endif %}
-                  </div>
-                </td>
-                <td class="px-4 py-4 text-slate-600 font-bold text-center tabular-nums">{{ r.numero_cuota }}</td>
-                <td class="px-4 py-4 text-slate-500 text-xs font-medium text-center whitespace-nowrap">{{ r.fecha_pago | format_date if r.fecha_pago else '—' }}</td>
-                <td class="px-6 py-4 text-right">
-                  <span class="font-black text-slate-900 tracking-tight tabular-nums">${{ "{:,.2f}".format((r.monto_usd or 0) | float) }}</span>
+              <tr class="hover:bg-slate-50 transition-colors">
+                <td class="px-6 py-3 font-semibold text-slate-900 whitespace-nowrap">{{ r.nombre }} {{ r.apellido }}</td>
+                <td class="px-4 py-3 text-xs text-slate-500">{{ r.cedula }}</td>
+                <td class="px-4 py-3">{{ pill_status(r.estado_del_plan) }}</td>
+                <td class="px-4 py-3 text-slate-600 font-medium text-center tabular-nums">{{ r.numero_cuota }}</td>
+                <td class="px-4 py-3 text-slate-500 text-xs text-center whitespace-nowrap">{{ r.fecha_pago | format_date if r.fecha_pago else '—' }}</td>
+                <td class="px-6 py-3 text-right">
+                  <span class="font-bold text-slate-900 tabular-nums">${{ "{:,.2f}".format((r.monto_usd or 0) | float) }}</span>
                 </td>
               </tr>
               {% endfor %}
             {% else %}
               <tr>
-                <td colspan="6" class="text-center py-16">
-                  <div class="flex flex-col items-center justify-center">
-                    <i class="bi bi-funnel text-3xl text-slate-300 mb-3"></i>
-                    <p class="text-sm font-bold text-slate-600">Simulación Vacía</p>
-                    <p class="text-xs font-medium text-slate-400 mt-1">Ajusta los bloques o fechas y vuelve a calcular.</p>
-                  </div>
+                <td colspan="6" class="text-center py-12">
+                  <p class="text-sm font-medium text-slate-500">No hay clientes que coincidan con la simulación.</p>
                 </td>
               </tr>
             {% endif %}
@@ -403,56 +327,35 @@
 </div>
 
 <template id="block-template">
-  <div class="block-item bg-white border border-slate-200 rounded-2xl p-5 relative transition-all hover:border-blue-300 shadow-sm group">
-    <div class="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-      <p class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-intersect text-blue-500"></i> Condición de Filtro</p>
-      <button type="button" class="remove-block-btn text-slate-300 hover:text-rose-500 transition-colors px-2" title="Eliminar este bloque">
-        <i class="bi bi-trash3-fill text-base"></i>
+  <div class="block-item bg-white border border-slate-200 rounded-2xl p-5 relative transition-all shadow-sm">
+    <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+      <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Grupo de Filtros</p>
+      <button type="button" class="remove-block-btn text-slate-300 hover:text-rose-500 transition-colors" title="Eliminar este bloque">
+        <i class="bi bi-x-circle-fill text-base"></i>
       </button>
     </div>
-    
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <div>
         <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Empresa</label>
-        <select name="empresa" multiple class="form-select-choices">
-          {% for opt in empresas_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
-        </select>
+        <select name="empresa" multiple class="form-select-choices">{% for opt in empresas_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}</select>
       </div>
       <div>
         <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Estado del Plan</label>
-        <select name="estado_plan" multiple class="form-select-choices">
-          {% for opt in estados_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
-        </select>
+        <select name="estado_plan" multiple class="form-select-choices">{% for opt in estados_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}</select>
       </div>
       <div>
         <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Condición Técnica</label>
-        <select name="condicion" multiple class="form-select-choices">
-          {% for opt in condicion_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
-        </select>
+        <select name="condicion" multiple class="form-select-choices">{% for opt in condicion_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}</select>
       </div>
       <div>
         <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Estatus de Cliente</label>
-        <select name="estatus_cliente" multiple class="form-select-choices">
-          {% for opt in estatus_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
-        </select>
-      </div>
-      
-      <div class="lg:col-span-2 grid grid-cols-2 gap-4 pt-2 border-t border-slate-50">
-          <div>
-            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Ingreso Desde (Opcional)</label>
-            <input type="date" name="fecha_inicio" class="form-input py-2">
-          </div>
-          <div>
-            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Ingreso Hasta (Opcional)</label>
-            <input type="date" name="fecha_fin" class="form-input py-2">
-          </div>
+        <select name="estatus_cliente" multiple class="form-select-choices">{% for opt in estatus_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}</select>
       </div>
     </div>
-    
     <div class="mt-4 pt-3 border-t border-slate-100 flex justify-end">
       <label class="inline-flex items-center gap-2 cursor-pointer">
-        <input type="checkbox" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" name="excluir_rc">
-        <span class="text-xs font-bold text-slate-600">Omitir Retirados/Completados</span>
+        <input type="checkbox" class="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900" name="excluir_rc">
+        <span class="text-xs font-semibold text-slate-600">Omitir Retirados/Completados</span>
       </label>
     </div>
   </div>
@@ -466,199 +369,101 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   
-  // VARIABLES GLOBALES
-  const container     = document.getElementById('simulation-blocks-container');
-  const template      = document.getElementById('block-template');
-  const addBtn        = document.getElementById('add-block-btn');
-  const hiddenBloques = document.getElementById('bloques_json');
-  const form          = document.getElementById('simulation-form');
-  const carrilHidden  = document.getElementById('carril_json');
-
-  // ==========================================
-  // INICIALIZACIÓN DE CHOICES.JS
-  // ==========================================
+  const form = document.getElementById('simulation-form');
+  
+  // CHOICES.JS
   function initChoices(scope) {
     scope.querySelectorAll('.form-select-choices').forEach(select => {
-      if (!select.choices) {
-        select.choices = new Choices(select, {
-          removeItemButton: true, placeholder: true, placeholderValue: 'Todos...',
-          allowHTML: false, searchPlaceholderValue: 'Buscar...', searchResultLimit: 50, shouldSort: false,
-          noChoicesText: 'Sin opciones', itemSelectText: '',
-        });
-      }
+      if (!select.choices) select.choices = new Choices(select, { removeItemButton: true, allowHTML: false });
     });
   }
-
   function getChoicesValues(select) {
-    if (select && select.choices) {
-      const items = select.choices.getValue(true);
-      return Array.isArray(items) ? items.map(String) : (items ? [String(items)] : []);
-    }
+    if (select && select.choices) { const items = select.choices.getValue(true); return Array.isArray(items) ? items : (items ? [items] : []); }
     return Array.from(select?.selectedOptions || []).map(o => o.value);
   }
 
-  function setSelectValue(select, value) {
-    if (!select) return;
-    if (select.choices) {
-      try { select.choices.removeActiveItems(); } catch(e){}
-      if (Array.isArray(value) && value.length)      select.choices.setChoiceByValue(value.map(String));
-      else if (value !== null && value !== undefined && value !== '') select.choices.setChoiceByValue(String(value));
-    } else {
-      if (Array.isArray(value)) { for (const opt of select.options) opt.selected = value.includes(opt.value); }
-      else { select.value = value || ''; }
-    }
-  }
-
-  // ==========================================
-  // LÓGICA DE BLOQUES (FILTROS)
-  // ==========================================
-  function addNewBlock(data = null) {
-    const clone = template.content.cloneNode(true);
-    container.appendChild(clone);
+  // LÓGICA BLOQUES FILTRO
+  const container = document.getElementById('simulation-blocks-container');
+  const template = document.getElementById('block-template');
+  function addNewBlock() {
+    container.appendChild(template.content.cloneNode(true));
     const newBlock = container.lastElementChild;
     initChoices(newBlock);
-
-    if (data && typeof data === 'object') {
-      setSelectValue(newBlock.querySelector('select[name="empresa"]'), data.empresa || []);
-      setSelectValue(newBlock.querySelector('select[name="estado_plan"]'), data.estado_plan || data.estados || []);
-      setSelectValue(newBlock.querySelector('select[name="condicion"]'), data.condicion || []);
-      setSelectValue(newBlock.querySelector('select[name="estatus_cliente"]'), data.estatus_cliente || []);
-      if (data.fecha_inicio) newBlock.querySelector('input[name="fecha_inicio"]').value = data.fecha_inicio;
-      if (data.fecha_fin)    newBlock.querySelector('input[name="fecha_fin"]').value = data.fecha_fin;
-      if (data.excluir_rc)   newBlock.querySelector('input[name="excluir_rc"]').checked = !!data.excluir_rc;
-    }
-
-    newBlock.querySelector('.remove-block-btn').addEventListener('click', () => { newBlock.remove(); });
+    newBlock.querySelector('.remove-block-btn').addEventListener('click', () => newBlock.remove());
   }
+  document.getElementById('add-block-btn').addEventListener('click', () => addNewBlock());
+  addNewBlock(); // Fila inicial
 
   function buildBloquesJSON() {
-    const blocks = Array.from(container.querySelectorAll('.block-item'));
-    const out = blocks.map(b => {
-      return {
-        empresa: getChoicesValues(b.querySelector('select[name="empresa"]')),
-        estado_plan: getChoicesValues(b.querySelector('select[name="estado_plan"]')),
-        condicion: getChoicesValues(b.querySelector('select[name="condicion"]')),
-        estatus_cliente: getChoicesValues(b.querySelector('select[name="estatus_cliente"]')),
-        fecha_inicio: b.querySelector('input[name="fecha_inicio"]')?.value || null, 
-        fecha_fin: b.querySelector('input[name="fecha_fin"]')?.value || null, 
-        excluir_rc: !!b.querySelector('input[name="excluir_rc"]')?.checked,
-      };
-    });
-    // Solo enviamos bloques que tengan al menos 1 condición seteada
-    const cleaned = out.filter(b => (b.empresa?.length || b.estado_plan?.length || b.condicion?.length || b.estatus_cliente?.length || b.fecha_inicio || b.fecha_fin || b.excluir_rc));
-    return JSON.stringify(cleaned);
+    return JSON.stringify(Array.from(container.querySelectorAll('.block-item')).map(b => ({
+      empresa: getChoicesValues(b.querySelector('select[name="empresa"]')),
+      estado_plan: getChoicesValues(b.querySelector('select[name="estado_plan"]')),
+      condicion: getChoicesValues(b.querySelector('select[name="condicion"]')),
+      estatus_cliente: getChoicesValues(b.querySelector('select[name="estatus_cliente"]')),
+      excluir_rc: !!b.querySelector('input[name="excluir_rc"]')?.checked,
+    })).filter(b => b.empresa.length || b.estado_plan.length || b.condicion.length || b.estatus_cliente.length || b.excluir_rc));
   }
 
-  // Cargar bloques que vienen del servidor (si falló validación o es GET con datos previos)
-  const bloquesIniciales = {{ (bloques_iniciales or []) | tojson }};
-  if (Array.isArray(bloquesIniciales) && bloquesIniciales.length) { 
-      bloquesIniciales.forEach(b => addNewBlock(b));
-  } else { 
-      addNewBlock(); // Al menos un bloque vacío por defecto
-  }
-  
-  addBtn.addEventListener('click', () => addNewBlock());
-
-  // ==========================================
-  // TABLA DINÁMICA: EGRESOS DIVISAS
-  // ==========================================
+  // TABLA: EGRESOS USD
   const tblEgDiv = document.getElementById('tbl-egdiv').querySelector('tbody');
   document.getElementById('btn-add-egdiv').addEventListener('click', () => addEgDivRow());
-  
-  function addEgDivRow(k = '', v = '') {
+  function addEgDivRow(k='', v='') {
     const tr = document.createElement('tr');
-    tr.className = "group";
     tr.innerHTML = `
-      <td class="py-1.5 pr-2 w-2/3">
-        <input type="text" name="eg_div_key[]" class="form-input px-3 py-1.5 text-xs w-full" placeholder="Ej: PROVEEDORES" value="${k}">
-      </td>
-      <td class="py-1.5 px-2">
-        <input type="number" step="0.01" name="eg_div_monto[]" class="form-input px-3 py-1.5 text-xs text-right w-full" placeholder="0.00" value="${v}">
-      </td>
-      <td class="py-1.5 pl-2 text-center w-8">
-        <button type="button" class="text-slate-300 hover:text-rose-500 transition-colors rm-row"><i class="bi bi-x-circle-fill"></i></button>
-      </td>`;
+      <td class="py-1.5 pr-1 w-2/3"><input type="text" name="eg_div_key[]" class="form-input-sm" placeholder="Concepto" value="${k}"></td>
+      <td class="py-1.5 px-1"><input type="number" step="0.01" name="eg_div_monto[]" class="form-input-sm text-right" placeholder="$ 0.00" value="${v}"></td>
+      <td class="py-1.5 pl-1 w-8 text-center"><button type="button" class="text-slate-300 hover:text-rose-500 rm-row"><i class="bi bi-x-circle-fill"></i></button></td>`;
     tr.querySelector('.rm-row').addEventListener('click', () => tr.remove());
     tblEgDiv.appendChild(tr);
   }
+  addEgDivRow();
 
-  // ==========================================
-  // TABLA DINÁMICA: CARRIL 225 -> 247
-  // ==========================================
+  // TABLA: CARRIL CAMBIARIO (RESTITUIDO Y MEJORADO)
   const tblCarril = document.getElementById('tbl-carril').querySelector('tbody');
   document.getElementById('btn-add-carril').addEventListener('click', () => addCarrilRow());
-  
-  function addCarrilRow(c = '', m = '', v = '', r = '') {
+  function addCarrilRow(c='', m='', v='', r='') {
     const tr = document.createElement('tr');
-    tr.className = "group";
     tr.innerHTML = `
-      <td class="py-1.5 pr-2"><input type="text" class="form-input px-2 py-1.5 text-xs w-full" data-field="concepto" placeholder="Concepto" value="${c}"></td>
-      <td class="py-1.5 px-1 w-24"><input type="number" step="0.01" class="form-input px-2 py-1.5 text-xs text-right w-full" data-field="monto_usd" placeholder="0.00" value="${m}"></td>
-      <td class="py-1.5 px-1 w-24"><input type="number" step="0.0001" class="form-input px-2 py-1.5 text-xs text-right w-full" data-field="venta" placeholder="0.00" value="${v}"></td>
-      <td class="py-1.5 pl-1 w-24"><input type="number" step="0.0001" class="form-input px-2 py-1.5 text-xs text-right w-full" data-field="recompra" placeholder="0.00" value="${r}"></td>
-      <td class="py-1.5 pl-2 text-center w-8"><button type="button" class="text-slate-300 hover:text-rose-500 transition-colors rm-row"><i class="bi bi-x-circle-fill"></i></button></td>
-    `;
+      <td class="py-1.5 pr-1 w-1/3"><input type="text" data-field="concepto" class="form-input-sm" placeholder="Ej: Pago Proveedor" value="${c}"></td>
+      <td class="py-1.5 px-1"><input type="number" step="0.01" data-field="monto_usd" class="form-input-sm text-right" placeholder="$0.00" value="${m}"></td>
+      <td class="py-1.5 px-1"><input type="number" step="0.0001" data-field="venta" class="form-input-sm text-right bg-rose-50/50" placeholder="Ej: 36.5" value="${v}"></td>
+      <td class="py-1.5 px-1"><input type="number" step="0.0001" data-field="recompra" class="form-input-sm text-right bg-rose-50/50" placeholder="Ej: 41.2" value="${r}"></td>
+      <td class="py-1.5 pl-1 w-8 text-center"><button type="button" class="text-rose-200 hover:text-rose-500 rm-row"><i class="bi bi-x-circle-fill"></i></button></td>`;
     tr.querySelector('.rm-row').addEventListener('click', () => tr.remove());
     tblCarril.appendChild(tr);
   }
-  
+  addCarrilRow();
   function buildCarrilJSON() {
-    const rows = Array.from(tblCarril.querySelectorAll('tr'));
-    const items = [];
-    rows.forEach(tr => {
-      const item = {};
-      tr.querySelectorAll('input[data-field]').forEach(inp => { item[inp.dataset.field] = inp.value; });
-      const concepto = String(item.concepto || '').trim();
-      const monto    = parseFloat(item.monto_usd || '0') || 0;
-      const venta    = parseFloat(item.venta || '0') || 0;
-      const recompra = parseFloat(item.recompra || '0') || 0;
-      
-      if (concepto && monto > 0 && venta > 0 && recompra > 0) {
-        items.push({ concepto, monto_usd: monto, venta, recompra });
-      }
-    });
-    return JSON.stringify(items);
+    return JSON.stringify(Array.from(tblCarril.querySelectorAll('tr')).map(tr => {
+      const inp = (f) => tr.querySelector(`input[data-field="${f}"]`)?.value;
+      return { concepto: inp('concepto'), monto_usd: parseFloat(inp('monto_usd'))||0, venta: parseFloat(inp('venta'))||0, recompra: parseFloat(inp('recompra'))||0 };
+    }).filter(i => i.concepto && i.monto_usd > 0));
   }
 
-  // ==========================================
-  // KEYS DINÁMICOS (Bloque Directo y Pagan)
-  // ==========================================
-  const bdkWrap  = document.getElementById('bdk-wrap');
+  // ENRUTAMIENTO KEYS
+  const bdkWrap = document.getElementById('bdk-wrap');
   const p225Wrap = document.getElementById('p225-wrap');
-  document.getElementById('btn-add-bdk').addEventListener('click', () => addKeyInput(bdkWrap, 'bloque_directo_keys[]'));
-  document.getElementById('btn-add-p225').addEventListener('click', () => addKeyInput(p225Wrap, 'pagan_por_225_247_keys[]'));
-  
-  function addKeyInput(container, name, val='') {
+  document.getElementById('btn-add-bdk').addEventListener('click', () => addKeyInput(bdkWrap, 'bloque_directo_keys[]', 'emerald'));
+  document.getElementById('btn-add-p225').addEventListener('click', () => addKeyInput(p225Wrap, 'pagan_por_225_247_keys[]', 'rose'));
+  function addKeyInput(container, name, color) {
     const div = document.createElement('div');
     div.className = 'flex items-center gap-2 mb-1.5';
-    div.innerHTML = `
-      <input type="text" name="${name}" class="form-input px-3 py-1.5 text-xs flex-1" placeholder="Ej: NOMINA" value="${val}">
-      <button type="button" class="text-slate-300 hover:text-rose-500 transition-colors rm-key px-1"><i class="bi bi-x-circle-fill"></i></button>
-    `;
+    div.innerHTML = `<input type="text" name="${name}" class="form-input-sm flex-1 border-${color}-200" placeholder="Etiqueta Ej: NOMINA"><button type="button" class="text-${color}-300 hover:text-${color}-500 rm-key"><i class="bi bi-x-circle-fill"></i></button>`;
     div.querySelector('.rm-key').addEventListener('click', () => div.remove());
     container.appendChild(div);
   }
+  addKeyInput(bdkWrap, 'bloque_directo_keys[]', 'emerald');
+  addKeyInput(p225Wrap, 'pagan_por_225_247_keys[]', 'rose');
 
-  // Añadir una fila base de cada tipo por defecto para mejorar la UX
-  addEgDivRow(); 
-  addCarrilRow(); 
-  addKeyInput(bdkWrap, 'bloque_directo_keys[]');
-  addKeyInput(p225Wrap, 'pagan_por_225_247_keys[]');
-
-  // ==========================================
-  // CAPTURA FINAL AL HACER SUBMIT
-  // ==========================================
+  // SUBMIT
   form.addEventListener('submit', () => {
-    hiddenBloques.value = buildBloquesJSON();
-    carrilHidden.value  = buildCarrilJSON();
+    document.getElementById('bloques_json').value = buildBloquesJSON();
+    document.getElementById('carril_json').value = buildCarrilJSON();
   });
 });
 
-// Inicializador de AlpineJS para el Segmented Control
 document.addEventListener('alpine:init', () => {
-  Alpine.data('simulationController', () => ({
-    period_mode: '{{ (parametros.period_mode or "auto") | lower }}',
-  }));
+  Alpine.data('simulationController', () => ({ period_mode: 'auto' }));
 });
 </script>
 {% endblock %}
