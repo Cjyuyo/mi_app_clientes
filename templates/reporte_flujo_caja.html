@@ -1,127 +1,244 @@
 {% extends 'base_sidebar.html' %}
 
-{% block title %}
-    Reporte de Flujo de Caja
-{% endblock %}
+{% block title %}Reporte de Flujo de Caja | Moto Plan Motors{% endblock %}
 
 {% block body %}
-<div class="space-y-8">
-    <div class="bg-white p-6 rounded-xl shadow-sm">
-        <div class="flex flex-col md:flex-row justify-between md:items-center gap-4">
-            <div>
-                <h1 class="text-3xl font-bold text-slate-800">Reporte de Flujo de Caja</h1>
-                <p class="text-slate-500 mt-1">Análisis de balances y movimientos de tesorería.</p>
+<div class="max-w-[1400px] mx-auto space-y-8 mb-12">
+
+    <div class="bg-[#0B1121] rounded-3xl shadow-lg border border-slate-800 p-8 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div class="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+        
+        <div class="flex items-center gap-5 relative z-10">
+            <div class="w-14 h-14 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center backdrop-blur-md shadow-inner">
+                <i class="bi bi-safe-fill text-2xl text-blue-400"></i>
             </div>
-            <form method="POST" action="{{ url_for('reporte_flujo_caja') }}" class="flex items-center gap-2">
-                <label for="fecha_reporte" class="text-sm font-medium text-slate-700 whitespace-nowrap">Cierre del día:</label>
-                <input type="date" id="fecha_reporte" name="fecha_reporte" value="{{ fecha_reporte }}" class="rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                <button type="submit" class="py-2 px-4 rounded-md text-white bg-blue-600 hover:bg-blue-700">Generar</button>
-            </form>
+            <div>
+                <h1 class="text-3xl font-extrabold text-white tracking-tight">Flujo de Caja y Tesorería</h1>
+                <p class="text-slate-400 text-sm mt-1 font-medium">Análisis de balances, consolidado de cuentas y movimientos del día.</p>
+            </div>
         </div>
+
+        <form method="POST" action="{{ url_for('reporte_flujo_caja') }}" class="relative z-10 flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto bg-white/5 p-2 rounded-2xl border border-white/10 backdrop-blur-md">
+            <label for="fecha_reporte" class="text-[10px] font-bold text-slate-300 uppercase tracking-widest px-2 whitespace-nowrap">Día de Corte:</label>
+            <input type="date" id="fecha_reporte" name="fecha_reporte" value="{{ fecha_reporte }}" style="color-scheme: dark;" class="bg-black/20 border border-white/10 text-white text-sm font-semibold rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none transition-all cursor-pointer">
+            <button type="submit" class="w-full sm:w-auto px-6 py-2 rounded-xl bg-blue-500 text-white text-sm font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all">
+                Actualizar
+            </button>
+        </form>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="bg-white p-4 rounded-xl shadow-sm text-center">
-            <div class="text-sm text-slate-500">Tasa Dólar (BCV) al {{ fecha_reporte | format_date }}</div>
-            <div class="text-xl font-bold text-green-600 mt-1">Bs. {{ "{:,.2f}".format((tasas_del_dia.usd | default(0.0, true))) }}</div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <div class="lg:col-span-2 bg-white rounded-3xl p-8 lg:p-10 border border-slate-200/80 shadow-sm flex flex-col justify-center relative overflow-hidden">
+            <i class="bi bi-wallet2 absolute -bottom-10 -right-10 text-[180px] text-slate-50 rotate-[-15deg] pointer-events-none"></i>
+            
+            <div class="relative z-10">
+                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Balance General Consolidado</p>
+                <div class="flex items-baseline gap-2">
+                    <span class="text-3xl font-black text-slate-300">$</span>
+                    <h2 class="text-5xl lg:text-6xl font-black text-slate-900 tracking-tight">{{ "{:,.2f}".format((resumen.balance_general_consolidado_usd | default(0.0, true))) }}</h2>
+                    <span class="text-lg font-bold text-slate-400 ml-2">USD</span>
+                </div>
+                
+                <div class="mt-8 flex items-center gap-6 pt-6 border-t border-slate-100">
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Consolidado Nacional (BS)</p>
+                        <p class="text-xl font-bold text-slate-700 tracking-tight">Bs. {{ "{:,.2f}".format((resumen.balance_bs_consolidado_bs | default(0.0, true))) }}</p>
+                    </div>
+                    <div class="w-px h-10 bg-slate-200"></div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Equivalencia (USD)</p>
+                        <p class="text-xl font-bold text-slate-700 tracking-tight">${{ "{:,.2f}".format((resumen.balance_bs_consolidado_usd | default(0.0, true))) }}</p>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="bg-white p-4 rounded-xl shadow-sm text-center">
-            <div class="text-sm text-slate-500">Tasa Euro (BCV) al {{ fecha_reporte | format_date }}</div>
-            <div class="text-xl font-bold text-blue-600 mt-1">Bs. {{ "{:,.2f}".format((tasas_del_dia.eur | default(0.0, true))) }}</div>
+
+        <div class="lg:col-span-1 flex flex-col gap-6">
+            <div class="bg-emerald-50/50 rounded-3xl p-6 border border-emerald-100 flex-1 flex flex-col justify-center relative overflow-hidden group">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-500/20 transition-all"></div>
+                <div class="flex items-center gap-3 mb-3 relative z-10">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center"><i class="bi bi-currency-dollar text-lg"></i></div>
+                    <p class="text-[11px] font-bold text-emerald-800 uppercase tracking-widest">Tasa Dólar (BCV)</p>
+                </div>
+                <p class="text-3xl font-black text-emerald-700 tracking-tight relative z-10">Bs. {{ "{:,.2f}".format((tasas_del_dia.usd | default(0.0, true))) }}</p>
+                <p class="text-[10px] font-semibold text-emerald-600/70 mt-2 relative z-10">Corte: {{ fecha_reporte | format_date }}</p>
+            </div>
+
+            <div class="bg-blue-50/50 rounded-3xl p-6 border border-blue-100 flex-1 flex flex-col justify-center relative overflow-hidden group">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-blue-500/20 transition-all"></div>
+                <div class="flex items-center gap-3 mb-3 relative z-10">
+                    <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center"><i class="bi bi-currency-euro text-lg"></i></div>
+                    <p class="text-[11px] font-bold text-blue-800 uppercase tracking-widest">Tasa Euro (BCV)</p>
+                </div>
+                <p class="text-3xl font-black text-blue-700 tracking-tight relative z-10">Bs. {{ "{:,.2f}".format((tasas_del_dia.eur | default(0.0, true))) }}</p>
+                <p class="text-[10px] font-semibold text-blue-600/70 mt-2 relative z-10">Corte: {{ fecha_reporte | format_date }}</p>
+            </div>
         </div>
     </div>
 
     {% if comparativa_proyeccion %}
-    <div class="bg-white p-6 rounded-xl shadow-sm border-2 border-indigo-200 bg-indigo-50">
-        <h2 class="text-xl font-bold text-indigo-800 mb-4">📈 Seguimiento de Proyección Activa (a la fecha)</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-center">
-            <div>
-                <p class="text-sm font-medium text-indigo-700">Ingreso Proyectado (Mes)</p>
-                <p class="text-2xl font-bold text-slate-800 mt-1">${{ "{:,.2f}".format((comparativa_proyeccion.proyectado_mes | default(0.0, true))) }}</p>
+    <div class="bg-indigo-50/50 rounded-3xl p-8 border border-indigo-100 shadow-sm relative overflow-hidden">
+        <i class="bi bi-graph-up-arrow absolute -top-8 -right-8 text-[120px] text-indigo-500/5 rotate-12 pointer-events-none"></i>
+        
+        <div class="flex items-center gap-3 mb-6 relative z-10">
+            <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center border border-indigo-200"><i class="bi bi-bar-chart-fill"></i></div>
+            <h2 class="text-xs font-bold text-indigo-900 uppercase tracking-widest">Seguimiento de Proyección Activa</h2>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
+            <div class="bg-white p-5 rounded-2xl border border-indigo-50 shadow-sm">
+                <p class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Ingreso Proyectado (Mes)</p>
+                <p class="text-2xl font-black text-slate-800 tracking-tight">${{ "{:,.2f}".format((comparativa_proyeccion.proyectado_mes | default(0.0, true))) }}</p>
             </div>
-            <div>
-                <p class="text-sm font-medium text-indigo-700">Ingreso Real Conciliado</p>
-                <p class="text-2xl font-bold text-green-600 mt-1">${{ "{:,.2f}".format((comparativa_proyeccion.real_a_fecha | default(0.0, true))) }}</p>
+            <div class="bg-white p-5 rounded-2xl border border-emerald-100 shadow-sm ring-1 ring-emerald-500/10">
+                <p class="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Ingreso Real Conciliado</p>
+                <p class="text-2xl font-black text-emerald-600 tracking-tight">${{ "{:,.2f}".format((comparativa_proyeccion.real_a_fecha | default(0.0, true))) }}</p>
             </div>
-            <div>
-                <p class="text-sm font-medium text-indigo-700">Pérdida Devaluación Proyectada</p>
-                <p class="text-2xl font-bold text-slate-800 mt-1">(${{ "{:,.2f}".format((comparativa_proyeccion.devaluacion_proyectada_mes | default(0.0, true))) }})</p>
+            <div class="bg-white p-5 rounded-2xl border border-indigo-50 shadow-sm">
+                <p class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Déficit Dev. Proyectada</p>
+                <p class="text-2xl font-black text-slate-800 tracking-tight">(${{ "{:,.2f}".format((comparativa_proyeccion.devaluacion_proyectada_mes | default(0.0, true))) }})</p>
             </div>
-            <div>
-                <p class="text-sm font-medium text-indigo-700">Pérdida Devaluación Real</p>
-                <p class="text-2xl font-bold text-red-600 mt-1">(${{ "{:,.2f}".format((comparativa_proyeccion.devaluacion_real_a_fecha | default(0.0, true))) }})</p>
+            <div class="bg-white p-5 rounded-2xl border border-rose-100 shadow-sm ring-1 ring-rose-500/10">
+                <p class="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">Pérdida Devaluación Real</p>
+                <p class="text-2xl font-black text-rose-600 tracking-tight">(${{ "{:,.2f}".format((comparativa_proyeccion.devaluacion_real_a_fecha | default(0.0, true))) }})</p>
             </div>
         </div>
     </div>
     {% endif %}
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-1 space-y-6">
-            <div class="bg-white p-6 rounded-xl shadow-sm text-center">
-                <div class="text-sm font-medium text-slate-500">Balance General Consolidado</div>
-                <div class="text-3xl font-bold text-blue-700 mt-2">${{ "{:,.2f}".format((resumen.balance_general_consolidado_usd | default(0.0, true))) }}</div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        
+        <div class="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col justify-between group hover:border-slate-300 transition-colors">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center group-hover:bg-slate-800 group-hover:text-white transition-colors"><i class="bi bi-cash-stack text-xl"></i></div>
+                <p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Efectivo Físico</p>
             </div>
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-slate-500">Efectivo USD</div><div class="font-bold text-slate-800">${{ "{:,.2f}".format((resumen.EFECTIVO_USD | default(0.0, true))) }}</div></div>
-                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-slate-500">Binance USDT</div><div class="font-bold text-slate-800">${{ "{:,.2f}".format((resumen.BINANCE_USDT | default(0.0, true))) }}</div></div>
-                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-slate-500">Caja Bs (USD Ref)</div><div class="font-bold text-slate-800">Bs. {{ "{:,.2f}".format((resumen.CAJA_BS_USD | default(0.0, true))) }}</div></div>
-                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-slate-500">Caja Bs (EUR Ref)</div><div class="font-bold text-slate-800">Bs. {{ "{:,.2f}".format((resumen.CAJA_BS_EUR | default(0.0, true))) }}</div></div>
-            </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm text-center">
-                <div class="text-sm font-medium text-slate-500">Consolidado Bolívares (BS)</div>
-                <div class="text-xl font-bold text-slate-800 mt-1">Bs. {{ "{:,.2f}".format((resumen.balance_bs_consolidado_bs | default(0.0, true))) }}</div>
-                <div class="text-xs text-slate-500">Equivale a: ${{ "{:,.2f}".format((resumen.balance_bs_consolidado_usd | default(0.0, true))) }}</div>
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-red-500">Pérdida Devaluación</div><div class="font-bold text-red-600">(${{ "{:,.2f}".format((resumen.acumulado_perdida_devaluacion | default(0.0, true))) }})</div></div>
-                <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-xs text-red-500">Pérdida Conversión</div><div class="font-bold text-red-600">(${{ "{:,.2f}".format((resumen.acumulado_perdida_conversion | default(0.0, true))) }})</div></div>
+            <div>
+                <p class="text-[10px] font-semibold text-slate-400 mb-1">Caja Fuerte (USD)</p>
+                <p class="text-2xl font-black text-slate-800 tracking-tight">${{ "{:,.2f}".format((resumen.EFECTIVO_USD | default(0.0, true))) }}</p>
             </div>
         </div>
 
-        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden">
-            <div class="p-5 border-b border-slate-200">
-                <h2 class="text-lg font-bold text-slate-800">Historial de Movimientos del Día</h2>
+        <div class="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col justify-between group hover:border-amber-300 transition-colors">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center border border-amber-100 group-hover:bg-amber-500 group-hover:text-white transition-colors"><i class="bi bi-currency-bitcoin text-xl"></i></div>
+                <p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Criptoactivos</p>
             </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm text-left text-slate-500">
-                    <thead class="text-xs text-slate-700 uppercase bg-slate-50">
-                        <tr>
-                            <th scope="col" class="px-6 py-3">Hora</th>
-                            <th scope="col" class="px-6 py-3">Tipo</th>
-                            <th scope="col" class="px-6 py-3">Detalle</th>
-                            <th scope="col" class="px-6 py-3 text-right">Monto</th>
-                            <th scope="col" class="px-6 py-3">Usuario</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for mov in historial %}
-                        <tr class="bg-white border-b hover:bg-slate-50">
-                            <td class="px-6 py-4">{{ mov.timestamp.strftime('%I:%M %p') if mov.timestamp else '' }}</td>
-                            <td class="px-6 py-4"><span class="py-1 px-2.5 bg-slate-100 text-slate-800 text-xs font-medium rounded-md">{{ (mov.tipo_operacion or '').replace('_', ' ')|title }}</span></td>
-                            <td class="px-6 py-4">{{ mov.detalle }}</td>
-                            <td class="px-6 py-4 text-right font-semibold">
-                                {% if mov.monto_ingreso and mov.monto_ingreso > 0 %}
-                                    <span class="text-green-600">+{{ mov.moneda_ingreso }} {{ "{:,.2f}".format(mov.monto_ingreso) }}</span>
-                                {% elif mov.monto_egreso and mov.monto_egreso > 0 %}
-                                    <span class="text-red-600">-{{ mov.moneda_egreso }} {{ "{:,.2f}".format(mov.monto_egreso) }}</span>
-                                {% endif %}
-                            </td>
-                            <td class="px-6 py-4">{{ mov.usuario }}</td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="5" class="text-center text-slate-500 p-8">
-                                <div class="flex flex-col items-center">
-                                    <i class="bi bi-journal-x text-4xl text-slate-400"></i>
-                                    <p class="mt-3 font-medium">No se registraron movimientos.</p>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <div>
+                <p class="text-[10px] font-semibold text-slate-400 mb-1">Binance (USDT)</p>
+                <p class="text-2xl font-black text-slate-800 tracking-tight">${{ "{:,.2f}".format((resumen.BINANCE_USDT | default(0.0, true))) }}</p>
             </div>
         </div>
+
+        <div class="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col justify-between group hover:border-emerald-300 transition-colors">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-colors"><i class="bi bi-bank text-xl"></i></div>
+                <p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Bancos Nacionales</p>
+            </div>
+            <div>
+                <p class="text-[10px] font-semibold text-slate-400 mb-1">Caja Bs (Ref. USD)</p>
+                <p class="text-2xl font-black text-slate-800 tracking-tight">Bs. {{ "{:,.2f}".format((resumen.CAJA_BS_USD | default(0.0, true))) }}</p>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col justify-between group hover:border-blue-300 transition-colors">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors"><i class="bi bi-bank2 text-xl"></i></div>
+                <p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Bancos Nacionales</p>
+            </div>
+            <div>
+                <p class="text-[10px] font-semibold text-slate-400 mb-1">Caja Bs (Ref. EUR)</p>
+                <p class="text-2xl font-black text-slate-800 tracking-tight">Bs. {{ "{:,.2f}".format((resumen.CAJA_BS_EUR | default(0.0, true))) }}</p>
+            </div>
+        </div>
+
     </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-rose-50/30 p-6 rounded-3xl border border-rose-100 shadow-sm flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-full bg-rose-100 text-rose-500 flex items-center justify-center"><i class="bi bi-graph-down-arrow text-xl"></i></div>
+                <div>
+                    <p class="text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-0.5">Fuga Acumulada</p>
+                    <p class="text-sm font-bold text-slate-700">Pérdida por Devaluación (BCV)</p>
+                </div>
+            </div>
+            <p class="text-2xl font-black text-rose-600 tracking-tight">(${{ "{:,.2f}".format((resumen.acumulado_perdida_devaluacion | default(0.0, true))) }})</p>
+        </div>
+
+        <div class="bg-rose-50/30 p-6 rounded-3xl border border-rose-100 shadow-sm flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-full bg-rose-100 text-rose-500 flex items-center justify-center"><i class="bi bi-arrow-left-right text-xl"></i></div>
+                <div>
+                    <p class="text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-0.5">Fuga Acumulada</p>
+                    <p class="text-sm font-bold text-slate-700">Pérdida por Conversión (USD/EUR)</p>
+                </div>
+            </div>
+            <p class="text-2xl font-black text-rose-600 tracking-tight">(${{ "{:,.2f}".format((resumen.acumulado_perdida_conversion | default(0.0, true))) }})</p>
+        </div>
+    </div>
+
+    <div class="bg-white border border-slate-200/80 rounded-3xl shadow-sm overflow-hidden mt-8">
+        <div class="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-slate-50 text-slate-500 flex items-center justify-center border border-slate-200"><i class="bi bi-clock-history"></i></div>
+                <h2 class="text-base font-bold text-slate-900 tracking-tight">Estado de Cuenta del Día</h2>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto custom-scrollbar">
+            <table class="w-full text-sm text-left">
+                <thead class="bg-slate-50/50 border-b border-slate-100">
+                    <tr>
+                        <th class="py-4 pl-8 pr-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-32">Hora</th>
+                        <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-40">Operación</th>
+                        <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Concepto / Detalle</th>
+                        <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Monto</th>
+                        <th class="py-4 px-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right w-48">Autorizado por</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {% for mov in historial %}
+                    <tr class="hover:bg-slate-50/50 transition-colors group">
+                        <td class="py-4 pl-8 pr-4 align-middle font-medium text-slate-500 text-xs">
+                            {{ mov.timestamp.strftime('%I:%M %p') if mov.timestamp else '—' }}
+                        </td>
+                        <td class="py-4 px-4 align-middle">
+                            <span class="inline-flex items-center px-2 py-1 rounded bg-slate-100 text-slate-600 text-[9px] font-bold uppercase tracking-widest border border-slate-200/60">
+                                {{ (mov.tipo_operacion or '').replace('_', ' ')|title }}
+                            </span>
+                        </td>
+                        <td class="py-4 px-4 align-middle text-slate-700 text-sm font-medium">
+                            {{ mov.detalle }}
+                        </td>
+                        <td class="py-4 px-4 align-middle text-right">
+                            {% if mov.monto_ingreso and mov.monto_ingreso > 0 %}
+                                <span class="font-black text-emerald-600 tracking-tight">+ {{ mov.moneda_ingreso }} {{ "{:,.2f}".format(mov.monto_ingreso) }}</span>
+                            {% elif mov.monto_egreso and mov.monto_egreso > 0 %}
+                                <span class="font-black text-rose-600 tracking-tight">- {{ mov.moneda_egreso }} {{ "{:,.2f}".format(mov.monto_egreso) }}</span>
+                            {% else %}
+                                <span class="font-bold text-slate-400">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-4 px-8 align-middle text-right text-slate-500 text-xs font-semibold">
+                            {{ mov.usuario }}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="py-16 text-center text-slate-500">
+                            <div class="flex flex-col items-center justify-center space-y-3">
+                                <div class="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center border border-slate-100"><i class="bi bi-journal-x text-xl text-slate-400"></i></div>
+                                <p class="font-medium text-sm text-slate-400">El historial de movimientos está limpio para el día seleccionado.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
 </div>
 {% endblock %}
