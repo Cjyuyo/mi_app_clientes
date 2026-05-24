@@ -5002,8 +5002,10 @@ def _procesar_bloques(conn, bloques: list[dict], start_date: date, end_date: dat
     return ingresos_totales, resultados_por_bloque, clientes_a_cobrar
 
 # =================================================================================
-# Ruta /reportes/proyecciones (NUEVO MOTOR INTELIGENTE - CON SALIDA REAL COMPUTADA)
+# Ruta /reportes/proyecciones (MOTOR CON FILTRO DE CALENDARIO Y CANDADO SUPERADMIN)
 # =================================================================================
+from datetime import date, timedelta
+
 @app.route('/reportes/proyecciones', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
@@ -5015,7 +5017,23 @@ def reporte_proyecciones():
 
     hoy = get_venezuela_current_date()
     
-    # --- LECTURA CORRECTA DE TASAS DESDE EL SISTEMA ACTUAL ---
+    # --- 1. LÓGICA DEL MOTOR DE TIEMPO (13 al 12 automático) ---
+    if hoy.day >= 13:
+        default_start = date(hoy.year, hoy.month, 13)
+        next_month = hoy.month % 12 + 1
+        next_year = hoy.year + (1 if hoy.month == 12 else 0)
+        default_end = date(next_year, next_month, 12)
+    else:
+        default_end = date(hoy.year, hoy.month, 12)
+        prev_month = 12 if hoy.month == 1 else hoy.month - 1
+        prev_year = hoy.year - (1 if hoy.month == 1 else 0)
+        default_start = date(prev_year, prev_month, 13)
+
+    # Candado de Seguridad Estricto: Solo el rol exacto 'superadmin' tiene acceso
+    rol_actual = str(session.get('rol', '')).lower()
+    is_superadmin = (rol_actual == 'superadmin')
+
+    # --- LECTURA DE TASAS DESDE EL HISTORIAL OFICIAL ---
     bcv_actual = 0.0
     binance_actual = 0.0
     try:
@@ -5029,11 +5047,9 @@ def reporte_proyecciones():
         app.logger.error(f"Error leyendo tasas en proyecciones: {e}")
         try: conn.rollback()
         except: pass
-    # ---------------------------------------------------------
 
     simulacion_realizada = False
     
-    # Estructura de resultados unificada (AHORA CON VES_BINANCE EXPLICITO)
     proyeccion = {
         'recaudo_total_usd': 0.0,
         'clientes_activos': 0,
@@ -5045,8 +5061,25 @@ def reporte_proyecciones():
         'lista_egresos': []
     }
 
+    # Parámetros de control de fecha para la interfaz
+    fecha_inicio = default_start
+    fecha_fin = default_end
+    period_mode = 'auto'
+
     if request.method == 'POST':
         simulacion_realizada = True
+        
+        # Si se envía modo manual y es superadmin, se procesan las fechas del calendario
+        period_mode = request.form.get('period_mode', 'auto')
+        if period_mode == 'manual' and is_superadmin:
+            try:
+                f_i = request.form.get('start_date')
+                f_f = request.form.get('end_date')
+                if f_i: fecha_inicio = date.fromisoformat(f_i)
+                if f_f: fecha_fin = date.fromisoformat(f_f)
+            except ValueError:
+                pass 
+
         try:
             tasa_bcv = float(request.form.get('usd_bcv') or bcv_actual)
             tasa_binance = float(request.form.get('binance_prevision') or binance_actual)
@@ -5101,7 +5134,6 @@ def reporte_proyecciones():
                     cat = 'USD_EFECTIVO'
                     label = 'USD Físico'
 
-                    # NUEVA LÓGICA DE RUTEO 100% PRECISA
                     if metodo == 'VES_BINANCE':
                         cat = 'VES_BINANCE'
                         label = 'Bs (Tasa Binance)'
@@ -5118,7 +5150,6 @@ def reporte_proyecciones():
                     proyeccion['egresos_total_usd'] += monto
                     proyeccion['perdida_spread_usd'] += perdida
                     
-                    # SE CALCULA LA SALIDA REAL MULTI-MONEDA
                     proyeccion['lista_egresos'].append({
                         'titulo': eg['titulo'],
                         'monto': monto,
@@ -5158,7 +5189,6 @@ def reporte_proyecciones():
                         proyeccion['egresos_total_usd'] += monto
                         proyeccion['perdida_spread_usd'] += perdida
                         
-                        # SE CALCULA LA SALIDA REAL PARA GASTOS EXTRAS
                         proyeccion['lista_egresos'].append({
                             'titulo': f"{k} (Extra)",
                             'monto': monto,
@@ -5170,7 +5200,7 @@ def reporte_proyecciones():
                 # 4. BALANCE NETO FINAL
                 proyeccion['balance_neto_usd'] = proyeccion['recaudo_total_usd'] - proyeccion['egresos_total_usd'] - proyeccion['perdida_spread_usd']
 
-                # 5. GUARDAR PROYECCIÓN
+                # 5. PERSISTENCIA DE LA LIQUIDACIÓN
                 payload_json = json.dumps({
                     'resumen': {
                         'ingresos_totales_proyectados': proyeccion['recaudo_total_usd'],
@@ -5184,7 +5214,7 @@ def reporte_proyecciones():
                     VALUES (%s, %s, 'Activa', %s, NOW())
                     ON CONFLICT (mes_proyeccion, ano_proyeccion) 
                     DO UPDATE SET resultados_resumen = EXCLUDED.resultados_resumen, fecha_actualizacion = NOW()
-                """, (hoy.month, hoy.year, payload_json))
+                """, (fecha_inicio.month, fecha_inicio.year, payload_json))
                 conn.commit()
 
         except Exception as e:
@@ -5195,7 +5225,11 @@ def reporte_proyecciones():
         'reporte_proyecciones.html',
         tasas={'bcv_now': {'usd': bcv_actual, 'tasa_binance': binance_actual}},
         proyeccion=proyeccion,
-        simulacion_realizada=simulacion_realizada
+        simulacion_realizada=simulacion_realizada,
+        is_superadmin=is_superadmin,
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+        period_mode=period_mode
     )
 
 # =========================

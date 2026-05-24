@@ -49,8 +49,62 @@
         </div>
     </div>
 
-    <form id="simulation-form" method="POST" action="{{ url_for('reporte_proyecciones') }}" class="space-y-6">
+    <form id="simulation-form" method="POST" action="{{ url_for('reporte_proyecciones') }}" class="space-y-6" x-data="{ period_mode: '{{ period_mode }}' }">
         
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><i class="bi bi-calendar3"></i></div>
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900">Horizonte de Evaluación Temporal</h2>
+                        <p class="text-[10px] font-medium text-slate-500 mt-0.5">Define el ciclo operativo para cruzar cuotas contra egresos registrados.</p>
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:items-end gap-3">
+                    <div class="inline-flex bg-slate-100 rounded-xl p-1 shadow-inner min-w-[200px]">
+                        <label class="flex-1 relative text-center cursor-pointer">
+                            <input type="radio" name="period_mode" value="auto" class="sr-only" x-model="period_mode">
+                            <div class="py-1.5 px-3 text-[10px] font-bold rounded-lg transition-all" :class="period_mode === 'auto' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'">Ciclo Activo (13 al 12)</div>
+                        </label>
+                        
+                        {% if is_superadmin %}
+                        <label class="flex-1 relative text-center cursor-pointer">
+                            <input type="radio" name="period_mode" value="manual" class="sr-only" x-model="period_mode">
+                            <div class="py-1.5 px-3 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5" :class="period_mode === 'manual' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'">
+                                <i class="bi bi-unlock-fill text-[8px]"></i> Manual
+                            </div>
+                        </label>
+                        {% else %}
+                        <div class="py-1.5 px-3 text-[10px] font-bold text-slate-400 flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed" title="Modo reservado exclusivamente para Superadmin">
+                            <i class="bi bi-lock-fill text-[8px]"></i> Manual
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-5 pt-5 border-t border-slate-100">
+                <div x-show="period_mode === 'auto'" class="flex items-center gap-3 text-sm font-semibold text-slate-700">
+                    <span class="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg border border-blue-100">{{ fecha_inicio.strftime('%d %b %Y') }}</span>
+                    <i class="bi bi-arrow-right text-slate-300"></i>
+                    <span class="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg border border-blue-100">{{ fecha_fin.strftime('%d %b %Y') }}</span>
+                    <span class="text-[10px] text-slate-400 font-medium ml-2">El sistema auditará la facturación que recaiga en este intervalo exacto.</span>
+                </div>
+
+                <div x-show="period_mode === 'manual'" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Fecha Inicial (Corte)</label>
+                        <input type="date" name="start_date" value="{{ fecha_inicio.strftime('%Y-%m-%d') }}" class="fintech-input bg-white !p-2 !text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Fecha Final (Cierre)</label>
+                        <input type="date" name="end_date" value="{{ fecha_fin.strftime('%Y-%m-%d') }}" class="fintech-input bg-white !p-2 !text-xs">
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
             <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
                 <div class="flex items-center gap-3 pb-3 border-b border-slate-100">
@@ -111,7 +165,7 @@
                 <div class="overflow-hidden flex-1">
                     <table class="w-full text-left" id="tbl-egdiv">
                         <tbody class="divide-y divide-slate-100">
-                            </tbody>
+                        </tbody>
                     </table>
                 </div>
             </div>
