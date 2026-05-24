@@ -3591,162 +3591,145 @@ def reporte_flujo_caja():
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", "error")
-        hoy = get_venezuela_current_date().date()
-        return render_template(
-            'reporte_flujo_caja.html',
-            fecha_reporte=hoy.isoformat(),
-            tasas_del_dia=SimpleNamespace(usd=0.0, eur=0.0),
-            comparativa_proyeccion=None,
-            resumen=_resumen_vacio(),
-            historial=[]
-        )
+        return redirect(url_for('hub'))
 
-    # Asegurar que no hay transacción abortada previa
-    try:
-        conn.rollback()
-    except Exception:
-        pass
-
-    # Fecha seleccionada o hoy
-    hoy_dt = get_venezuela_current_date()
-    hoy_date = hoy_dt.date() if isinstance(hoy_dt, datetime) else hoy_dt
-
+    hoy = get_venezuela_current_date()
+    fecha_reporte = hoy.date() if isinstance(hoy, datetime) else hoy
+    
     if request.method == 'POST':
-        raw = (request.form.get('fecha_reporte') or '').strip()
-    else:
-        raw = (request.args.get('fecha_reporte') or '').strip()
-
-    try:
-        fecha_reporte = datetime.strptime(raw, "%Y-%m-%d").date() if raw else hoy_date
-    except Exception:
-        fecha_reporte = hoy_date
+        raw = request.form.get('fecha_reporte')
+        if raw:
+            try: fecha_reporte = datetime.strptime(raw.strip(), "%Y-%m-%d").date()
+            except: pass
 
     primer_dia, ultimo_dia = _first_last_day(datetime(fecha_reporte.year, fecha_reporte.month, 1))
+    tasas_del_dia = _fetch_tasas_bcv_al_dia(conn, fecha_reporte) or SimpleNamespace(usd=0.0, eur=0.0)
 
-    # Tasas al día (o última previa)
-    tasas_del_dia = _fetch_tasas_bcv_al_dia(conn, fecha_reporte)
-    if not tasas_del_dia or not hasattr(tasas_del_dia, 'usd'):
-        tasas_del_dia = SimpleNamespace(usd=0.0, eur=0.0)
+    # LEER LA VERDAD ABSOLUTA DE LAS PROYECCIONES (PASO 2)
+    ingreso_proyectado_mes = 0.0
+    devaluacion_proyectada_mes = 0.0
 
-    # ===== Proyecciones con filtros desde el querystring =====
-    _build_clientes_filters_fn = globals().get('_build_clientes_filters')
-    if not callable(_build_clientes_filters_fn):
-        def _build_clientes_filters_fn(_args):
-            return "", []
-    where_sql, where_params = _build_clientes_filters_fn(request.args)
-
-    # Reset por si quedó abortada antes del cálculo de proyección
     try:
-        conn.rollback()
-    except Exception:
-        pass
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT resultados_resumen FROM proyecciones_activas 
+                WHERE mes_proyeccion = %s AND ano_proyeccion = %s AND estado = 'Activa' LIMIT 1
+            """, (fecha_reporte.month, fecha_reporte.year))
+            proy_row = cur.fetchone()
+            if proy_row:
+                data = proy_row['resultados_resumen']
+                if isinstance(data, str): data = json.loads(data)
+                ingreso_proyectado_mes = float(data.get('resumen', {}).get('ingresos_totales_proyectados', 0.0))
+                devaluacion_proyectada_mes = float(data.get('kpis', {}).get('perdida_devaluacion_usd', 0.0))
+    except Exception as e:
+        app.logger.error(f"Error leyendo proyección en Flujo de Caja: {e}")
+        try: conn.rollback()
+        except: pass
 
-    # Proyectado del mes (completo) por empresa, aplicando filtros (con reintento 1 vez)
+    # CALCULAR COBRANZA REAL DE PAGOS CONCILIADOS
     try:
-        datos_empresas, resumen_mes = _proyeccion_por_empresa(
-            conn, primer_dia, ultimo_dia,
-            where_sql_extra=where_sql,
-            where_params_extra=where_params
-        )
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT COALESCE(SUM(p.monto), 0) AS real_a_fecha
+                FROM pagos p
+                WHERE p.estado_pago = 'Conciliado' AND p.fecha_pago BETWEEN %s AND %s
+            """, (primer_dia, fecha_reporte))
+            real_a_fecha = float((cur.fetchone() or [0])[0] or 0.0)
     except Exception:
-        try:
-            conn.rollback()
-        except Exception:
-            pass
-        try:
-            datos_empresas, resumen_mes = _proyeccion_por_empresa(
-                conn, primer_dia, ultimo_dia,
-                where_sql_extra=where_sql,
-                where_params_extra=where_params
-            )
-        except Exception:
-            datos_empresas, resumen_mes = [], {'proyectado_mes': 0.0}
-
-    # Real a la fecha (desde el 1 del mes hasta fecha_reporte)
-    try:
-        conn.rollback()
-    except Exception:
-        pass
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT COALESCE(SUM(p.monto), 0) AS real_a_fecha
-            FROM pagos p
-            WHERE p.estado_pago = 'Conciliado'
-              AND p.fecha_pago BETWEEN %s AND %s
-        """, (primer_dia, fecha_reporte))
-        real_a_fecha = float((cur.fetchone() or [0])[0] or 0.0)
-
-    ingreso_proyectado_mes = float(resumen_mes.get('proyectado_mes', 0.0))
-
-    # Modelo simple de devaluación (placeholder)
-    caja_bs_total = 0.0
-    RIESGO_MENSUAL = 0.02
-    devaluacion_proyectada_mes = (caja_bs_total / (tasas_del_dia.usd or 1)) * RIESGO_MENSUAL
-
-    dias_del_mes = monthrange(fecha_reporte.year, fecha_reporte.month)[1]
-    dias_transcurridos = fecha_reporte.day
-    factor = dias_transcurridos / dias_del_mes
-    devaluacion_real_a_fecha = devaluacion_proyectada_mes * factor
+        real_a_fecha = 0.0
+        try: conn.rollback()
+        except: pass
 
     proyeccion_restante = max(ingreso_proyectado_mes - real_a_fecha, 0.0)
-    comparativa_proyeccion = SimpleNamespace(
-        proyectado_mes=ingreso_proyectado_mes,
-        real_a_fecha=real_a_fecha,
-        proyeccion_restante=proyeccion_restante,
-        devaluacion_proyectada_mes=devaluacion_proyectada_mes,
-        devaluacion_real_a_fecha=devaluacion_real_a_fecha
-    )
+    
+    dias_del_mes = monthrange(fecha_reporte.year, fecha_reporte.month)[1]
+    dias_transcurridos = fecha_reporte.day
+    factor = dias_transcurridos / dias_del_mes if dias_del_mes > 0 else 0
+    devaluacion_real_a_fecha = devaluacion_proyectada_mes * factor
+
+    comparativa_proyeccion = None
+    if ingreso_proyectado_mes > 0:
+        comparativa_proyeccion = SimpleNamespace(
+            proyectado_mes=ingreso_proyectado_mes,
+            real_a_fecha=real_a_fecha,
+            proyeccion_restante=proyeccion_restante,
+            devaluacion_proyectada_mes=devaluacion_proyectada_mes,
+            devaluacion_real_a_fecha=devaluacion_real_a_fecha
+        )
 
     avance_pct = (real_a_fecha / ingreso_proyectado_mes * 100.0) if ingreso_proyectado_mes > 0 else 0.0
     restante_pct = (proyeccion_restante / ingreso_proyectado_mes * 100.0) if ingreso_proyectado_mes > 0 else 0.0
+    
+    # LEER SALDOS REALES DE TESORERÍA
+    balances_reales = calcular_balances_tesoreria(fecha_hasta=fecha_reporte)
+    caja_bs_total = float(balances_reales.get('CAJA_BS_TOTAL', 0))
+    tasa_usd = float(tasas_del_dia.usd or 1.0)
+    if tasa_usd <= 0: tasa_usd = 1.0
+    balance_bs_usd = (caja_bs_total / tasa_usd)
+    efectivo_usd = float(balances_reales.get('EFECTIVO_USD', 0))
+    binance_usdt = float(balances_reales.get('BINANCE_USDT', 0))
+    caja_bs_usd = float(balances_reales.get('CAJA_BS_USD', 0))
+    caja_bs_eur = float(balances_reales.get('CAJA_BS_EUR', 0))
+
+    perdida_conversion = 0.0
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT COALESCE(SUM(perdida_cambiaria), 0) 
+                FROM operaciones_tesoreria 
+                WHERE DATE(fecha_operacion) <= %s
+            """, (fecha_reporte,))
+            perdida_conversion = float(cur.fetchone()[0] or 0.0)
+    except Exception:
+        try: conn.rollback()
+        except: pass
+
     resumen = SimpleNamespace(
         proyectado_mes=ingreso_proyectado_mes,
         real_a_fecha=real_a_fecha,
         avance_pct=avance_pct,
         restante_pct=restante_pct,
         tasa_usd=tasas_del_dia.usd,
-        tasa_eur=tasas_del_dia.eur
+        tasa_eur=tasas_del_dia.eur,
+        EFECTIVO_USD=efectivo_usd,
+        BINANCE_USDT=binance_usdt,
+        CAJA_BS_USD=caja_bs_usd,
+        CAJA_BS_EUR=caja_bs_eur,
+        balance_bs_consolidado_bs=caja_bs_total,
+        balance_bs_consolidado_usd=balance_bs_usd,
+        balance_general_consolidado_usd=efectivo_usd + binance_usdt + balance_bs_usd,
+        acumulado_perdida_devaluacion=devaluacion_real_a_fecha, 
+        acumulado_perdida_conversion=perdida_conversion
     )
 
-    # Historial del día desde operaciones_tesoreria (defensivo)
     historial = []
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT
-                    COALESCE(timestamp, fecha_creacion, NOW()) AS ts,
-                    tipo_operacion,
-                    detalle,
-                    monto_ingreso,
-                    moneda_ingreso,
-                    monto_egreso,
-                    moneda_egreso,
-                    usuario
-                FROM operaciones_tesoreria
-                WHERE DATE(COALESCE(timestamp, fecha_creacion, NOW())) = %s
-                ORDER BY ts DESC
+                SELECT COALESCE(fecha_operacion, NOW()) AS ts, tipo_operacion, nota as detalle, 
+                       monto_destino as monto_ingreso, moneda_destino as moneda_ingreso, 
+                       monto_origen as monto_egreso, moneda_origen as moneda_egreso, 
+                       (SELECT usuario FROM administradores WHERE id = realizada_por) as usuario
+                FROM operaciones_tesoreria 
+                WHERE DATE(COALESCE(fecha_operacion, NOW())) = %s ORDER BY ts DESC
             """, (fecha_reporte,))
             for r in cur.fetchall():
-                get = (r.get if isinstance(r, dict) else lambda k, d=None: getattr(r, k, d))
                 historial.append(SimpleNamespace(
-                    timestamp=get('ts'),
-                    tipo_operacion=get('tipo_operacion', ''),
-                    detalle=get('detalle', ''),
-                    monto_ingreso=float(get('monto_ingreso', 0) or 0),
-                    moneda_ingreso=get('moneda_ingreso', '') or '',
-                    monto_egreso=float(get('monto_egreso', 0) or 0),
-                    moneda_egreso=get('moneda_egreso', '') or '',
-                    usuario=get('usuario', '') or ''
+                    timestamp=r['ts'], tipo_operacion=r['tipo_operacion'], detalle=r['detalle'],
+                    monto_ingreso=float(r['monto_ingreso'] or 0), moneda_ingreso=r['moneda_ingreso'] or '',
+                    monto_egreso=float(r['monto_egreso'] or 0), moneda_egreso=r['moneda_egreso'] or '',
+                    usuario=r['usuario'] or ''
                 ))
     except Exception:
-        historial = []
+        try: conn.rollback()
+        except Exception: pass
 
     return render_template(
-        'reporte_flujo_caja.html',
-        fecha_reporte=fecha_reporte.isoformat(),
-        tasas_del_dia=tasas_del_dia,
-        comparativa_proyeccion=comparativa_proyeccion,
-        resumen=resumen,
+        'reporte_flujo_caja.html', 
+        fecha_reporte=fecha_reporte.isoformat(), 
+        tasas_del_dia=tasas_del_dia, 
+        comparativa_proyeccion=comparativa_proyeccion, 
+        resumen=resumen, 
         historial=historial
     )
 
@@ -4541,36 +4524,33 @@ def _fetch_tasas_now(conn):
 
 
 def _get_egresos_totales_periodo(conn, start_date, end_date):
-    """
-    Total programado de egresos entre start_date y end_date (solo activos).
-    No convierte monedas aquí (solo suma en USD-equivalente conservador):
-    - USD / USDT: suma monto_origen como USD
-    - VES: convierte a USD con último BCV_now disponible (aprox).
-    Retorna {'totales': {'programado': <float>}}
-    """
     try:
         bcv_now = float((_fetch_tasas_now(conn) or {}).get('usd') or 0)
-        total = 0.0
+        total_usd = 0.0
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT moneda_origen, monto_origen
-                FROM egresos_programados
-                WHERE activo = true
-                  AND fecha_compromiso BETWEEN %s AND %s
+                SELECT ep.metodo_referencia, eo.monto_programado_usd, eo.monto_pagado_usd
+                FROM egresos_ocurrencias eo
+                JOIN egresos_planificados ep ON ep.id = eo.egreso_id
+                WHERE eo.fecha_programada BETWEEN %s AND %s
+                  AND COALESCE(ep.estado, 'activo') IN ('activo', 'Activo')
+                  AND eo.estado != 'pagado'
             """, (start_date, end_date))
-            for mon, monto in cur.fetchall() or []:
-                mon = (mon or 'USD').upper()
-                monto = float(monto or 0)
-                if mon in ('USD','USDT'):
-                    total += monto
-                elif mon == 'VES':
-                    total += (monto / bcv_now) if bcv_now > 0 else 0.0
+            
+            for metodo, monto_prog, monto_pag in cur.fetchall() or []:
+                metodo = str(metodo or 'USD').upper()
+                pendiente = max(0.0, float(monto_prog or 0) - float(monto_pag or 0))
+                
+                if 'VES' in metodo or 'BS' in metodo:
+                    total_usd += (pendiente / bcv_now) if bcv_now > 0 else 0.0
                 else:
-                    total += monto  # fallback
-        return {'totales': {'programado': round(total, 2)}}
-    except Exception:
+                    total_usd += pendiente
+                    
+        return {'totales': {'programado': round(total_usd, 2)}}
+    except Exception as e:
         try: conn.rollback()
-        except Exception: pass
+        except: pass
+        logging.error(f"Error en _get_egresos_totales_periodo: {e}")
         return {'totales': {'programado': 0.0}}
 
 # --------- HELPERS parámetros / FX / VALORACIÓN / COBERTURA ---------
@@ -5116,13 +5096,24 @@ def reporte_proyecciones():
             # --- Egresos valorados + plan de cobertura contra saldos de caja ---
             egresos_val = []
             try:
+                # Asegurar ocurrencias generadas en el periodo para que la proyección no las pierda
+                generar_ocurrencias_periodo(conn, 'mensual', period_key, start_date, end_date)
+                
                 with conn.cursor() as cur:
                     cur.execute("""
-                        SELECT id, categoria, descripcion, moneda_origen, monto_origen, moneda_pago, corredor_fx,
-                               tasa_param, prioridad, obligatoriedad, recurrencia, fecha_compromiso, cartera_preferida, activo
-                        FROM egresos_programados
-                        WHERE activo = true
-                          AND fecha_compromiso BETWEEN %s AND %s
+                        SELECT ep.id, ep.tipo AS categoria, ep.titulo AS descripcion, 
+                               'USD' AS moneda_origen, 
+                               (eo.monto_programado_usd - COALESCE(eo.monto_pagado_usd, 0)) AS monto_origen, 
+                               'USD' AS moneda_pago, 
+                               ep.metodo_referencia AS corredor_fx,
+                               NULL AS tasa_param, 1 AS prioridad, 'DURO' AS obligatoriedad, 
+                               ep.frecuencia AS recurrencia, eo.fecha_programada AS fecha_compromiso, 
+                               'EFECTIVO_USD' AS cartera_preferida, ep.estado AS activo
+                        FROM egresos_ocurrencias eo
+                        JOIN egresos_planificados ep ON ep.id = eo.egreso_id
+                        WHERE COALESCE(ep.estado, 'activo') IN ('activo', 'Activo')
+                          AND eo.fecha_programada BETWEEN %s AND %s
+                          AND (eo.monto_programado_usd - COALESCE(eo.monto_pagado_usd, 0)) > 0
                     """, (start_date, end_date))
                     rows = cur.fetchall() or []
                     cols = [d[0] for d in cur.description]
@@ -5130,6 +5121,21 @@ def reporte_proyecciones():
 
                 tasas_map = {'bcv_anchor': bcv_anchor, 'bcv_now': bcv_now, 'binance': tasa_bin}
                 for e in egresos_raw:
+                    # Adaptación para valorar_egreso
+                    ref = (e.get('corredor_fx') or 'USD_EFECTIVO').upper()
+                    if 'VES' in ref or 'BS' in ref:
+                        e['moneda_origen'] = 'VES'
+                        e['moneda_pago'] = 'VES'
+                        e['corredor_fx'] = 'BCV' if 'BCV' in ref else ('BINANCE' if 'BINANCE' in ref else 'BCV')
+                    elif 'USDT' in ref:
+                        e['moneda_origen'] = 'USDT'
+                        e['moneda_pago'] = 'USDT'
+                        e['corredor_fx'] = 'BINANCE'
+                    else:
+                        e['moneda_origen'] = 'USD'
+                        e['moneda_pago'] = 'USD'
+                        e['corredor_fx'] = 'USD_DIRECTO'
+
                     v = valorar_egreso(e, tasas_map, SLIPPAGE_PCT, fijada_global=fijada_flag)
                     v.update({
                         'id': e.get('id'),
@@ -5142,13 +5148,14 @@ def reporte_proyecciones():
                         'fx_corredor': e.get('corredor_fx')
                     })
                     egresos_val.append(v)
-
-                # saldos del día
-                saldos = {'VES_BANCOS':0.0,'USD_EFECTIVO':0.0,'USDT_BINANCE':0.0}
-                with conn.cursor() as cur:
-                    cur.execute("SELECT cartera, monto FROM caja_saldos WHERE fecha = CURRENT_DATE")
-                    for cartera, monto in cur.fetchall() or []:
-                        saldos[cartera] = float(monto or 0)
+                
+                # Saldos reales del día
+                balances_reales = calcular_balances_tesoreria()
+                saldos = {
+                    'VES_BANCOS': float(balances_reales.get('CAJA_BS_TOTAL', 0.0)),
+                    'USD_EFECTIVO': float(balances_reales.get('EFECTIVO_USD', 0.0)),
+                    'USDT_BINANCE': float(balances_reales.get('BINANCE_USDT', 0.0))
+                }
 
                 plan = cubrir_egresos(egresos_val, saldos, tasas_map, SLIPPAGE_PCT)
 
@@ -5316,6 +5323,53 @@ def reporte_proyecciones():
 
         if (has_any_input or force_run) and callable(_calc):
             proyeccion_financiera = _calc(ingresos_pf, egresos_pf, tasas_pf, parametros_pf)
+
+        # Calculo de depreciacion del carril P2P
+        devaluacion_carril = 0.0
+        for it in carril_items:
+            v, r, m = float(it.get('venta', 0)), float(it.get('recompra', 0)), float(it.get('monto_usd', 0))
+            if v > 0 and r > v:
+                recibido_bs = m * v
+                usd_recomprado = recibido_bs / r
+                devaluacion_carril += (m - usd_recomprado)
+        gastos['totales']['devaluacion_carril'] = round(devaluacion_carril, 2)
+
+        # =======================================================================
+        # >>> CORE FINANCIERO: PERSISTIR RESULTADOS PARA TESORERÍA Y FLUJO DE CAJA
+        # =======================================================================
+        if simulacion_realizada and proyecciones:
+            try:
+                # Ajustar el balance neto restando la pérdida cambiaria del carril
+                proyecciones['resumen']['balance_neto_proyectado'] = round(
+                    proyecciones['resumen'].get('balance_neto_proyectado', 0) - devaluacion_carril, 2
+                )
+
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS proyecciones_activas (
+                            mes_proyeccion INT, ano_proyeccion INT, estado VARCHAR(50),
+                            resultados_resumen TEXT, fecha_actualizacion TIMESTAMP,
+                            PRIMARY KEY(mes_proyeccion, ano_proyeccion)
+                        )
+                    """)
+                    
+                    payload_json = json.dumps({
+                        'resumen': proyecciones.get('resumen', {}),
+                        'kpis': {'perdida_devaluacion_usd': round(devaluacion_carril, 2)}
+                    }, default=str)
+                    
+                    cur.execute("""
+                        INSERT INTO proyecciones_activas (mes_proyeccion, ano_proyeccion, estado, resultados_resumen, fecha_actualizacion)
+                        VALUES (%s, %s, 'Activa', %s, NOW())
+                        ON CONFLICT (mes_proyeccion, ano_proyeccion) 
+                        DO UPDATE SET resultados_resumen = EXCLUDED.resultados_resumen, fecha_actualizacion = NOW()
+                    """, (hoy.month, hoy.year, payload_json))
+                    conn.commit()
+            except Exception as e:
+                conn.rollback()
+                app.logger.exception("Error guardando proyeccion activa: %s", e)
+        # =======================================================================
+ 
 
     except Exception as e:
         proyeccion_error = str(e)
