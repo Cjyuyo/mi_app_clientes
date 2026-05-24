@@ -17,10 +17,26 @@
 {% block head_extra %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
 <style>
+    /* Forzamos que los números tengan el mismo ancho (Tabular Nums) esencial en Fintech */
     .tabular-nums { font-variant-numeric: tabular-nums; }
+    
+    /* Scrollbar invisible para tablas limpias */
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+    /* ========================================================= */
+    /* FIX FINTECH: Ocultar las flechas de los inputs numéricos  */
+    /* ========================================================= */
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    input[type="number"] {
+        -moz-appearance: textfield; /* Para Firefox */
+    }
+
+    /* Estilos Premium para inputs */
     .form-input {
         @apply w-full bg-white border border-slate-200 text-slate-900 text-sm font-semibold rounded-xl p-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium shadow-sm;
     }
@@ -28,6 +44,7 @@
         @apply w-full bg-white border border-slate-200 text-slate-900 text-xs font-semibold rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 shadow-sm;
     }
 
+    /* Rediseño total de Choices.js para que parezca nativo */
     .choices__inner { 
         @apply w-full bg-white border border-slate-200 text-slate-900 text-sm font-semibold rounded-xl p-1 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-sm min-h-[46px];
     }
@@ -255,7 +272,7 @@
         <div class="flex items-baseline gap-1">
             <span class="text-sm font-semibold text-rose-400">$</span>
             <h3 class="text-2xl font-bold text-rose-600 tracking-tight tabular-nums">
-               {# Asumiendo que tu backend expone la devaluación calculada en gastos o resumen #}
+               {# Asumiendo que tu backend expone la devaluacion en gastos o resumen #}
                {{ "{:,.2f}".format((gastos.totales.devaluacion_carril or 0) | float) }}
             </h3>
         </div>
