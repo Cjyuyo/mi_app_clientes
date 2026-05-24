@@ -5460,7 +5460,6 @@ def reporte_proyecciones():
         try: conn.rollback()
         except: pass
 
-    # Retorno ÚNICO y unificado con todas las variables empaquetadas
     return render_template(
         'reporte_proyecciones.html',
         proyecciones=proyecciones_ns,

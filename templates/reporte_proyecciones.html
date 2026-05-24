@@ -18,14 +18,10 @@
 {% block head_extra %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
 <style>
-    /* Forzado de ancho uniforme para números (Tabular Nums) */
     .tabular-nums { font-variant-numeric: tabular-nums; }
-    
-    /* Limpieza de scrollbars */
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-    /* Ocultar flechas automáticas de inputs numéricos */
     input[type="number"]::-webkit-inner-spin-button,
     input[type="number"]::-webkit-outer-spin-button {
         -webkit-appearance: none;
@@ -33,7 +29,6 @@
     }
     input[type="number"] { -moz-appearance: textfield; }
 
-    /* Inputs Estilo Stripe Clinical */
     .fintech-input {
         @apply w-full bg-slate-50/60 border border-slate-200 text-slate-900 text-sm font-semibold rounded-xl p-3 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium shadow-inner;
     }
@@ -41,7 +36,6 @@
         @apply w-full bg-white border border-slate-200 text-slate-900 text-xs font-semibold rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 shadow-sm;
     }
 
-    /* RediseñoChoices.js Premium */
     .choices__inner { 
         @apply w-full bg-slate-50/60 border border-slate-200 text-slate-900 text-sm font-semibold rounded-xl p-1 shadow-inner min-h-[46px] transition-all;
     }
@@ -205,8 +199,8 @@
                                 <tr>
                                     <th class="px-4 py-2.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest w-5/12">Fondo / Operación a cubrir</th>
                                     <th class="px-2 py-2.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Volumen $</th>
-                                    <th class="px-2 py-2.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right" title="Tasa pactada con el cliente">Tasa Cobro</th>
-                                    <th class="px-2 py-2.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right" title="Tasa real de compra de USDT">Tasa Recompra</th>
+                                    <th class="px-2 py-2.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Tasa Cobro</th>
+                                    <th class="px-2 py-2.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Tasa Recompra</th>
                                     <th class="w-10"></th>
                                 </tr>
                             </thead>
@@ -218,8 +212,8 @@
 
                 <div class="lg:col-span-1 bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-4">
                     <div>
-                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Enrutamiento de Cuentas (Keys)</p>
-                        <p class="text-[11px] text-slate-400 mt-0.5">Clasifica el comportamiento de los egresos frente a la volatilidad del mercado.</p>
+                        <p class="text-[10px] font-bold text-slate-900 uppercase tracking-widest">Enrutamiento Automatizado (Keys)</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Asigna tus egresos planificados para que el sistema calcule su exposición al riesgo cambiario.</p>
                     </div>
 
                     <div class="space-y-4">
@@ -275,7 +269,7 @@
     </form>
 
     {% if simulacion_realizada %}
-    <section class="space-y-6 pt-6 border-t border-slate-200 animate-fade-in">
+    <section class="space-y-6 pt-6 border-t border-slate-200">
         <div>
             <h2 class="text-lg font-bold text-slate-900 tracking-tight">Consolidado del Escenario Proyectado</h2>
             <p class="text-xs font-medium text-slate-400 mt-0.5">Resultados de la simulación matemática y comportamiento de cartera.</p>
@@ -367,6 +361,9 @@
 document.addEventListener('DOMContentLoaded', function () {
   const form = document.getElementById('simulation-form');
   
+  // Array de opciones inyectado desde Python de forma segura
+  const egresosOpciones = {{ egresos_titulos_opciones | default([]) | tojson }};
+  
   // 1. INICIALIZADOR DE MULTISELECTS (CHOICES.JS)
   function initChoices(scope) {
     scope.querySelectorAll('.form-select-choices').forEach(select => {
@@ -387,14 +384,12 @@ document.addEventListener('DOMContentLoaded', function () {
     return [];
   }
 
-  // 2. CONSTRUCCIÓN AUTOMÁTICA DEL BLOQUE JSON EXPENDIDO POR BACKEND
   function buildBloquesJSON() {
     const empresas = getChoicesValues('filtro_empresa');
     const estados  = getChoicesValues('filtro_estado_plan');
     const t_keys   = getChoicesValues('filtro_condicion');
     const excl_rc  = !!document.getElementById('filtro_excluir_rc').checked;
 
-    // Mapeo unificado e inteligente en un solo array estructurado para el backend
     const payload = [{
       empresa: empresas,
       estado_plan: estados,
@@ -405,46 +400,61 @@ document.addEventListener('DOMContentLoaded', function () {
     return JSON.stringify(payload);
   }
 
-  // 3. TABLA DINÁMICA: SPREAD CAMBIARIO (CARRIL)
+  // 2. TABLA DINÁMICA: SPREAD CAMBIARIO (CARRIL)
   const tblCarril = document.getElementById('tbl-carril').querySelector('tbody');
   document.getElementById('btn-add-carril').addEventListener('click', () => addCarrilRow());
   
   function addCarrilRow(c='', m='', v='', r='') {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="py-2 pr-1"><input type="text" data-field="concepto" class="fintech-input-sm" placeholder="Ej: Reposición Inventario" value="${c}" required></td>
-      <td class="py-2 px-1 w-28"><input type="number" step="0.01" data-field="monto_usd" class="fintech-input-sm text-right font-semibold" placeholder="0.00" value="${m}" required></td>
-      <td class="py-2 px-1 w-24"><input type="number" step="0.0001" data-field="venta" class="fintech-input-sm text-right bg-slate-50" placeholder="BCV" value="${v}" required></td>
-      <td class="py-2 px-1 w-24"><input type="number" step="0.0001" data-field="recompra" class="fintech-input-sm text-right bg-rose-50/50 text-rose-700 font-bold" placeholder="P2P" value="${r}" required></td>
+      <td class="py-2 pr-1"><input type="text" data-field="concepto" class="fintech-input-sm" placeholder="Ej: Reposición Inventario" value="${c}"></td>
+      <td class="py-2 px-1 w-28"><input type="number" step="0.01" data-field="monto_usd" class="fintech-input-sm text-right font-semibold" placeholder="0.00" value="${m}"></td>
+      <td class="py-2 px-1 w-24"><input type="number" step="0.0001" data-field="venta" class="fintech-input-sm text-right bg-slate-50" placeholder="BCV" value="${v}"></td>
+      <td class="py-2 px-1 w-24"><input type="number" step="0.0001" data-field="recompra" class="fintech-input-sm text-right bg-rose-50/50 text-rose-700 font-bold" placeholder="P2P" value="${r}"></td>
       <td class="py-2 pl-2 text-center w-10"><button type="button" class="text-slate-300 hover:text-rose-500 rm-row"><i class="bi bi-dash-circle-fill text-base"></i></button></td>`;
     tr.querySelector('.rm-row').addEventListener('click', () => tr.remove());
     tblCarril.appendChild(tr);
   }
 
-  // 4. TABLA DINÁMICA: EGRESOS ADICIONALES MANUALES
+  // 3. TABLA DINÁMICA: EGRESOS ADICIONALES MANUALES
   const tblEgDiv = document.getElementById('tbl-egdiv').querySelector('tbody');
   document.getElementById('btn-add-egdiv').addEventListener('click', () => addEgDivRow());
   
   function addEgDivRow(k='', v='') {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="py-2 pr-1 w-2/3"><input type="text" name="eg_div_key[]" class="fintech-input-sm" placeholder="Concepto del Gasto" value="${k}" required></td>
-      <td class="py-2 px-1"><input type="number" step="0.01" name="eg_div_monto[]" class="fintech-input-sm text-right font-semibold" placeholder="$ 0.00" value="${v}" required></td>
+      <td class="py-2 pr-1 w-2/3"><input type="text" name="eg_div_key[]" class="fintech-input-sm" placeholder="Concepto del Gasto" value="${k}"></td>
+      <td class="py-2 px-1"><input type="number" step="0.01" name="eg_div_monto[]" class="fintech-input-sm text-right font-semibold" placeholder="$ 0.00" value="${v}"></td>
       <td class="py-2 pl-2 text-center w-10"><button type="button" class="text-slate-300 hover:text-rose-500 rm-row"><i class="bi bi-dash-circle-fill text-base"></i></button></td>`;
     tr.querySelector('.rm-row').addEventListener('click', () => tr.remove());
     tblEgDiv.appendChild(tr);
   }
 
-  // 5. ENRUTAMIENTO DE ADICIÓN DE KEYS (ETIQUETAS)
+  // 4. ENRUTAMIENTO MEDIANTE MENU DESPLEGABLE (DROPDOWN DE KEYS)
   const bdkWrap  = document.getElementById('bdk-wrap');
   const p225Wrap = document.getElementById('p225-wrap');
-  document.getElementById('btn-add-bdk').addEventListener('click', () => addKeyInput(bdkWrap, 'bloque_directo_keys[]', 'emerald'));
-  document.getElementById('btn-add-p225').addEventListener('click', () => addKeyInput(p225Wrap, 'pagan_por_225_247_keys[]', 'rose'));
+  document.getElementById('btn-add-bdk').addEventListener('click', () => addKeyDropdown(bdkWrap, 'bloque_directo_keys[]', 'emerald'));
+  document.getElementById('btn-add-p225').addEventListener('click', () => addKeyDropdown(p225Wrap, 'pagan_por_225_247_keys[]', 'rose'));
   
-  function addKeyInput(container, name, color) {
+  function addKeyDropdown(container, name, color) {
     const div = document.createElement('div');
-    div.className = 'flex items-center gap-2 animate-fade-in';
-    div.innerHTML = `<input type="text" name="${name}" required class="fintech-input-sm border-${color}-200 focus:border-${color}-500 focus:ring-${color}-500/10" placeholder="Etiqueta"><button type="button" class="text-slate-300 hover:text-rose-500 rm-key"><i class="bi bi-x-circle-fill"></i></button>`;
+    div.className = 'flex items-center gap-2 animate-fade-in mb-1.5';
+    
+    // Construir dinámicamente las opciones del select detectando su moneda base
+    let optionsHtml = '<option value="">Seleccionar cuenta...</option>';
+    egresosOpciones.forEach(opt => {
+        const metodo = String(opt.metodo_referencia || '').toUpperCase();
+        const isVes = metodo.includes('VES') || metodo.includes('BS');
+        const badge = isVes ? 'Bs' : '$';
+        optionsHtml += `<option value="${opt.titulo}">${opt.titulo} (${badge})</option>`;
+    });
+
+    div.innerHTML = `
+        <select name="${name}" class="fintech-input-sm border-${color}-200 focus:border-${color}-500 focus:ring-${color}-500/10 cursor-pointer appearance-none bg-white" style="background-image: url('data:image/svg+xml,%3csvg xmlns=\\\'http://www.w3.org/2000/svg\\\' fill=\\\'none\\\' viewBox=\\\'0 0 20 20\\\'%3e%3cpath stroke=\\\'%2364748b\\\' stroke-linecap=\\\'round\\\' stroke-linejoin=\\\'round\\\' stroke-width=\\\'1.5\\\' d=\\\'M6 8l4 4 4-4\\\'/%3e%3c/svg%3e'); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.25em 1.25em; padding-right: 2rem;">
+            ${optionsHtml}
+        </select>
+        <button type="button" class="text-slate-300 hover:text-rose-500 rm-key"><i class="bi bi-x-circle-fill"></i></button>
+    `;
     div.querySelector('.rm-key').addEventListener('click', () => div.remove());
     container.appendChild(div);
   }
@@ -456,17 +466,22 @@ document.addEventListener('DOMContentLoaded', function () {
     }).filter(i => i.concepto && i.monto_usd > 0));
   }
 
-  // Carga de Filas Base de Cortesía por UX inicial
+  // UX Inicial: Inicializar con una fila base por cortesía
   addCarrilRow('Fondo de Reposición Base', '1000.00', '{{ (tasas.bcv_now.usd or 0)|float }}', '{{ (tasas.bcv_now.tasa_binance or 0)|float }}');
-  addEgDivRow();
-  addKeyInput(bdkWrap, 'bloque_directo_keys[]', 'emerald');
-  addKeyInput(p225Wrap, 'pagan_por_225_247_keys[]', 'rose');
+  addKeyDropdown(bdkWrap, 'bloque_directo_keys[]', 'emerald');
+  addKeyDropdown(p225Wrap, 'pagan_por_225_247_keys[]', 'rose');
 
-  // INTERCEPCIÓN DEL ENVÍO DEL FORMULARIO
   form.addEventListener('submit', () => {
     document.getElementById('bloques_json').value = buildBloquesJSON();
     document.getElementById('carril_json').value = serializeCarrilJSON();
   });
+});
+
+// Inicializador de AlpineJS para el Segmented Control
+document.addEventListener('alpine:init', () => {
+  Alpine.data('simulationController', () => ({
+    period_mode: '{{ (parametros.period_mode or "auto") | lower }}',
+  }));
 });
 </script>
 {% endblock %}
