@@ -15,11 +15,15 @@
     }
     input[type="number"] { -moz-appearance: textfield; }
 
+    /* Inputs Estilo Stripe Clinical con fix para desbordamiento en Safari (min-w-0) */
+    .fintech-input {
+        @apply w-full min-w-0 bg-slate-50/60 border border-slate-200 text-slate-900 text-sm font-semibold rounded-xl p-3 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium shadow-inner;
+    }
     .fintech-input-sm {
-        @apply w-full bg-white border border-slate-200 text-slate-900 text-xs font-semibold rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 shadow-sm;
+        @apply w-full min-w-0 bg-white border border-slate-200 text-slate-900 text-xs font-semibold rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 shadow-sm;
     }
     .form-select-sm {
-        @apply w-full bg-white border border-slate-200 text-slate-900 text-xs font-semibold rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500/10 outline-none cursor-pointer appearance-none;
+        @apply w-full min-w-0 bg-white border border-slate-200 text-slate-900 text-xs font-semibold rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500/10 outline-none cursor-pointer appearance-none;
         background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
         background-position: right 0.5rem center;
         background-repeat: no-repeat;
