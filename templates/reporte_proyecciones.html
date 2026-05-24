@@ -119,92 +119,172 @@
     </form>
 
     {% if simulacion_realizada %}
-    <section class="space-y-6 pt-6 border-t border-slate-200 animate-fade-in">
+    <section class="space-y-6 pt-8 border-t border-slate-200 animate-fade-in">
         
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Recaudo Estimado ({{ proyeccion.clientes_activos }} clientes)</p>
-                <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums">${{ "{:,.2f}".format(proyeccion.recaudo_total_usd) }}</h3>
+                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Recaudo Estimado ({{ proyeccion.clientes_activos }} clientes)</p>
+                <div class="flex items-baseline gap-1 mt-2">
+                    <span class="text-sm font-semibold text-slate-400">$</span>
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums">{{ "{:,.2f}".format(proyeccion.recaudo_total_usd) }}</h3>
+                </div>
             </div>
+            
             <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Egresos Computados</p>
-                <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums">${{ "{:,.2f}".format(proyeccion.egresos_total_usd) }}</h3>
+                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Egresos Computados</p>
+                <div class="flex items-baseline gap-1 mt-2">
+                    <span class="text-sm font-semibold text-slate-400">$</span>
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums">{{ "{:,.2f}".format(proyeccion.egresos_total_usd) }}</h3>
+                </div>
             </div>
-            <div class="bg-rose-50 border border-rose-200 rounded-2xl p-5 shadow-sm">
-                <p class="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">Pérdida por Spread (Brecha FX)</p>
-                <h3 class="text-2xl font-black text-rose-600 tracking-tight tabular-nums">(${{ "{:,.2f}".format(proyeccion.perdida_spread_usd) }})</h3>
+
+            <div class="bg-rose-50/50 border border-rose-100 rounded-2xl p-5 shadow-sm relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
+                <p class="text-[9px] font-bold text-rose-500 uppercase tracking-widest mb-1 relative z-10">Pérdida por Spread (FX)</p>
+                <div class="flex items-baseline gap-1 mt-2 relative z-10">
+                    <span class="text-sm font-semibold text-rose-400">($</span>
+                    <h3 class="text-2xl font-black text-rose-600 tracking-tight tabular-nums">{{ "{:,.2f}".format(proyeccion.perdida_spread_usd) }}</h3>
+                    <span class="text-sm font-semibold text-rose-400">)</span>
+                </div>
             </div>
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-                <div class="absolute -right-4 -bottom-4 w-20 h-20 bg-blue-500/10 rounded-full blur-xl pointer-events-none"></div>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 relative z-10">Balance Neto Final</p>
-                <h3 class="text-2xl font-black text-white tracking-tight tabular-nums relative z-10">${{ "{:,.2f}".format(proyeccion.balance_neto_usd) }}</h3>
+
+            <div class="bg-[#0B1121] border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-500/20 rounded-full blur-2xl pointer-events-none"></div>
+                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 relative z-10">Balance Neto Final</p>
+                <div class="flex items-baseline gap-1 mt-2 relative z-10">
+                    <span class="text-sm font-semibold text-slate-500">$</span>
+                    <h3 class="text-2xl font-black text-white tracking-tight tabular-nums">{{ "{:,.2f}".format(proyeccion.balance_neto_usd) }}</h3>
+                </div>
             </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
             <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">Distribución de Ingresos (Cómo entra el dinero)</h3>
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm font-semibold text-slate-600 flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-emerald-400"></div> USD Efectivo Físico</span>
-                        <span class="font-bold text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.recaudo_desglose.USD_EFECTIVO) }}</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm font-semibold text-slate-600 flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-amber-400"></div> USDT (Binance)</span>
-                        <span class="font-bold text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.recaudo_desglose.USDT_BINANCE) }}</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm font-semibold text-slate-600 flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-blue-400"></div> Bolívares (Tasa BCV)</span>
-                        <span class="font-bold text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.recaudo_desglose.VES_BCV) }}</span>
-                    </div>
-                </div>
+                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 pb-3 border-b border-slate-100">Distribución de Ingresos (Orígenes)</h3>
+                <ul class="divide-y divide-slate-50">
+                    <li class="flex justify-between items-center py-3.5">
+                        <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> USD Efectivo Físico</span>
+                        <div class="flex items-center gap-2">
+                            {% if proyeccion.recaudo_desglose.USD_EFECTIVO > 0 %}
+                                <span class="text-[10px] font-medium text-slate-400">$</span>
+                                <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.recaudo_desglose.USD_EFECTIVO) }}</span>
+                            {% else %}
+                                <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
+                            {% endif %}
+                        </div>
+                    </li>
+                    <li class="flex justify-between items-center py-3.5">
+                        <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-amber-400"></div> USDT (Binance)</span>
+                        <div class="flex items-center gap-2">
+                            {% if proyeccion.recaudo_desglose.USDT_BINANCE > 0 %}
+                                <span class="text-[10px] font-medium text-slate-400">$</span>
+                                <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.recaudo_desglose.USDT_BINANCE) }}</span>
+                            {% else %}
+                                <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
+                            {% endif %}
+                        </div>
+                    </li>
+                    <li class="flex justify-between items-center py-3.5">
+                        <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-blue-400"></div> Bolívares (Tasa BCV)</span>
+                        <div class="flex items-center gap-2">
+                            {% if proyeccion.recaudo_desglose.VES_BCV > 0 %}
+                                <span class="text-[10px] font-medium text-slate-400">$</span>
+                                <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.recaudo_desglose.VES_BCV) }}</span>
+                            {% else %}
+                                <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
+                            {% endif %}
+                        </div>
+                    </li>
+                </ul>
             </div>
 
             <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">Obligaciones por Moneda (Cómo sale el dinero)</h3>
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm font-semibold text-slate-600 flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-emerald-400"></div> Pagos en USD Efectivo</span>
-                        <span class="font-bold text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.distribucion_egresos.USD_EFECTIVO) }}</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm font-semibold text-slate-600 flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-rose-400"></div> Pagos en USDT (Cripto)</span>
-                        <span class="font-bold text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.distribucion_egresos.USDT_BINANCE) }}</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm font-semibold text-slate-600 flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-orange-400"></div> Pagos en Bs (Tasa Binance)</span>
-                        <span class="font-bold text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.distribucion_egresos.VES_BINANCE | default(0.0)) }}</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm font-semibold text-slate-600 flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-blue-400"></div> Pagos directos en Bs (Tasa BCV)</span>
-                        <span class="font-bold text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.distribucion_egresos.VES_BCV) }}</span>
-                    </div>
-                </div>
+                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 pb-3 border-b border-slate-100">Obligaciones (Destinos de Salida)</h3>
+                <ul class="divide-y divide-slate-50">
+                    <li class="flex justify-between items-center py-3">
+                        <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> Pagos en USD Efectivo</span>
+                        <div class="flex items-center gap-2">
+                            {% if proyeccion.distribucion_egresos.USD_EFECTIVO > 0 %}
+                                <span class="text-[10px] font-medium text-slate-400">$</span>
+                                <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.distribucion_egresos.USD_EFECTIVO) }}</span>
+                            {% else %}
+                                <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
+                            {% endif %}
+                        </div>
+                    </li>
+                    <li class="flex justify-between items-center py-3">
+                        <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-rose-400"></div> Pagos en USDT (Cripto)</span>
+                        <div class="flex items-center gap-2">
+                            {% if proyeccion.distribucion_egresos.USDT_BINANCE > 0 %}
+                                <span class="text-[10px] font-medium text-slate-400">$</span>
+                                <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.distribucion_egresos.USDT_BINANCE) }}</span>
+                            {% else %}
+                                <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
+                            {% endif %}
+                        </div>
+                    </li>
+                    <li class="flex justify-between items-center py-3">
+                        <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-orange-400"></div> Pagos en Bs (Tasa Binance)</span>
+                        <div class="flex items-center gap-2">
+                            {% if proyeccion.distribucion_egresos.VES_BINANCE > 0 %}
+                                <span class="text-[10px] font-medium text-orange-400">$</span>
+                                <span class="font-bold text-orange-600 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.distribucion_egresos.VES_BINANCE) }}</span>
+                            {% else %}
+                                <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
+                            {% endif %}
+                        </div>
+                    </li>
+                    <li class="flex justify-between items-center py-3">
+                        <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-blue-400"></div> Pagos directos en Bs (BCV)</span>
+                        <div class="flex items-center gap-2">
+                            {% if proyeccion.distribucion_egresos.VES_BCV > 0 %}
+                                <span class="text-[10px] font-medium text-slate-400">$</span>
+                                <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.distribucion_egresos.VES_BCV) }}</span>
+                            {% else %}
+                                <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
+                            {% endif %}
+                        </div>
+                    </li>
+                </ul>
             </div>
         </div>
 
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mt-6">
             <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Auditoría de Egresos y Fuga de Capital</h3>
+                <h3 class="text-[10px] font-bold text-slate-800 uppercase tracking-widest">Auditoría de Egresos y Fuga de Capital</h3>
             </div>
             <div class="overflow-x-auto hide-scrollbar">
                 <table class="w-full text-sm text-left">
                     <thead class="bg-white border-b border-slate-100">
                         <tr>
-                            <th class="py-3 px-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Gasto (Planificado + Manual)</th>
-                            <th class="py-3 px-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Moneda de Pago Requerida</th>
-                            <th class="py-3 px-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Monto a Pagar</th>
-                            <th class="py-3 px-6 text-[9px] font-bold text-rose-500 uppercase tracking-widest text-right">Pérdida al cruzar (Spread)</th>
+                            <th class="py-3.5 px-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest w-1/3">Gasto (Planificado + Manual)</th>
+                            <th class="py-3.5 px-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest w-1/4">Moneda de Pago Requerida</th>
+                            <th class="py-3.5 px-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Monto a Pagar</th>
+                            <th class="py-3.5 px-6 text-[9px] font-bold text-rose-500 uppercase tracking-widest text-right">Pérdida al cruzar (Spread)</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         {% for e in proyeccion.lista_egresos %}
-                        <tr class="hover:bg-slate-50 transition-colors">
-                            <td class="px-6 py-3 font-semibold text-slate-900">{{ e.titulo }}</td>
-                            <td class="px-4 py-3 text-xs font-bold text-slate-500">{{ e.metodo }}</td>
-                            <td class="px-6 py-3 text-right font-bold text-slate-900 tabular-nums">${{ "{:,.2f}".format(e.monto) }}</td>
-                            <td class="px-6 py-3 text-right font-bold tabular-nums {{ 'text-rose-600' if e.perdida > 0 else 'text-slate-300 font-normal' }}">
-                                {{ "${:,.2f}".format(e.perdida) if e.perdida > 0 else '—' }}
+                        <tr class="hover:bg-slate-50/80 transition-colors group">
+                            <td class="px-6 py-3.5 font-semibold text-slate-900">{{ e.titulo }}</td>
+                            <td class="px-4 py-3.5 text-xs font-bold text-slate-500">{{ e.metodo }}</td>
+                            
+                            <td class="px-6 py-3.5 whitespace-nowrap">
+                                <div class="flex items-center justify-end gap-2">
+                                    <span class="text-[10px] text-slate-400 font-medium">$</span>
+                                    <span class="font-bold text-slate-900 tabular-nums text-right w-24 tracking-tight">{{ "{:,.2f}".format(e.monto) }}</span>
+                                </div>
+                            </td>
+                            
+                            <td class="px-6 py-3.5 whitespace-nowrap">
+                                <div class="flex items-center justify-end gap-2">
+                                    {% if e.perdida > 0 %}
+                                        <span class="text-[10px] text-rose-400 font-bold">$</span>
+                                        <span class="font-bold text-rose-600 tabular-nums text-right w-24 tracking-tight">{{ "{:,.2f}".format(e.perdida) }}</span>
+                                    {% else %}
+                                        <span class="text-slate-300 tabular-nums text-right w-24 font-medium">—</span>
+                                    {% endif %}
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
