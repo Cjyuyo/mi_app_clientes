@@ -15,7 +15,7 @@
     }
     input[type="number"] { -moz-appearance: textfield; }
 
-    /* Inputs Estilo Stripe Clinical con fix para desbordamiento en Safari (min-w-0) */
+    /* Inputs Estilo Stripe */
     .fintech-input {
         @apply w-full min-w-0 bg-slate-50/60 border border-slate-200 text-slate-900 text-sm font-semibold rounded-xl p-3 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium shadow-inner;
     }
@@ -36,372 +36,427 @@
 <div class="min-h-screen bg-[#f7f9fc] -m-6 p-6 sm:p-10 font-sans">
 <div class="max-w-[1300px] mx-auto space-y-8 mb-12">
 
-    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-slate-200">
-        <div>
-            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Proyecciones y Riesgo Cambiario</h1>
-            <p class="text-sm font-medium text-slate-500 mt-1">El sistema importa automáticamente tus clientes activos y egresos para calcular el impacto del spread.</p>
-        </div>
-        <div class="flex items-center gap-3">
-            <a href="{{ url_for('reporte_proyecciones') }}" class="px-5 py-2.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-all shadow-sm">Restablecer</a>
-            <button type="submit" form="simulation-form" class="px-6 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-md transition-all flex items-center gap-2">
-                Ejecutar Proyección Automática <i class="bi bi-magic"></i>
-            </button>
-        </div>
-    </div>
+    <div x-data="{ show_form: {{ 'false' if simulacion_realizada else 'true' }}, period_mode: '{{ period_mode }}' }">
 
-    <form id="simulation-form" method="POST" action="{{ url_for('reporte_proyecciones') }}" class="space-y-6" x-data="{ period_mode: '{{ period_mode }}' }">
-        
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-slate-200 mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Proyecciones y Riesgo Cambiario</h1>
+                <p class="text-sm font-medium text-slate-500 mt-1">El sistema importa automáticamente tus clientes y egresos para calcular el impacto del spread.</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="{{ url_for('reporte_proyecciones') }}" class="px-5 py-2.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-all shadow-sm">Restablecer</a>
+                
+                <button x-show="show_form" type="submit" form="simulation-form" class="px-6 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-md transition-all flex items-center gap-2">
+                    Ejecutar Proyección Automática <i class="bi bi-magic"></i>
+                </button>
+            </div>
+        </div>
+
+        <div x-show="!show_form" x-cloak class="bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden mb-8 border border-slate-800">
+            <div class="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+            
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-8 relative z-10 gap-4">
                 <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><i class="bi bi-calendar3"></i></div>
-                    <div>
-                        <h2 class="text-sm font-bold text-slate-900">Horizonte de Evaluación Temporal</h2>
-                        <p class="text-[10px] font-medium text-slate-500 mt-0.5">Define el ciclo operativo para cruzar cuotas contra egresos registrados.</p>
-                    </div>
-                </div>
-
-                <div class="flex flex-col sm:items-end gap-3">
-                    <div class="inline-flex bg-slate-100 rounded-xl p-1 shadow-inner min-w-[200px]">
-                        <label class="flex-1 relative text-center cursor-pointer">
-                            <input type="radio" name="period_mode" value="auto" class="sr-only" x-model="period_mode">
-                            <div class="py-1.5 px-3 text-[10px] font-bold rounded-lg transition-all" :class="period_mode === 'auto' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'">Ciclo Activo (13 al 12)</div>
-                        </label>
-                        
-                        {% if is_superadmin %}
-                        <label class="flex-1 relative text-center cursor-pointer">
-                            <input type="radio" name="period_mode" value="manual" class="sr-only" x-model="period_mode">
-                            <div class="py-1.5 px-3 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5" :class="period_mode === 'manual' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'">
-                                <i class="bi bi-unlock-fill text-[8px]"></i> Manual
-                            </div>
-                        </label>
-                        {% else %}
-                        <div class="py-1.5 px-3 text-[10px] font-bold text-slate-400 flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed" title="Modo reservado exclusivamente para Superadmin">
-                            <i class="bi bi-lock-fill text-[8px]"></i> Manual
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
-            <div class="mt-5 pt-5 border-t border-slate-100">
-                <div x-show="period_mode === 'auto'" class="flex items-center gap-3 text-sm font-semibold text-slate-700">
-                    <span class="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg border border-blue-100">{{ fecha_inicio.strftime('%d %b %Y') }}</span>
-                    <i class="bi bi-arrow-right text-slate-300"></i>
-                    <span class="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg border border-blue-100">{{ fecha_fin.strftime('%d %b %Y') }}</span>
-                    <span class="text-[10px] text-slate-400 font-medium ml-2">El sistema auditará la facturación que recaiga en este intervalo exacto.</span>
-                </div>
-
-                <div x-show="period_mode === 'manual'" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Fecha Inicial (Corte)</label>
-                        <input type="date" name="start_date" value="{{ fecha_inicio.strftime('%Y-%m-%d') }}" class="fintech-input bg-white !p-2 !text-xs">
-                    </div>
-                    <div>
-                        <label class="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Fecha Final (Cierre)</label>
-                        <input type="date" name="end_date" value="{{ fecha_fin.strftime('%Y-%m-%d') }}" class="fintech-input bg-white !p-2 !text-xs">
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
-                <div class="flex items-center gap-3 pb-3 border-b border-slate-100">
-                    <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><i class="bi bi-graph-up-arrow"></i></div>
-                    <h2 class="text-sm font-bold text-slate-900">Estimación de Ingresos y Tasas</h2>
+                    <span class="relative flex h-3 w-3">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    </span>
+                    <h2 class="text-white text-lg font-bold tracking-wide">Cobranza en Curso</h2>
+                    <span class="px-2.5 py-1 bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-bold rounded-lg uppercase tracking-wider">{{ fecha_inicio.strftime('%d %b') }} a {{ fecha_fin.strftime('%d %b') }}</span>
                 </div>
                 
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Tasa BCV (Proyectada)</label>
-                        <input type="number" step="0.0001" name="usd_bcv" class="fintech-input-sm border-blue-200 bg-blue-50/30" value="{{ tasas.bcv_now.usd }}" required>
+                <button type="button" @click="show_form = true" class="text-[10px] font-bold text-slate-400 hover:text-white uppercase tracking-widest transition-colors flex items-center gap-1.5 bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-700/50 hover:bg-slate-700">
+                    <i class="bi bi-sliders"></i> Ajustar Proyección
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Recaudado (Real) vs Meta Operativa</p>
+                    <div class="flex items-end gap-2 mb-3">
+                        <span class="text-3xl font-black text-white tabular-nums">${{ "{:,.2f}".format(proyeccion.recaudo_real_usd) }}</span>
+                        <span class="text-sm font-medium text-slate-500 mb-1">/ ${{ "{:,.2f}".format(proyeccion.recaudo_total_usd) }}</span>
                     </div>
-                    <div>
-                        <label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Tasa Binance (P2P)</label>
-                        <input type="number" step="0.0001" name="binance_prevision" class="fintech-input-sm border-amber-200 bg-amber-50/30" value="{{ tasas.bcv_now.tasa_binance }}" required>
+                    
+                    <div class="h-3 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                        <div class="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 rounded-full relative transition-all duration-1000 ease-out" style="width: {{ proyeccion.progreso_recaudo_pct }}%;">
+                            <div class="absolute inset-0 bg-white/20 w-full h-full animate-[shimmer_2s_infinite]"></div>
+                        </div>
+                    </div>
+                    <div class="mt-2 flex justify-between items-center">
+                        <span class="text-[9px] font-bold text-slate-500 uppercase">Progreso del Ciclo</span>
+                        <span class="text-[10px] font-bold text-emerald-400">{{ "{:,.1f}".format(proyeccion.progreso_recaudo_pct) }}% Completado</span>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row items-center gap-4">
+                    <div class="w-full flex-1 bg-slate-800/40 rounded-2xl p-4 border border-slate-700/50 backdrop-blur-sm">
+                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Por Recaudar</p>
+                        <span class="text-xl font-bold text-white tabular-nums">${{ "{:,.2f}".format([proyeccion.recaudo_total_usd - proyeccion.recaudo_real_usd, 0]|max) }}</span>
+                    </div>
+                    <div class="w-full flex-1 bg-slate-800/40 rounded-2xl p-4 border border-slate-700/50 backdrop-blur-sm">
+                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Punto de Equilibrio</p>
+                        <span class="text-xl font-bold text-amber-400 tabular-nums" title="Suma de Egresos + Costo del Spread">${{ "{:,.2f}".format(proyeccion.egresos_total_usd + proyeccion.perdida_spread_usd) }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="show_form" x-collapse>
+            <form id="simulation-form" method="POST" action="{{ url_for('reporte_proyecciones') }}" class="space-y-6">
+                
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><i class="bi bi-calendar3"></i></div>
+                            <div>
+                                <h2 class="text-sm font-bold text-slate-900">Horizonte de Evaluación Temporal</h2>
+                                <p class="text-[10px] font-medium text-slate-500 mt-0.5">Define el ciclo operativo para cruzar cuotas contra egresos registrados.</p>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col sm:items-end gap-3">
+                            <div class="inline-flex bg-slate-100 rounded-xl p-1 shadow-inner min-w-[200px]">
+                                <label class="flex-1 relative text-center cursor-pointer">
+                                    <input type="radio" name="period_mode" value="auto" class="sr-only" x-model="period_mode" {% if period_mode == 'auto' %}checked{% endif %}>
+                                    <div class="py-1.5 px-3 text-[10px] font-bold rounded-lg transition-all" :class="period_mode === 'auto' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'">Ciclo Activo</div>
+                                </label>
+                                
+                                {% if is_superadmin %}
+                                <label class="flex-1 relative text-center cursor-pointer">
+                                    <input type="radio" name="period_mode" value="manual" class="sr-only" x-model="period_mode" {% if period_mode == 'manual' %}checked{% endif %}>
+                                    <div class="py-1.5 px-3 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5" :class="period_mode === 'manual' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'">
+                                        <i class="bi bi-unlock-fill text-[8px]"></i> Manual
+                                    </div>
+                                </label>
+                                {% else %}
+                                <div class="py-1.5 px-3 text-[10px] font-bold text-slate-400 flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed" title="Modo reservado exclusivamente para Superadmin">
+                                    <i class="bi bi-lock-fill text-[8px]"></i> Manual
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-5 pt-5 border-t border-slate-100">
+                        <div x-show="period_mode === 'auto'" class="flex items-center gap-3 text-sm font-semibold text-slate-700">
+                            <span class="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg border border-blue-100">{{ fecha_inicio.strftime('%d %b %Y') }}</span>
+                            <i class="bi bi-arrow-right text-slate-300"></i>
+                            <span class="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg border border-blue-100">{{ fecha_fin.strftime('%d %b %Y') }}</span>
+                        </div>
+                        <div x-show="period_mode === 'manual'" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Fecha Inicial (Corte)</label>
+                                <input type="date" name="start_date" value="{{ fecha_inicio.strftime('%Y-%m-%d') }}" class="fintech-input bg-white !p-2 !text-xs">
+                            </div>
+                            <div>
+                                <label class="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Fecha Final (Cierre)</label>
+                                <input type="date" name="end_date" value="{{ fecha_fin.strftime('%Y-%m-%d') }}" class="fintech-input bg-white !p-2 !text-xs">
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="pt-4">
-                    <p class="text-[9px] font-bold text-slate-500 uppercase mb-2">Comportamiento esperado del recaudo</p>
-                    <div class="grid grid-cols-3 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                        <div class="flex flex-col items-center justify-center">
-                            <label class="text-[9px] text-slate-500 font-bold mb-1.5">% en Bs</label>
-                            <input type="text" inputmode="numeric" name="pct_bs" class="fintech-input-sm text-center !px-1 w-16" value="50">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+                        <div class="flex items-center gap-3 pb-3 border-b border-slate-100">
+                            <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><i class="bi bi-graph-up-arrow"></i></div>
+                            <h2 class="text-sm font-bold text-slate-900">Estimación de Ingresos y Tasas</h2>
                         </div>
-                        <div class="flex flex-col items-center justify-center">
-                            <label class="text-[9px] text-slate-500 font-bold mb-1.5">% en USDT</label>
-                            <input type="text" inputmode="numeric" name="pct_usdt" class="fintech-input-sm text-center !px-1 w-16" value="30">
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Tasa BCV (Proyectada)</label>
+                                <input type="number" step="0.0001" name="usd_bcv" class="fintech-input-sm border-blue-200 bg-blue-50/30" value="{{ tasas.bcv_now.usd }}" required>
+                            </div>
+                            <div>
+                                <label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Tasa Binance (P2P)</label>
+                                <input type="number" step="0.0001" name="binance_prevision" class="fintech-input-sm border-amber-200 bg-amber-50/30" value="{{ tasas.bcv_now.tasa_binance }}" required>
+                            </div>
                         </div>
-                        <div class="flex flex-col items-center justify-center">
-                            <label class="text-[9px] text-slate-500 font-bold mb-1.5">% en USD</label>
-                            <input type="text" inputmode="numeric" name="pct_usd" class="fintech-input-sm text-center !px-1 w-16" value="20">
+
+                        <div class="pt-4">
+                            <p class="text-[9px] font-bold text-slate-500 uppercase mb-2">Comportamiento esperado del recaudo</p>
+                            <div class="grid grid-cols-3 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                <div class="flex flex-col items-center justify-center">
+                                    <label class="text-[9px] text-slate-500 font-bold mb-1.5">% en Bs</label>
+                                    <input type="text" inputmode="numeric" name="pct_bs" class="fintech-input-sm text-center !px-1 w-16" value="50">
+                                </div>
+                                <div class="flex flex-col items-center justify-center">
+                                    <label class="text-[9px] text-slate-500 font-bold mb-1.5">% en USDT</label>
+                                    <input type="text" inputmode="numeric" name="pct_usdt" class="fintech-input-sm text-center !px-1 w-16" value="30">
+                                </div>
+                                <div class="flex flex-col items-center justify-center">
+                                    <label class="text-[9px] text-slate-500 font-bold mb-1.5">% en USD</label>
+                                    <input type="text" inputmode="numeric" name="pct_usd" class="fintech-input-sm text-center !px-1 w-16" value="20">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-2">
+                            <p class="text-[9px] font-bold text-slate-500 uppercase mb-2">Ingresos Extra (Fuera de cartera)</p>
+                            <div class="grid grid-cols-3 gap-2">
+                                <input type="number" step="0.01" name="ing_efectivo" class="fintech-input-sm" placeholder="+ USD Cash">
+                                <input type="number" step="0.01" name="ing_usdt" class="fintech-input-sm" placeholder="+ USDT Cripto">
+                                <input type="number" step="0.01" name="ing_bs_sc" class="fintech-input-sm" placeholder="+ Bs Banesco">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 flex flex-col h-full">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center"><i class="bi bi-journal-minus"></i></div>
+                                <h2 class="text-sm font-bold text-slate-900">Egresos Adicionales (No planificados)</h2>
+                            </div>
+                            <button type="button" class="text-[10px] font-bold text-blue-600 uppercase" id="btn-add-egdiv">+ Añadir Gasto</button>
+                        </div>
+
+                        <p class="text-[10px] text-slate-500 mb-4 font-medium leading-relaxed">Los gastos fijos ya están importados. Registra aquí solo gastos excepcionales que ocurrirán este mes.</p>
+
+                        <div class="overflow-hidden flex-1">
+                            <table class="w-full text-left" id="tbl-egdiv">
+                                <tbody class="divide-y divide-slate-100">
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
+            </form>
+        </div>
 
-                <div class="pt-2">
-                    <p class="text-[9px] font-bold text-slate-500 uppercase mb-2">Ingresos Extra (Fuera de cartera)</p>
-                    <div class="grid grid-cols-3 gap-2">
-                        <input type="number" step="0.01" name="ing_efectivo" class="fintech-input-sm" placeholder="+ USD Cash">
-                        <input type="number" step="0.01" name="ing_usdt" class="fintech-input-sm" placeholder="+ USDT Cripto">
-                        <input type="number" step="0.01" name="ing_bs_sc" class="fintech-input-sm" placeholder="+ Bs Banesco">
+        {% if simulacion_realizada %}
+        <section class="space-y-6 pt-8 border-t border-slate-200 animate-fade-in mt-6">
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Recaudo Estimado ({{ proyeccion.clientes_activos }} clientes)</p>
+                    <div class="flex items-baseline gap-1 mt-2">
+                        <span class="text-sm font-semibold text-slate-400">$</span>
+                        <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums">{{ "{:,.2f}".format(proyeccion.recaudo_total_usd) }}</h3>
+                    </div>
+                </div>
+                
+                <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Egresos Computados</p>
+                    <div class="flex items-baseline gap-1 mt-2">
+                        <span class="text-sm font-semibold text-slate-400">$</span>
+                        <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums">{{ "{:,.2f}".format(proyeccion.egresos_total_usd) }}</h3>
+                    </div>
+                </div>
+
+                <div class="bg-rose-50/50 border border-rose-100 rounded-2xl p-5 shadow-sm relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
+                    <p class="text-[9px] font-bold text-rose-500 uppercase tracking-widest mb-1 relative z-10">Pérdida por Spread (FX)</p>
+                    <div class="flex items-baseline gap-1 mt-2 relative z-10">
+                        <span class="text-sm font-semibold text-rose-400">($</span>
+                        <h3 class="text-2xl font-black text-rose-600 tracking-tight tabular-nums">{{ "{:,.2f}".format(proyeccion.perdida_spread_usd) }}</h3>
+                        <span class="text-sm font-semibold text-rose-400">)</span>
+                    </div>
+                </div>
+
+                <div class="bg-[#0B1121] border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                    <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-500/20 rounded-full blur-2xl pointer-events-none"></div>
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 relative z-10">Balance Neto Final</p>
+                    <div class="flex items-baseline gap-1 mt-2 relative z-10">
+                        <span class="text-sm font-semibold text-slate-500">$</span>
+                        <h3 class="text-2xl font-black text-white tracking-tight tabular-nums">{{ "{:,.2f}".format(proyeccion.balance_neto_usd) }}</h3>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 flex flex-col h-full">
-                <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center"><i class="bi bi-journal-minus"></i></div>
-                        <h2 class="text-sm font-bold text-slate-900">Egresos Adicionales (No planificados)</h2>
-                    </div>
-                    <button type="button" class="text-[10px] font-bold text-blue-600 uppercase" id="btn-add-egdiv">+ Añadir Gasto</button>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                    <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 pb-3 border-b border-slate-100">Distribución de Ingresos (Orígenes)</h3>
+                    <ul class="divide-y divide-slate-50">
+                        <li class="flex justify-between items-center py-3.5">
+                            <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> USD Efectivo Físico</span>
+                            <div class="flex items-center gap-2">
+                                {% if proyeccion.recaudo_desglose.USD_EFECTIVO > 0 %}
+                                    <span class="text-[10px] font-medium text-slate-400">$</span>
+                                    <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.recaudo_desglose.USD_EFECTIVO) }}</span>
+                                {% else %}
+                                    <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
+                                {% endif %}
+                            </div>
+                        </li>
+                        <li class="flex justify-between items-center py-3.5">
+                            <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-amber-400"></div> USDT (Binance)</span>
+                            <div class="flex items-center gap-2">
+                                {% if proyeccion.recaudo_desglose.USDT_BINANCE > 0 %}
+                                    <span class="text-[10px] font-medium text-slate-400">$</span>
+                                    <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.recaudo_desglose.USDT_BINANCE) }}</span>
+                                {% else %}
+                                    <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
+                                {% endif %}
+                            </div>
+                        </li>
+                        <li class="flex justify-between items-center py-3.5">
+                            <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-blue-400"></div> Bolívares (Tasa BCV)</span>
+                            <div class="flex items-center gap-2">
+                                {% if proyeccion.recaudo_desglose.VES_BCV > 0 %}
+                                    <span class="text-[10px] font-medium text-slate-400">$</span>
+                                    <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.recaudo_desglose.VES_BCV) }}</span>
+                                {% else %}
+                                    <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
+                                {% endif %}
+                            </div>
+                        </li>
+                    </ul>
                 </div>
 
-                <p class="text-[10px] text-slate-500 mb-4 font-medium leading-relaxed">Los gastos fijos ya están importados. Registra aquí solo gastos excepcionales que ocurrirán este mes.</p>
+                <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                    <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 pb-3 border-b border-slate-100">Obligaciones (Destinos de Salida)</h3>
+                    <ul class="divide-y divide-slate-50">
+                        <li class="flex justify-between items-center py-3">
+                            <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> Pagos en USD Efectivo</span>
+                            <div class="flex items-center gap-2">
+                                {% if proyeccion.distribucion_egresos.USD_EFECTIVO > 0 %}
+                                    <span class="text-[10px] font-medium text-slate-400">$</span>
+                                    <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.distribucion_egresos.USD_EFECTIVO) }}</span>
+                                {% else %}
+                                    <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
+                                {% endif %}
+                            </div>
+                        </li>
+                        <li class="flex justify-between items-center py-3">
+                            <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-rose-400"></div> Pagos en USDT (Cripto)</span>
+                            <div class="flex items-center gap-2">
+                                {% if proyeccion.distribucion_egresos.USDT_BINANCE > 0 %}
+                                    <span class="text-[10px] font-medium text-slate-400">$</span>
+                                    <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.distribucion_egresos.USDT_BINANCE) }}</span>
+                                {% else %}
+                                    <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
+                                {% endif %}
+                            </div>
+                        </li>
+                        <li class="flex justify-between items-center py-3">
+                            <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-orange-400"></div> Pagos en Bs (Tasa Binance)</span>
+                            <div class="flex items-center gap-2">
+                                {% if proyeccion.distribucion_egresos.VES_BINANCE > 0 %}
+                                    <span class="text-[10px] font-medium text-orange-400">$</span>
+                                    <span class="font-bold text-orange-600 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.distribucion_egresos.VES_BINANCE) }}</span>
+                                {% else %}
+                                    <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
+                                {% endif %}
+                            </div>
+                        </li>
+                        <li class="flex justify-between items-center py-3">
+                            <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-blue-400"></div> Pagos directos en Bs (BCV)</span>
+                            <div class="flex items-center gap-2">
+                                {% if proyeccion.distribucion_egresos.VES_BCV > 0 %}
+                                    <span class="text-[10px] font-medium text-slate-400">$</span>
+                                    <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.distribucion_egresos.VES_BCV) }}</span>
+                                {% else %}
+                                    <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
+                                {% endif %}
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
 
-                <div class="overflow-hidden flex-1">
-                    <table class="w-full text-left" id="tbl-egdiv">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mt-6">
+                <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                    <h3 class="text-[10px] font-bold text-slate-800 uppercase tracking-widest">Auditoría de Egresos y Fuga de Capital</h3>
+                </div>
+                <div class="overflow-x-auto hide-scrollbar">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-white border-b border-slate-100">
+                            <tr>
+                                <th class="py-3.5 px-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest w-1/4">Gasto (Planificado + Manual)</th>
+                                <th class="py-3.5 px-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest w-1/4">Moneda de Pago Requerida</th>
+                                <th class="py-3.5 px-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Monto Base</th>
+                                <th class="py-3.5 px-6 text-[9px] font-bold text-rose-500 uppercase tracking-widest text-right">Fuga (Spread)</th>
+                                <th class="py-3.5 px-6 text-[9px] font-bold text-slate-900 uppercase tracking-widest text-right bg-slate-50">Costo Real (Salida eq. USD)</th>
+                            </tr>
+                        </thead>
                         <tbody class="divide-y divide-slate-100">
+                            {% for e in proyeccion.lista_egresos %}
+                            <tr class="hover:bg-slate-50/80 transition-colors group">
+                                <td class="px-6 py-3.5 font-semibold text-slate-900">{{ e.titulo }}</td>
+                                <td class="px-4 py-3.5 text-xs font-bold text-slate-500">{{ e.metodo }}</td>
+                                
+                                <td class="px-6 py-3.5 whitespace-nowrap">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <span class="text-[10px] text-slate-400 font-medium">$</span>
+                                        <span class="font-bold text-slate-600 tabular-nums text-right w-20 tracking-tight">{{ "{:,.2f}".format(e.monto) }}</span>
+                                    </div>
+                                </td>
+                                
+                                <td class="px-6 py-3.5 whitespace-nowrap">
+                                    <div class="flex items-center justify-end gap-2">
+                                        {% if e.perdida > 0 %}
+                                            <span class="text-[10px] text-rose-400 font-bold">$</span>
+                                            <span class="font-bold text-rose-500 tabular-nums text-right w-20 tracking-tight">+ {{ "{:,.2f}".format(e.perdida) }}</span>
+                                        {% else %}
+                                            <span class="text-slate-300 tabular-nums text-right w-20 font-medium">—</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+
+                                <td class="px-6 py-3.5 whitespace-nowrap bg-slate-50/50">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <span class="text-[10px] text-slate-500 font-bold">$</span>
+                                        <span class="font-black text-slate-900 tabular-nums text-right w-24 tracking-tight">{{ "{:,.2f}".format(e.salida_real) }}</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
                         </tbody>
                     </table>
                 </div>
             </div>
-        </div>
-    </form>
 
-    {% if simulacion_realizada %}
-    <section class="space-y-6 pt-8 border-t border-slate-200 animate-fade-in">
-        
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Recaudo Estimado ({{ proyeccion.clientes_activos }} clientes)</p>
-                <div class="flex items-baseline gap-1 mt-2">
-                    <span class="text-sm font-semibold text-slate-400">$</span>
-                    <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums">{{ "{:,.2f}".format(proyeccion.recaudo_total_usd) }}</h3>
-                </div>
-            </div>
-            
-            <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Egresos Computados</p>
-                <div class="flex items-baseline gap-1 mt-2">
-                    <span class="text-sm font-semibold text-slate-400">$</span>
-                    <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums">{{ "{:,.2f}".format(proyeccion.egresos_total_usd) }}</h3>
-                </div>
-            </div>
-
-            <div class="bg-rose-50/50 border border-rose-100 rounded-2xl p-5 shadow-sm relative overflow-hidden">
-                <div class="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
-                <p class="text-[9px] font-bold text-rose-500 uppercase tracking-widest mb-1 relative z-10">Pérdida por Spread (FX)</p>
-                <div class="flex items-baseline gap-1 mt-2 relative z-10">
-                    <span class="text-sm font-semibold text-rose-400">($</span>
-                    <h3 class="text-2xl font-black text-rose-600 tracking-tight tabular-nums">{{ "{:,.2f}".format(proyeccion.perdida_spread_usd) }}</h3>
-                    <span class="text-sm font-semibold text-rose-400">)</span>
-                </div>
-            </div>
-
-            <div class="bg-[#0B1121] border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-                <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-500/20 rounded-full blur-2xl pointer-events-none"></div>
-                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 relative z-10">Balance Neto Final</p>
-                <div class="flex items-baseline gap-1 mt-2 relative z-10">
-                    <span class="text-sm font-semibold text-slate-500">$</span>
-                    <h3 class="text-2xl font-black text-white tracking-tight tabular-nums">{{ "{:,.2f}".format(proyeccion.balance_neto_usd) }}</h3>
-                </div>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 pb-3 border-b border-slate-100">Distribución de Ingresos (Orígenes)</h3>
-                <ul class="divide-y divide-slate-50">
-                    <li class="flex justify-between items-center py-3.5">
-                        <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> USD Efectivo Físico</span>
-                        <div class="flex items-center gap-2">
-                            {% if proyeccion.recaudo_desglose.USD_EFECTIVO > 0 %}
-                                <span class="text-[10px] font-medium text-slate-400">$</span>
-                                <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.recaudo_desglose.USD_EFECTIVO) }}</span>
-                            {% else %}
-                                <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
-                            {% endif %}
-                        </div>
-                    </li>
-                    <li class="flex justify-between items-center py-3.5">
-                        <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-amber-400"></div> USDT (Binance)</span>
-                        <div class="flex items-center gap-2">
-                            {% if proyeccion.recaudo_desglose.USDT_BINANCE > 0 %}
-                                <span class="text-[10px] font-medium text-slate-400">$</span>
-                                <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.recaudo_desglose.USDT_BINANCE) }}</span>
-                            {% else %}
-                                <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
-                            {% endif %}
-                        </div>
-                    </li>
-                    <li class="flex justify-between items-center py-3.5">
-                        <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-blue-400"></div> Bolívares (Tasa BCV)</span>
-                        <div class="flex items-center gap-2">
-                            {% if proyeccion.recaudo_desglose.VES_BCV > 0 %}
-                                <span class="text-[10px] font-medium text-slate-400">$</span>
-                                <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.recaudo_desglose.VES_BCV) }}</span>
-                            {% else %}
-                                <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
-                            {% endif %}
-                        </div>
-                    </li>
-                </ul>
-            </div>
-
-            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 pb-3 border-b border-slate-100">Obligaciones (Destinos de Salida)</h3>
-                <ul class="divide-y divide-slate-50">
-                    <li class="flex justify-between items-center py-3">
-                        <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> Pagos en USD Efectivo</span>
-                        <div class="flex items-center gap-2">
-                            {% if proyeccion.distribucion_egresos.USD_EFECTIVO > 0 %}
-                                <span class="text-[10px] font-medium text-slate-400">$</span>
-                                <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.distribucion_egresos.USD_EFECTIVO) }}</span>
-                            {% else %}
-                                <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
-                            {% endif %}
-                        </div>
-                    </li>
-                    <li class="flex justify-between items-center py-3">
-                        <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-rose-400"></div> Pagos en USDT (Cripto)</span>
-                        <div class="flex items-center gap-2">
-                            {% if proyeccion.distribucion_egresos.USDT_BINANCE > 0 %}
-                                <span class="text-[10px] font-medium text-slate-400">$</span>
-                                <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.distribucion_egresos.USDT_BINANCE) }}</span>
-                            {% else %}
-                                <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
-                            {% endif %}
-                        </div>
-                    </li>
-                    <li class="flex justify-between items-center py-3">
-                        <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-orange-400"></div> Pagos en Bs (Tasa Binance)</span>
-                        <div class="flex items-center gap-2">
-                            {% if proyeccion.distribucion_egresos.VES_BINANCE > 0 %}
-                                <span class="text-[10px] font-medium text-orange-400">$</span>
-                                <span class="font-bold text-orange-600 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.distribucion_egresos.VES_BINANCE) }}</span>
-                            {% else %}
-                                <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
-                            {% endif %}
-                        </div>
-                    </li>
-                    <li class="flex justify-between items-center py-3">
-                        <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-blue-400"></div> Pagos directos en Bs (BCV)</span>
-                        <div class="flex items-center gap-2">
-                            {% if proyeccion.distribucion_egresos.VES_BCV > 0 %}
-                                <span class="text-[10px] font-medium text-slate-400">$</span>
-                                <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.distribucion_egresos.VES_BCV) }}</span>
-                            {% else %}
-                                <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
-                            {% endif %}
-                        </div>
-                    </li>
-                </ul>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mt-6">
-            <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-                <h3 class="text-[10px] font-bold text-slate-800 uppercase tracking-widest">Auditoría de Egresos y Fuga de Capital</h3>
-            </div>
-            <div class="overflow-x-auto hide-scrollbar">
-                <table class="w-full text-sm text-left">
-                    <thead class="bg-white border-b border-slate-100">
-                        <tr>
-                            <th class="py-3.5 px-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest w-1/4">Gasto (Planificado + Manual)</th>
-                            <th class="py-3.5 px-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest w-1/4">Moneda de Pago Requerida</th>
-                            <th class="py-3.5 px-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Monto Base</th>
-                            <th class="py-3.5 px-6 text-[9px] font-bold text-rose-500 uppercase tracking-widest text-right">Fuga (Spread)</th>
-                            <th class="py-3.5 px-6 text-[9px] font-bold text-slate-900 uppercase tracking-widest text-right bg-slate-50">Costo Real (Salida eq. USD)</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        {% for e in proyeccion.lista_egresos %}
-                        <tr class="hover:bg-slate-50/80 transition-colors group">
-                            <td class="px-6 py-3.5 font-semibold text-slate-900">{{ e.titulo }}</td>
-                            <td class="px-4 py-3.5 text-xs font-bold text-slate-500">{{ e.metodo }}</td>
-                            
-                            <td class="px-6 py-3.5 whitespace-nowrap">
-                                <div class="flex items-center justify-end gap-2">
-                                    <span class="text-[10px] text-slate-400 font-medium">$</span>
-                                    <span class="font-bold text-slate-600 tabular-nums text-right w-20 tracking-tight">{{ "{:,.2f}".format(e.monto) }}</span>
-                                </div>
-                            </td>
-                            
-                            <td class="px-6 py-3.5 whitespace-nowrap">
-                                <div class="flex items-center justify-end gap-2">
-                                    {% if e.perdida > 0 %}
-                                        <span class="text-[10px] text-rose-400 font-bold">$</span>
-                                        <span class="font-bold text-rose-500 tabular-nums text-right w-20 tracking-tight">+ {{ "{:,.2f}".format(e.perdida) }}</span>
-                                    {% else %}
-                                        <span class="text-slate-300 tabular-nums text-right w-20 font-medium">—</span>
-                                    {% endif %}
-                                </div>
-                            </td>
-
-                            <td class="px-6 py-3.5 whitespace-nowrap bg-slate-50/50">
-                                <div class="flex items-center justify-end gap-2">
-                                    <span class="text-[10px] text-slate-500 font-bold">$</span>
-                                    <span class="font-black text-slate-900 tabular-nums text-right w-24 tracking-tight">{{ "{:,.2f}".format(e.salida_real) }}</span>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-            <div class="lg:col-span-1"></div> <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
-                <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Recálculo de Liquidación de Caja</h4>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+                <div class="lg:col-span-1"></div>
                 
-                <div class="space-y-3">
-                    <div class="flex justify-between items-center text-sm">
-                        <span class="font-medium text-slate-500">Recaudo Estimado de Cartera (Bruto)</span>
-                        <div class="flex items-center gap-2">
-                            <span class="text-[10px] text-slate-400 font-medium">$</span>
-                            <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.recaudo_total_usd) }}</span>
+                <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4">
+                    <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Recálculo de Liquidación de Caja</h4>
+                    
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="font-medium text-slate-500">Recaudo Estimado de Cartera (Bruto)</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-slate-400 font-medium">$</span>
+                                <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.recaudo_total_usd) }}</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="flex justify-between items-center text-sm">
-                        <span class="font-medium text-slate-500">(-) Egresos Operativos Base</span>
-                        <div class="flex items-center gap-2">
-                            <span class="text-[10px] text-slate-400 font-medium">$</span>
-                            <span class="font-bold text-slate-600 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.egresos_total_usd) }}</span>
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="font-medium text-slate-500">(-) Egresos Operativos Base</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-slate-400 font-medium">$</span>
+                                <span class="font-bold text-slate-600 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.egresos_total_usd) }}</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="flex justify-between items-center text-sm">
-                        <span class="font-medium text-rose-500">(-) Costo Adicional de Reposición (Spread)</span>
-                        <div class="flex items-center gap-2">
-                            <span class="text-[10px] text-rose-400 font-bold">$</span>
-                            <span class="font-bold text-rose-600 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.perdida_spread_usd) }}</span>
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="font-medium text-rose-500">(-) Costo Adicional de Reposición (Spread)</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-rose-400 font-bold">$</span>
+                                <span class="font-bold text-rose-600 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.perdida_spread_usd) }}</span>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="border-t border-double border-slate-300 pt-3 flex justify-between items-center">
-                        <div>
-                            <span class="text-xs font-bold text-slate-900 block">Disponibilidad Real Proyectada</span>
-                            <span class="text-[10px] font-medium text-slate-400">Patrimonio neto real indexado en caja al cierre</span>
-                        </div>
-                        <div class="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-md border border-slate-800">
-                            <span class="text-xs font-bold text-slate-400">$</span>
-                            <span class="text-lg font-black tabular-nums text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.balance_neto_usd) }}</span>
+                        <div class="border-t border-double border-slate-300 pt-3 flex justify-between items-center">
+                            <div>
+                                <span class="text-xs font-bold text-slate-900 block">Disponibilidad Real Proyectada</span>
+                                <span class="text-[10px] font-medium text-slate-400">Patrimonio neto real indexado en caja al cierre</span>
+                            </div>
+                            <div class="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-md border border-slate-800">
+                                <span class="text-xs font-bold text-slate-400">$</span>
+                                <span class="text-lg font-black tabular-nums text-right tracking-tight">{{ "{:,.2f}".format(proyeccion.balance_neto_usd) }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-    </section>
-    {% endif %}
+        </section>
+        {% endif %}
 
-</div>
+    </div> </div>
 </div>
 {% endblock %}
 
