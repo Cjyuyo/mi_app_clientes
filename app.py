@@ -4087,7 +4087,7 @@ def generar_ocurrencias_periodo(conn, periodo_tipo: str, clave: str, start: date
         return
     try:
         with conn.cursor() as cur:
-            # Traemos egresos activos cuya ventana intersecte el período
+            # CORREGIDO: LOWER() en el WHERE para que detecte los gastos de la base de datos
             cur.execute("""
                 SELECT id, titulo, tipo, frecuencia, intervalo_semana, byday, dia_mes, dias_quincena,
                        monto_base_usd, metodo_referencia,
@@ -4095,7 +4095,7 @@ def generar_ocurrencias_periodo(conn, periodo_tipo: str, clave: str, start: date
                        fecha_fin_recurrencia::date AS fecha_fin_recurrencia,
                        COALESCE(estado,'activo') AS estado
                 FROM egresos_planificados
-                WHERE COALESCE(estado,'activo') IN ('activo')  -- solo activos
+                WHERE LOWER(COALESCE(estado,'activo')) IN ('activo', 'activa')
             """)
             egresos = cur.fetchall()
 
@@ -4200,8 +4200,7 @@ def generar_ocurrencias_periodo(conn, periodo_tipo: str, clave: str, start: date
 # ---------------- Resumen para la plantilla ----------------
 
 def resumen_egresos_periodo(conn, periodo_tipo: str, clave: str):
-    """Devuelve un objeto con 'totales' (programado/pagado/pendiente)
-       y 'items' (por egreso, con lista de ocurrencias)."""
+    """Devuelve un objeto con 'totales' y 'items'."""
     if periodo_tipo == 'semanal':
         start, end = _week_bounds(clave)
     else:
@@ -4209,11 +4208,10 @@ def resumen_egresos_periodo(conn, periodo_tipo: str, clave: str):
 
     tot_programado = Decimal('0.00')
     tot_pagado     = Decimal('0.00')
-
     items = []
 
     with conn.cursor() as cur:
-        # Trae egresos y sus agregados del período
+        # CORREGIDO: Sensibilidad de mayúsculas en el WHERE
         cur.execute("""
             SELECT ep.id, ep.titulo, ep.frecuencia,
                    COALESCE(SUM(eo.monto_programado_usd),0) AS programado,
@@ -4222,7 +4220,7 @@ def resumen_egresos_periodo(conn, periodo_tipo: str, clave: str):
             LEFT JOIN egresos_ocurrencias eo
                    ON eo.egreso_id = ep.id
                   AND eo.fecha_programada BETWEEN %s AND %s
-            WHERE COALESCE(ep.estado,'activo') IN ('activo')
+            WHERE LOWER(COALESCE(ep.estado,'activo')) IN ('activo', 'activa')
             GROUP BY ep.id
             ORDER BY ep.titulo
         """, (start, end))
@@ -4276,13 +4274,67 @@ def resumen_egresos_periodo(conn, periodo_tipo: str, clave: str):
     return SimpleNamespace(totales=totales, items=items)
 # ================== /Helpers Gestión de Egresos ==================
 
-@app.route('/gestion/egresos', methods=['GET'], endpoint='gestion_egresos')
+@app.route('/gestion/egresos', methods=['GET', 'POST'], endpoint='gestion_egresos')
 @admin_required
 def gestion_egresos():
     conn = get_db()
     hoy = get_venezuela_current_date()
 
-    # Defaults de período
+    # --- LÓGICA POST: GUARDAR NUEVOS EGRESOS ---
+    if request.method == 'POST':
+        try:
+            tipo = request.form.get('tipo')
+            titulo = request.form.get('titulo')
+            monto_str = request.form.get('monto_base_usd', '0').replace(',', '.')
+            monto = Decimal(monto_str)
+            metodo = request.form.get('metodo_referencia')
+            frecuencia = request.form.get('frecuencia', 'Unico')
+            fecha_inicio = request.form.get('fecha_inicio_recurrencia') or hoy.strftime('%Y-%m-%d')
+            fecha_fin = request.form.get('fecha_fin_recurrencia') or None
+            descripcion = request.form.get('descripcion')
+            
+            intervalo = request.form.get('intervalo_semana') or 1
+            byday = ','.join(request.form.getlist('byday')) if request.form.getlist('byday') else None
+            dia_mes = request.form.get('dia_mes')
+            dias_quincena = request.form.get('dias_quincena')
+            
+            cliente_id = request.form.get('cliente_asociado_id') or None
+            num_cuotas = request.form.get('numero_de_cuotas') or 1
+
+            if tipo == 'Devolucion':
+                titulo = "Devolución a Cliente"
+                if cliente_id:
+                    with conn.cursor() as cur:
+                        cur.execute("SELECT nombre, apellido FROM clientes WHERE id = %s", (cliente_id,))
+                        c_info = cur.fetchone()
+                        if c_info:
+                            titulo = f"Devolución: {c_info['nombre']} {c_info['apellido']}"
+
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO egresos_planificados 
+                    (titulo, tipo, monto_base_usd, metodo_referencia, frecuencia, 
+                     fecha_inicio_recurrencia, fecha_fin_recurrencia, descripcion,
+                     intervalo_semana, byday, dia_mes, dias_quincena, 
+                     cliente_asociado_id, numero_de_cuotas, estado, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'activo', NOW())
+                """, (
+                    titulo, tipo, float(monto), metodo, frecuencia,
+                    fecha_inicio, fecha_fin, descripcion,
+                    int(intervalo), byday, 
+                    int(dia_mes) if dia_mes else None, 
+                    dias_quincena, 
+                    int(cliente_id) if cliente_id else None, 
+                    int(num_cuotas)
+                ))
+            conn.commit()
+            flash('Egreso planificado registrado exitosamente.', 'success')
+        except Exception as e:
+            conn.rollback()
+            flash(f'Error al registrar el egreso: {e}', 'danger')
+        return redirect(url_for('gestion_egresos'))
+
+    # --- LÓGICA GET: RENDERIZAR VISTA ---
     periodo_tipo = (request.args.get('periodo_tipo') or 'mensual').lower()
     periodo = request.args.get('periodo')
     if not periodo:
@@ -4292,20 +4344,23 @@ def gestion_egresos():
             y, wk, _ = hoy.isocalendar()
             periodo = f"{y}-W{wk:02d}"
 
-    # Helpers
     periodo_tipo, clave, start, end = _parse_periodo(periodo_tipo, periodo)
     generar_ocurrencias_periodo(conn, periodo_tipo, clave, start, end)
     resumen = resumen_egresos_periodo(conn, periodo_tipo, clave)
 
-    # Catálogo de egresos (panel inferior) — Activo primero
     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute("""
             SELECT id, titulo, tipo, frecuencia, intervalo_semana, byday, dia_mes, dias_quincena,
-                   monto_base_usd, metodo_referencia, estado, fecha_inicio_recurrencia, fecha_fin_recurrencia
+                   monto_base_usd, metodo_referencia, estado, fecha_inicio_recurrencia, fecha_fin_recurrencia,
+                   descripcion, cliente_asociado_id
             FROM egresos_planificados
-            ORDER BY (LOWER(COALESCE(estado,'inactivo'))='activo') DESC, titulo
+            ORDER BY (LOWER(COALESCE(estado,'inactivo')) IN ('activo', 'activa')) DESC, titulo
         """)
         rows = cur.fetchall() or []
+        
+        # Traemos los clientes retirados para el selector de devoluciones
+        cur.execute("SELECT id, nombre || ' ' || apellido AS nombre_completo FROM clientes WHERE UPPER(TRIM(estatus_cliente)) = 'RETIRO'")
+        clientes_retiro = cur.fetchall() or []
 
     def _f(kind):
         k = (kind or '').lower()
@@ -4320,7 +4375,7 @@ def gestion_egresos():
     return render_template(
         'gestion_egresos.html',
         periodo_tipo=periodo_tipo, periodo=clave, start=start, end=end,
-        resumen=resumen, egresos=egresos
+        resumen=resumen, egresos=egresos, clientes_retiro=clientes_retiro
     )
 
 @app.route('/gestion/egresos/ocurrencias/<int:occ_id>/prefill-pago', methods=['POST'])
@@ -4528,12 +4583,13 @@ def _get_egresos_totales_periodo(conn, start_date, end_date):
         bcv_now = float((_fetch_tasas_now(conn) or {}).get('usd') or 0)
         total_usd = 0.0
         with conn.cursor() as cur:
+            # CORREGIDO: Usamos LOWER() para ignorar si en la BD dice 'Activo' o 'activo'
             cur.execute("""
                 SELECT ep.metodo_referencia, eo.monto_programado_usd, eo.monto_pagado_usd
                 FROM egresos_ocurrencias eo
                 JOIN egresos_planificados ep ON ep.id = eo.egreso_id
                 WHERE eo.fecha_programada BETWEEN %s AND %s
-                  AND COALESCE(ep.estado, 'activo') IN ('activo', 'Activo')
+                  AND LOWER(COALESCE(ep.estado, 'activo')) IN ('activo', 'activa')
                   AND eo.estado != 'pagado'
             """, (start_date, end_date))
             
