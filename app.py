@@ -5002,7 +5002,7 @@ def _procesar_bloques(conn, bloques: list[dict], start_date: date, end_date: dat
     return ingresos_totales, resultados_por_bloque, clientes_a_cobrar
 
 # =================================================================================
-# Ruta /reportes/proyecciones (NUEVO MOTOR INTELIGENTE)
+# Ruta /reportes/proyecciones (NUEVO MOTOR INTELIGENTE - CON SALIDA REAL COMPUTADA)
 # =================================================================================
 @app.route('/reportes/proyecciones', methods=['GET', 'POST'])
 @admin_required
@@ -5118,11 +5118,13 @@ def reporte_proyecciones():
                     proyeccion['egresos_total_usd'] += monto
                     proyeccion['perdida_spread_usd'] += perdida
                     
+                    # SE CALCULA LA SALIDA REAL MULTI-MONEDA
                     proyeccion['lista_egresos'].append({
                         'titulo': eg['titulo'],
                         'monto': monto,
                         'metodo': label,
-                        'perdida': perdida
+                        'perdida': perdida,
+                        'salida_real': monto + perdida
                     })
 
                 # 3. EGRESOS MANUALES ADICIONALES
@@ -5156,11 +5158,13 @@ def reporte_proyecciones():
                         proyeccion['egresos_total_usd'] += monto
                         proyeccion['perdida_spread_usd'] += perdida
                         
+                        # SE CALCULA LA SALIDA REAL PARA GASTOS EXTRAS
                         proyeccion['lista_egresos'].append({
                             'titulo': f"{k} (Extra)",
                             'monto': monto,
                             'metodo': label,
-                            'perdida': perdida
+                            'perdida': perdida,
+                            'salida_real': monto + perdida
                         })
 
                 # 4. BALANCE NETO FINAL
