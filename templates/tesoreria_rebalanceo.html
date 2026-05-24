@@ -1,231 +1,355 @@
 {% extends 'base_sidebar.html' %}
 
-{% block title %}
-    Rebalanceo de Tesorería
+{% block title %}Rebalanceo de Tesorería | Moto Plan Motors{% endblock %}
+
+{% block head_extra %}
+<style>
+    /* Forzamos el ancho uniforme para números (Tabular Nums) - Estándar Fintech */
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+    
+    /* Scrollbar invisible para tablas limpias */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* Inputs Premium Clinical Style */
+    .form-input {
+        @apply w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-semibold rounded-xl p-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 shadow-sm;
+    }
+    
+    /* Selects Premium */
+    .form-select {
+        @apply w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm font-semibold rounded-xl p-3 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-sm cursor-pointer appearance-none;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 0.5rem center;
+        background-repeat: no-repeat;
+        background-size: 1.5em 1.5em;
+    }
+    .form-select:disabled {
+        @apply bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200/50;
+    }
+</style>
 {% endblock %}
 
 {% block body %}
-<div class="space-y-8">
-    <div class="bg-white p-6 rounded-xl shadow-sm">
-        <h1 class="text-3xl font-bold text-slate-800">Rebalanceo de Tesorería</h1>
-        <p class="text-slate-500 mt-1">Registro de movimientos entre cajas y tipos de moneda.</p>
+<div class="min-h-screen bg-[#f7f9fc] -m-6 p-6 sm:p-10 font-sans">
+<div class="max-w-[1400px] mx-auto space-y-8 mb-12">
+
+    <div class="bg-[#0B1121] rounded-3xl shadow-lg border border-slate-800 p-8 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+        
+        <div class="flex items-center gap-5 relative z-10 w-full">
+            <div class="w-14 h-14 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center backdrop-blur-md shadow-inner">
+                <i class="bi bi-arrow-left-right text-2xl text-blue-400"></i>
+            </div>
+            <div>
+                <h1 class="text-3xl font-extrabold text-white tracking-tight">Rebalanceo de Tesorería</h1>
+                <p class="text-slate-400 text-sm mt-1 font-medium">Registro de transferencias, pagos operativos y cruce de divisas.</p>
+            </div>
+        </div>
     </div>
 
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="space-y-3">
+            {% for category, message in messages %}
+                <div class="p-4 rounded-2xl border flex items-center gap-3 text-sm font-bold tracking-tight {% if category == 'danger' %} bg-rose-50 border-rose-200 text-rose-800 {% elif category == 'success' %} bg-emerald-50 border-emerald-200 text-emerald-800 {% else %} bg-blue-50 border-blue-200 text-blue-800 {% endif %}" role="alert">
+                    <i class="bi {% if category == 'danger' %}bi-exclamation-triangle-fill text-rose-500{% elif category == 'success' %}bi-check-circle-fill text-emerald-500{% else %}bi-info-circle-fill text-blue-500{% endif %} text-lg"></i>
+                    {{ message }}
+                </div>
+            {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
     {% if contexto_proyeccion %}
-    <div class="space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="md:col-span-2 bg-white p-5 rounded-xl shadow-sm border-2 border-indigo-200 bg-indigo-50">
-                <h3 class="text-lg font-bold text-indigo-800 mb-2">Contexto de Proyección Activa</h3>
-                <div class="flex justify-around items-center text-center mt-3">
+    <div class="bg-white p-1 rounded-3xl shadow-sm border border-slate-200">
+        <div class="flex flex-col lg:flex-row items-stretch gap-1">
+            
+            <div class="flex-1 p-6 lg:p-8 bg-slate-50/50 rounded-2xl flex flex-col justify-center">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center border border-indigo-200"><i class="bi bi-cpu-fill"></i></div>
+                    <h3 class="text-sm font-bold text-slate-900 tracking-tight">Análisis de Proyección Activa</h3>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-6">
                     <div>
-                        <p class="text-sm font-medium text-indigo-700">Meta de Balance Neto (Mes)</p>
-                        <p class="text-2xl font-bold {{ 'text-green-600' if contexto_proyeccion.balance_neto_proyectado >= 0 else 'text-red-600' }} mt-1">
+                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Meta de Balance Neto</p>
+                        <p class="text-3xl font-black tabular-nums tracking-tight {{ 'text-emerald-600' if contexto_proyeccion.balance_neto_proyectado >= 0 else 'text-rose-600' }}">
                             ${{ "{:,.2f}".format(contexto_proyeccion.balance_neto_proyectado) }}
                         </p>
                     </div>
                     <div>
-                        <p class="text-sm font-medium text-indigo-700">Riesgo por Devaluación Proyectado</p>
-                        <p class="text-2xl font-bold text-red-600 mt-1">
+                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Riesgo Devaluación (Proy)</p>
+                        <p class="text-3xl font-black text-rose-600 tabular-nums tracking-tight">
                             (-${{ "{:,.2f}".format(contexto_proyeccion.perdida_devaluacion_proyectada) }})
                         </p>
                     </div>
                 </div>
             </div>
-            <div class="bg-white p-5 rounded-xl shadow-sm border-2 border-blue-200 bg-blue-50 text-center flex flex-col justify-center">
-                <p class="text-sm font-medium text-blue-700">Saldo Actual en Bolívares</p>
-                <p class="text-2xl font-bold text-blue-800 mt-1">
-                    ${{ "{:,.2f}".format(balances.CAJA_BS_TOTAL / tasas_del_dia.usd) if tasas_del_dia and tasas_del_dia.usd > 0 else '0.00' }}
-                </p>
-                <p class="text-xs text-slate-500">(Bs. {{ "{:,.2f}".format(balances.CAJA_BS_TOTAL) }})</p>
-            </div>
-        </div>
-        {% if mostrar_recomendacion %}
-        <div class="p-4 rounded-md bg-yellow-100 text-yellow-800 border border-yellow-300">
-            <div class="flex items-center">
-                <div class="w-10 h-10 flex-shrink-0 mr-3 flex items-center justify-center rounded-full bg-yellow-200">
-                    <i class="bi bi-lightbulb-fill text-xl text-yellow-600"></i>
-                </div>
-                <div>
-                    <p class="font-bold">Acción Recomendada</p>
-                    <p class="text-sm">Tu saldo en Bolívares es significativo. Para mitigar el riesgo de devaluación proyectado, considera realizar una <span class="font-semibold">Compra de Divisas</span>.</p>
+            
+            <div class="w-px bg-slate-100 hidden lg:block"></div>
+            
+            <div class="flex-1 p-6 lg:p-8 flex flex-col justify-center relative overflow-hidden">
+                <i class="bi bi-bank absolute -right-6 -bottom-6 text-8xl text-slate-50 pointer-events-none"></i>
+                <div class="relative z-10">
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Exposición Actual en Bolívares</p>
+                    <div class="flex items-baseline gap-2">
+                        <span class="text-2xl font-bold text-slate-400">$</span>
+                        <p class="text-4xl font-black text-slate-900 tabular-nums tracking-tight">
+                            {{ "{:,.2f}".format(balances.CAJA_BS_TOTAL / tasas_del_dia.usd) if tasas_del_dia and tasas_del_dia.usd > 0 else '0.00' }}
+                        </p>
+                    </div>
+                    <p class="text-xs font-semibold text-slate-400 mt-1 tabular-nums">(Equivalente a Bs. {{ "{:,.2f}".format(balances.CAJA_BS_TOTAL) }})</p>
                 </div>
             </div>
+
+            {% if mostrar_recomendacion %}
+            <div class="w-px bg-slate-100 hidden lg:block"></div>
+            
+            <div class="flex-1 p-6 lg:p-8 bg-amber-50 rounded-2xl border border-amber-100 flex flex-col justify-center">
+                <div class="flex items-start gap-4">
+                    <div class="w-10 h-10 shrink-0 flex items-center justify-center rounded-xl bg-amber-200/50 border border-amber-300">
+                        <i class="bi bi-lightbulb-fill text-xl text-amber-600"></i>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-amber-600 uppercase tracking-widest mb-1">Acción Recomendada</p>
+                        <p class="text-xs font-medium text-amber-900/80 leading-relaxed">
+                            Tu saldo en Bolívares ha superado el umbral seguro. Para mitigar el riesgo de devaluación proyectado, considera ejecutar una <strong class="font-bold text-amber-900">Compra de Divisas</strong> inmediatamente.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
         </div>
-        {% endif %}
     </div>
     {% endif %}
-    {# Este bloque para mostrar mensajes de éxito o error se mantiene #}
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-            <div class="p-4 rounded-md {% if category == 'danger' %} bg-red-100 text-red-800 {% elif category == 'success' %} bg-green-100 text-green-800 {% else %} bg-blue-100 text-blue-800 {% endif %}" role="alert">
-                {{ message }}
-            </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
 
-    {# Esta sección solo será visible para los roles de superadmin y gerente #}
     {% if g.admin.rol in ['superadmin', 'gerente'] %}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-sm font-medium text-slate-500">Efectivo USD</div><div class="text-2xl font-bold text-green-600 mt-1">${{ "{:,.2f}".format(balances.EFECTIVO_USD) }}</div></div>
-        <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-sm font-medium text-slate-500">Binance USDT</div><div class="text-2xl font-bold text-yellow-600 mt-1">${{ "{:,.2f}".format(balances.BINANCE_USDT) }}</div></div>
-        <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-sm font-medium text-slate-500">Caja Bs (USD Ref)</div><div class="text-2xl font-bold text-blue-600 mt-1">Bs. {{ "{:,.2f}".format(balances.CAJA_BS_USD) }}</div></div>
-        <div class="bg-white p-4 rounded-xl shadow-sm text-center"><div class="text-sm font-medium text-slate-500">Caja Bs (EUR Ref)</div><div class="text-2xl font-bold text-blue-600 mt-1">Bs. {{ "{:,.2f}".format(balances.CAJA_BS_EUR) }}</div></div>
+    <div>
+        <p class="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-3">Saldos Consolidados</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                <div class="flex justify-between items-start mb-4">
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Efectivo (USD)</p>
+                    <i class="bi bi-cash-stack text-emerald-500"></i>
+                </div>
+                <div class="flex items-baseline gap-1">
+                    <span class="text-lg font-semibold text-slate-400">$</span>
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums">{{ "{:,.2f}".format(balances.EFECTIVO_USD) }}</h3>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                <div class="flex justify-between items-start mb-4">
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Binance (USDT)</p>
+                    <i class="bi bi-currency-bitcoin text-amber-500"></i>
+                </div>
+                <div class="flex items-baseline gap-1">
+                    <span class="text-lg font-semibold text-slate-400">$</span>
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums">{{ "{:,.2f}".format(balances.BINANCE_USDT) }}</h3>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                <div class="flex justify-between items-start mb-4">
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Caja Bancos (Bs)</p>
+                    <i class="bi bi-bank text-blue-500"></i>
+                </div>
+                <div class="flex flex-col">
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums">Bs. {{ "{:,.2f}".format(balances.CAJA_BS_USD) }}</h3>
+                    <p class="text-[10px] font-semibold text-slate-400 mt-1 uppercase tracking-widest">Ref. USD</p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+                <div class="flex justify-between items-start mb-4">
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Caja Bancos (Bs)</p>
+                    <i class="bi bi-bank2 text-indigo-500"></i>
+                </div>
+                <div class="flex flex-col">
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums">Bs. {{ "{:,.2f}".format(balances.CAJA_BS_EUR) }}</h3>
+                    <p class="text-[10px] font-semibold text-slate-400 mt-1 uppercase tracking-widest">Ref. EUR</p>
+                </div>
+            </div>
+        </div>
     </div>
     {% endif %}
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
         <div class="lg:col-span-1">
-            <div class="bg-white rounded-xl shadow-sm">
-                <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Registrar Nuevo Movimiento</h2></div>
-                <div class="p-5">
-                    {# ====== PREFILL (nuevo) ====== #}
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-200/80 overflow-hidden">
+                <div class="p-6 border-b border-slate-100 bg-slate-50/50">
+                    <h2 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                        <i class="bi bi-plus-circle-fill text-blue-600"></i> Nuevo Movimiento
+                    </h2>
+                </div>
+                
+                <div class="p-6">
+                    {# ====== PREFILL ====== #}
                     {% set prefill_tipo_operacion = request.args.get('tipo_operacion') %}
                     {% set prefill_nota = request.args.get('nota') %}
                     {% set prefill_monto = request.args.get('monto_origen') %}
                     {% set prefill_occ = request.args.get('egreso_ocurrencia_id') %}
                     {# ====== FIN PREFILL ====== #}
 
-                    <form action="{{ url_for('tesoreria_rebalanceo') }}" method="POST" id="rebalanceo-form"
-                          class="space-y-4"
-                          x-data="{ tipoOperacion: '{{ prefill_tipo_operacion or '' }}', monedaOrigen: '', monedaDestino: '' }">
+                    <form action="{{ url_for('tesoreria_rebalanceo') }}" method="POST" id="rebalanceo-form" class="space-y-6" x-data="{ tipoOperacion: '{{ prefill_tipo_operacion or '' }}', monedaOrigen: '', monedaDestino: '' }">
                         <input type="hidden" name="egreso_ocurrencia_id" value="{{ prefill_occ or '' }}">
 
-                        <div>
-                            <label for="tipo_operacion" class="block text-sm font-medium text-slate-700">1. Tipo de Operación</label>
-                            <select id="tipo_operacion" name="tipo_operacion"
-                                    x-model="tipoOperacion"
-                                    class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                    {% if prefill_tipo_operacion %}disabled{% endif %} required>
-                                <option value="" {% if not prefill_tipo_operacion %}selected{% endif %} disabled>-- Seleccione --</option>
-                                <option value="TRANSFERENCIA_INTERNA" {% if prefill_tipo_operacion=='TRANSFERENCIA_INTERNA' %}selected{% endif %}>Transferencia Interna</option>
-                                <option value="COMPRA_DIVISAS" {% if prefill_tipo_operacion=='COMPRA_DIVISAS' %}selected{% endif %}>Compra/Venta de Divisas</option>
-                                <option value="PAGO_GASTO" {% if prefill_tipo_operacion=='PAGO_GASTO' %}selected{% endif %}>Pago de Gasto / Egreso</option>
-                                <option value="PAGO_NOMINA" {% if prefill_tipo_operacion=='PAGO_NOMINA' %}selected{% endif %}>Pago de Nómina</option>
-                            </select>
-                            {% if prefill_tipo_operacion %}
-                              <input type="hidden" name="tipo_operacion" value="{{ prefill_tipo_operacion }}">
-                            {% endif %}
-                        </div>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="tipo_operacion" class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Tipo de Operación</label>
+                                <select id="tipo_operacion" name="tipo_operacion" x-model="tipoOperacion" class="form-select" {% if prefill_tipo_operacion %}disabled{% endif %} required>
+                                    <option value="" {% if not prefill_tipo_operacion %}selected{% endif %} disabled>Seleccione acción...</option>
+                                    <option value="TRANSFERENCIA_INTERNA" {% if prefill_tipo_operacion=='TRANSFERENCIA_INTERNA' %}selected{% endif %}>Transferencia Interna</option>
+                                    <option value="COMPRA_DIVISAS" {% if prefill_tipo_operacion=='COMPRA_DIVISAS' %}selected{% endif %}>Compra/Venta de Divisas (FX)</option>
+                                    <option value="PAGO_GASTO" {% if prefill_tipo_operacion=='PAGO_GASTO' %}selected{% endif %}>Pago de Gasto / Egreso</option>
+                                    <option value="PAGO_NOMINA" {% if prefill_tipo_operacion=='PAGO_NOMINA' %}selected{% endif %}>Pago de Nómina</option>
+                                </select>
+                                {% if prefill_tipo_operacion %}
+                                  <input type="hidden" name="tipo_operacion" value="{{ prefill_tipo_operacion }}">
+                                {% endif %}
+                            </div>
 
-                        <div>
-                            <label for="nota" class="block text-sm font-medium text-slate-700">2. Nota / Descripción</label>
-                            <input type="text" id="nota" name="nota"
-                                   value="{{ prefill_nota or '' }}"
-                                   class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                   required placeholder="Ej: Pago de servicios, Compra de USD...">
+                            <div>
+                                <label for="nota" class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Descripción</label>
+                                <input type="text" id="nota" name="nota" value="{{ prefill_nota or '' }}" class="form-input" required placeholder="Ej: Compra p2p, Pago proveedor...">
+                            </div>
                         </div>
                         
-                        <hr class="pt-2">
-                        <h3 class="text-md font-bold text-slate-800">3. Origen de los Fondos</h3>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div class="sm:col-span-2">
-                                <label for="caja_origen" class="block text-sm font-medium text-slate-700">Desde (Caja Origen)</label>
-                                <select id="caja_origen" name="caja_origen"
-                                        @change="monedaOrigen = $event.target.options[$event.target.selectedIndex].dataset.moneda"
-                                        class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
-                                    <option value="" data-moneda="">-- Seleccione --</option>
+                        <div class="pt-5 border-t border-slate-100 space-y-4">
+                            <div>
+                                <label for="caja_origen" class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Extraer fondos desde</label>
+                                <select id="caja_origen" name="caja_origen" @change="monedaOrigen = $event.target.options[$event.target.selectedIndex].dataset.moneda" class="form-select" required>
+                                    <option value="" data-moneda="">Seleccionar Wallet...</option>
                                     <option value="EFECTIVO_USD" data-moneda="USD">Efectivo USD</option>
                                     <option value="BINANCE_USDT" data-moneda="USDT">Binance USDT</option>
-                                    <option value="CAJA_BS_USD" data-moneda="BS">Caja Bs (USD Ref)</option>
-                                    <option value="CAJA_BS_EUR" data-moneda="BS">Caja Bs (EUR Ref)</option>
+                                    <option value="CAJA_BS_USD" data-moneda="BS">Caja Bancos (Bs) - Ref. USD</option>
+                                    <option value="CAJA_BS_EUR" data-moneda="BS">Caja Bancos (Bs) - Ref. EUR</option>
                                 </select>
                             </div>
-                            <div>
-                                <label for="monto_origen" class="block text-sm font-medium text-slate-700">Monto que Sale</label>
-                                <input type="text" inputmode="decimal" id="monto_origen" name="monto_origen"
-                                       value="{{ prefill_monto or '' }}"
-                                       class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
-                            </div>
-                            <div>
-                                <label for="moneda_origen" class="block text-sm font-medium text-slate-700">Moneda</label>
-                                <input type="text" id="moneda_origen" name="moneda_origen" x-model="monedaOrigen" class="mt-1 block w-full rounded-md border-slate-200 bg-slate-100" readonly>
+                            
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label for="monto_origen" class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Monto a retirar</label>
+                                    <input type="text" inputmode="decimal" id="monto_origen" name="monto_origen" value="{{ prefill_monto or '' }}" class="form-input text-right font-black tabular-nums" placeholder="0.00" required>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Moneda</label>
+                                    <input type="text" id="moneda_origen" name="moneda_origen" x-model="monedaOrigen" class="form-input bg-slate-100 text-slate-500 border-transparent text-center font-bold" readonly tabindex="-1">
+                                </div>
                             </div>
                         </div>
 
-                        <div x-show="tipoOperacion === 'TRANSFERENCIA_INTERNA' || tipoOperacion === 'COMPRA_DIVISAS'" x-transition class="space-y-4 pt-2">
-                            <hr>
-                            <h3 class="text-md font-bold text-slate-800">4. Destino de los Fondos</h3>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div class="sm:col-span-2">
-                                    <label for="caja_destino" class="block text-sm font-medium text-slate-700">Hacia (Caja Destino)</label>
-                                    <select id="caja_destino" name="caja_destino"
-                                            @change="monedaDestino = $event.target.options[$event.target.selectedIndex].dataset.moneda"
-                                            class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                            :required="tipoOperacion === 'TRANSFERENCIA_INTERNA' || tipoOperacion === 'COMPRA_DIVISAS'">
-                                        <option value="" data-moneda="">-- Seleccione --</option>
-                                        <option value="EFECTIVO_USD" data-moneda="USD">Efectivo USD</option>
-                                        <option value="BINANCE_USDT" data-moneda="USDT">Binance USDT</option>
-                                        <option value="CAJA_BS_USD" data-moneda="BS">Caja Bs (USD Ref)</option>
-                                        <option value="CAJA_BS_EUR" data-moneda="BS">Caja Bs (EUR Ref)</option>
-                                    </select>
+                        <div x-show="tipoOperacion === 'TRANSFERENCIA_INTERNA' || tipoOperacion === 'COMPRA_DIVISAS'" x-transition class="pt-5 border-t border-slate-100 space-y-4">
+                            <div>
+                                <label for="caja_destino" class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Depositar fondos hacia</label>
+                                <select id="caja_destino" name="caja_destino" @change="monedaDestino = $event.target.options[$event.target.selectedIndex].dataset.moneda" class="form-select" :required="tipoOperacion === 'TRANSFERENCIA_INTERNA' || tipoOperacion === 'COMPRA_DIVISAS'">
+                                    <option value="" data-moneda="">Seleccionar Wallet...</option>
+                                    <option value="EFECTIVO_USD" data-moneda="USD">Efectivo USD</option>
+                                    <option value="BINANCE_USDT" data-moneda="USDT">Binance USDT</option>
+                                    <option value="CAJA_BS_USD" data-moneda="BS">Caja Bancos (Bs) - Ref. USD</option>
+                                    <option value="CAJA_BS_EUR" data-moneda="BS">Caja Bancos (Bs) - Ref. EUR</option>
+                                </select>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label for="monto_destino" class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Monto que ingresa</label>
+                                    <input type="text" inputmode="decimal" id="monto_destino" name="monto_destino" class="form-input text-right font-black tabular-nums" placeholder="0.00" :required="tipoOperacion === 'TRANSFERENCIA_INTERNA' || tipoOperacion === 'COMPRA_DIVISAS'">
                                 </div>
                                 <div>
-                                    <label for="monto_destino" class="block text-sm font-medium text-slate-700">Monto que Llega</label>
-                                    <input type="text" inputmode="decimal" id="monto_destino" name="monto_destino"
-                                           class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                                           :required="tipoOperacion === 'TRANSFERENCIA_INTERNA' || tipoOperacion === 'COMPRA_DIVISAS'">
-                                </div>
-                                <div>
-                                    <label for="moneda_destino" class="block text-sm font-medium text-slate-700">Moneda</label>
-                                    <input type="text" id="moneda_destino" name="moneda_destino" x-model="monedaDestino" class="mt-1 block w-full rounded-md border-slate-200 bg-slate-100" readonly>
+                                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Moneda</label>
+                                    <input type="text" id="moneda_destino" name="moneda_destino" x-model="monedaDestino" class="form-input bg-slate-100 text-slate-500 border-transparent text-center font-bold" readonly tabindex="-1">
                                 </div>
                             </div>
                         </div>
                         
-                        <div x-show="monedaOrigen && monedaDestino && monedaOrigen !== monedaDestino" x-transition class="pt-2">
-                            <label for="tasa_aplicada" class="block text-sm font-medium text-slate-700">Tasa de Cambio Aplicada</label>
-                            <input type="text" inputmode="decimal" id="tasa_aplicada" name="tasa_aplicada" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <div x-show="monedaOrigen && monedaDestino && monedaOrigen !== monedaDestino" x-transition class="pt-5 border-t border-slate-100">
+                            <label for="tasa_aplicada" class="block text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-1.5 pl-1">Tasa de Cambio FX Ejecutada</label>
+                            <input type="text" inputmode="decimal" id="tasa_aplicada" name="tasa_aplicada" class="form-input border-indigo-200 bg-indigo-50/50 focus:border-indigo-500 focus:ring-indigo-500/20 font-bold tabular-nums" placeholder="Ej: 36.50">
+                            <p class="text-[9px] font-semibold text-slate-400 mt-2 px-1 leading-relaxed">Útil para el registro preciso del Spread y el cálculo de la pérdida/ganancia cambiaria real.</p>
                         </div>
 
-                        <div class="pt-4">
-                            <button type="submit" class="w-full justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                <i class="bi bi-check-circle-fill mr-2"></i>Registrar Movimiento
+                        <div class="pt-6">
+                            <button type="submit" class="w-full justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-600/20 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition-all active:scale-[0.98] flex items-center gap-2">
+                                <i class="bi bi-shield-check text-lg"></i> Confirmar Operación
                             </button>
                         </div>
                     </form>
                 </div>
             </div>
         </div>
-        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm overflow-hidden">
-            <div class="p-5 border-b border-slate-200"><h2 class="text-lg font-bold text-slate-800">Historial de Movimientos Recientes</h2></div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm text-left text-slate-500">
-                    <thead class="text-xs text-slate-700 uppercase bg-slate-50">
-                        <tr>
-                            <th scope="col" class="px-6 py-3">Fecha</th>
-                            <th scope="col" class="px-6 py-3">Tipo</th>
-                            <th scope="col" class="px-6 py-3">Flujo</th>
-                            <th scope="col" class="px-6 py-3">Monto</th>
-                            <th scope="col" class="px-6 py-3">Nota</th>
-                            <th scope="col" class="px-6 py-3">Usuario</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-200">
-                       {% for mov in historial %}
-                         <tr>
-                             <td class="px-6 py-4 whitespace-nowrap">{{ mov.fecha_operacion.strftime('%d/%m %H:%M') }}</td>
-                             <td class="px-6 py-4"><span class="py-1 px-2.5 bg-slate-100 text-slate-800 text-xs font-medium rounded-md">{{ (mov.tipo_operacion or 'N/A').replace('_', ' ')|title }}</span></td>
-                             <td class="px-6 py-4 text-xs">{{ (mov.caja_origen or 'N/A').replace('_', ' ')|title }} &rarr; {{ (mov.caja_destino or 'N/A').replace('_', ' ')|title }}</td>
-                             <td class="px-6 py-4 font-semibold text-red-600">-{{ mov.moneda_origen }} {{ "{:,.2f}".format(mov.monto_origen or 0) }}</td>
-                             <td class="px-6 py-4 text-xs">{{ mov.nota }}</td>
-                             <td class="px-6 py-4">{{ mov.nombre_admin }}</td>
-                         </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="6" class="text-center text-slate-500 p-8">
-                                <div class="flex flex-col items-center">
-                                    <i class="bi bi-journal-x text-4xl text-slate-400"></i>
-                                    <p class="mt-3 font-medium">No hay movimientos registrados.</p>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+
+        <div class="lg:col-span-2">
+            <div class="bg-white rounded-3xl shadow-sm border border-slate-200/80 overflow-hidden h-full flex flex-col">
+                <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-white">
+                    <h2 class="text-base font-bold text-slate-900 tracking-tight">Historial de Operaciones</h2>
+                    <span class="px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-md">Últimos 30 mvtos</span>
+                </div>
+                
+                <div class="overflow-x-auto hide-scrollbar flex-grow">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-slate-50/80 border-b border-slate-100">
+                            <tr>
+                                <th class="py-3 px-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Fecha</th>
+                                <th class="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tipo / Origen</th>
+                                <th class="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Monto Origen</th>
+                                <th class="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ruta Operativa</th>
+                                <th class="py-3 px-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Usuario</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {% for mov in historial %}
+                             <tr class="hover:bg-slate-50/50 transition-colors">
+                                 <td class="px-6 py-4 text-xs font-semibold text-slate-500 whitespace-nowrap">
+                                    {{ mov.fecha_operacion.strftime('%d/%m') }} <span class="text-slate-400 font-normal ml-1">{{ mov.fecha_operacion.strftime('%H:%M') }}</span>
+                                 </td>
+                                 <td class="px-4 py-4">
+                                     <div class="flex flex-col gap-1.5 items-start">
+                                        <span class="px-2 py-0.5 bg-slate-100 text-slate-600 text-[9px] font-bold uppercase tracking-widest rounded border border-slate-200/60">
+                                            {{ (mov.tipo_operacion or 'N/A').replace('_', ' ') }}
+                                        </span>
+                                        <span class="text-xs font-semibold text-slate-700 max-w-[200px] truncate" title="{{ mov.nota }}">{{ mov.nota }}</span>
+                                     </div>
+                                 </td>
+                                 <td class="px-4 py-4 text-right">
+                                     <span class="font-black text-slate-900 tabular-nums tracking-tight">
+                                        {{ "{:,.2f}".format(mov.monto_origen or 0) }} <span class="text-[10px] text-slate-400 ml-0.5">{{ mov.moneda_origen }}</span>
+                                     </span>
+                                 </td>
+                                 <td class="px-4 py-4">
+                                     <div class="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                                         <span class="truncate max-w-[80px]" title="{{ mov.caja_origen }}">{{ (mov.caja_origen or 'N/A').replace('_', ' ') }}</span>
+                                         <i class="bi bi-arrow-right text-blue-400"></i>
+                                         <span class="truncate max-w-[80px]" title="{{ mov.caja_destino }}">{{ (mov.caja_destino or 'N/A').replace('_', ' ') }}</span>
+                                     </div>
+                                 </td>
+                                 <td class="px-6 py-4 text-right">
+                                     <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-slate-600 text-xs font-bold ring-1 ring-slate-200" title="{{ mov.nombre_admin }}">
+                                        {{ mov.nombre_admin[:2]|upper if mov.nombre_admin else '--' }}
+                                     </span>
+                                 </td>
+                             </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-16">
+                                    <div class="flex flex-col items-center justify-center">
+                                        <div class="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mb-3 border border-slate-100"><i class="bi bi-journal-x text-xl text-slate-300"></i></div>
+                                        <p class="text-sm font-bold text-slate-600">No hay movimientos registrados</p>
+                                        <p class="text-xs font-medium text-slate-400 mt-1">El historial de tesorería aparecerá aquí.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
+</div>
 </div>
 {% endblock %}
