@@ -5002,7 +5002,7 @@ def _procesar_bloques(conn, bloques: list[dict], start_date: date, end_date: dat
     return ingresos_totales, resultados_por_bloque, clientes_a_cobrar
 
 # =================================================================================
-# Ruta /reportes/proyecciones (TRACKER EN VIVO + BOTÓN DE PÁNICO SUPERADMIN)
+# Ruta /reportes/proyecciones (TRACKER EN VIVO MULTI-MONEDA + RADAR DE SPREAD)
 # =================================================================================
 from datetime import date, timedelta
 import json
@@ -5039,25 +5039,20 @@ def reporte_proyecciones():
     fecha_fin = default_end
     period_mode = request.form.get('period_mode', 'auto')
 
-    # --- NUEVO: BOTÓN DE PÁNICO (ELIMINAR CICLO ACTIVO) ---
     if request.method == 'POST' and request.form.get('action') == 'reset' and is_superadmin:
         try:
             f_i = request.form.get('start_date')
-            if f_i: 
-                fecha_inicio = date.fromisoformat(f_i)
-            
+            if f_i: fecha_inicio = date.fromisoformat(f_i)
             with conn.cursor() as cur:
-                # Borramos la proyección de este ciclo específico
                 cur.execute("DELETE FROM proyecciones_activas WHERE mes_proyeccion = %s AND ano_proyeccion = %s", (fecha_inicio.month, fecha_inicio.year))
             conn.commit()
-            flash("Ciclo activo eliminado correctamente. Puedes comenzar la planificación desde cero.", "success")
+            flash("Ciclo activo eliminado. Puedes comenzar la planificación desde cero.", "success")
             return redirect(url_for('reporte_proyecciones'))
         except Exception as e:
             conn.rollback()
             flash(f"Error al eliminar el ciclo: {e}", "danger")
             return redirect(url_for('reporte_proyecciones'))
 
-    # Ajuste manual de fechas si el Superadmin lo solicitó
     if request.method == 'POST' and period_mode == 'manual' and is_superadmin:
         try:
             f_i = request.form.get('start_date')
@@ -5079,27 +5074,53 @@ def reporte_proyecciones():
     except Exception:
         pass
 
-    simulacion_realizada = False
-    
+    # --- CONSULTA EN VIVO: RECAUDO REAL DESGLOSADO ---
     recaudo_real_usd = 0.0
+    real_usd_efectivo = 0.0
+    real_usdt_cripto = 0.0
+    real_ves_banco = 0.0
+    
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT COALESCE(SUM(monto), 0) as total_recaudado 
+                SELECT 
+                    COALESCE(forma_pago, '') as f_pago, 
+                    COALESCE(pago_en, '') as p_en, 
+                    COALESCE(moneda_referencia, '') as m_ref,
+                    COALESCE(SUM(monto), 0) as total_usd
                 FROM pagos 
                 WHERE fecha_pago >= %s AND fecha_pago <= %s 
                 AND UPPER(TRIM(COALESCE(estado_pago, ''))) IN ('APROBADO', 'CONFIRMADO', 'VERIFICADO')
+                GROUP BY forma_pago, pago_en, moneda_referencia
             """, (fecha_inicio, fecha_fin))
-            row = cur.fetchone()
-            if row:
-                recaudo_real_usd = float(row['total_recaudado'])
-    except Exception:
-        pass
+            
+            for row in cur.fetchall():
+                fp = str(row['f_pago']).upper()
+                pe = str(row['p_en']).upper()
+                mr = str(row['m_ref']).upper()
+                m = float(row['total_usd'])
+                
+                recaudo_real_usd += m
+                
+                if 'BINANCE' in fp or 'BINANCE' in pe or 'USDT' in mr or 'USDT' in fp or 'CRIPT' in fp:
+                    real_usdt_cripto += m
+                elif 'BS' in mr or 'BS' in pe or 'MOVIL' in fp or 'TRANSFERENCIA' in fp or 'PAGO MOVIL' in fp or 'BANCO' in pe:
+                    real_ves_banco += m
+                else:
+                    real_usd_efectivo += m
+                    
+    except Exception as e:
+        app.logger.error(f"Error en recaudo real desglosado: {e}")
+        try: conn.rollback()
+        except: pass
 
+    simulacion_realizada = False
+    
     proyeccion = {
         'recaudo_total_usd': 0.0, 'clientes_activos': 0, 'egresos_total_usd': 0.0,
         'perdida_spread_usd': 0.0, 'balance_neto_usd': 0.0,
         'recaudo_real_usd': recaudo_real_usd, 'progreso_recaudo_pct': 0.0,
+        'recaudo_real_desglose': {'USD_EFECTIVO': real_usd_efectivo, 'USDT_BINANCE': real_usdt_cripto, 'VES_BCV': real_ves_banco},
         'recaudo_desglose': {'USD_EFECTIVO': 0.0, 'USDT_BINANCE': 0.0, 'VES_BCV': 0.0},
         'distribucion_egresos': {'USD_EFECTIVO': 0.0, 'USDT_BINANCE': 0.0, 'VES_BINANCE': 0.0, 'VES_BCV': 0.0},
         'lista_egresos': []
@@ -5116,8 +5137,12 @@ def reporte_proyecciones():
                 if row and row['resultados_resumen']:
                     data = row['resultados_resumen']
                     if isinstance(data, str): data = json.loads(data)
-                    proyeccion.update(data)
-                    proyeccion['recaudo_real_usd'] = recaudo_real_usd
+                    
+                    # Fusionar sin sobreescribir el recaudo real calculado en vivo
+                    for k, v in data.items():
+                        if k != 'recaudo_real_desglose' and k != 'recaudo_real_usd':
+                            proyeccion[k] = v
+                    
                     proyeccion['progreso_recaudo_pct'] = min((recaudo_real_usd / proyeccion.get('recaudo_total_usd', 1)) * 100, 100) if proyeccion.get('recaudo_total_usd', 0) > 0 else 0
                     simulacion_realizada = True
         except Exception as e:
@@ -5187,7 +5212,6 @@ def reporte_proyecciones():
                 proyeccion['balance_neto_usd'] = proyeccion['recaudo_total_usd'] - proyeccion['egresos_total_usd'] - proyeccion['perdida_spread_usd']
                 proyeccion['progreso_recaudo_pct'] = min((recaudo_real_usd / proyeccion['recaudo_total_usd']) * 100, 100) if proyeccion['recaudo_total_usd'] > 0 else 0
 
-                # FIX SQL: Eliminado el campo 'fecha_actualizacion' que no existía en la DB
                 payload_json = json.dumps(proyeccion)
                 cur.execute("""
                     INSERT INTO proyecciones_activas (mes_proyeccion, ano_proyeccion, estado, resultados_resumen)

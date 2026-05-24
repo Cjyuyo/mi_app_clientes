@@ -82,9 +82,9 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10 mb-8 border-b border-slate-700/50 pb-8">
                 <div>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Recaudado (Real) vs Meta Operativa</p>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Recaudado (Total) vs Meta Operativa</p>
                     <div class="flex items-end gap-2 mb-3">
                         <span class="text-3xl font-black text-white tabular-nums">${{ "{:,.2f}".format(proyeccion.get('recaudo_real_usd', 0)|float) }}</span>
                         <span class="text-sm font-medium text-slate-500 mb-1">/ ${{ "{:,.2f}".format(proyeccion.get('recaudo_total_usd', 0)|float) }}</span>
@@ -111,6 +111,101 @@
                         <span class="text-xl font-bold text-amber-400 tabular-nums" title="Suma de Egresos + Costo del Spread">${{ "{:,.2f}".format((proyeccion.get('egresos_total_usd', 0)|float) + (proyeccion.get('perdida_spread_usd', 0)|float)) }}</span>
                     </div>
                 </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 relative z-10">
+                
+                <div class="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-slate-800/60 rounded-xl p-4 border border-slate-700">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+                            <span class="text-[10px] font-bold text-slate-300 uppercase">Ingreso USD Cash</span>
+                        </div>
+                        <div class="flex items-baseline gap-1 mb-1">
+                            <span class="text-xs text-slate-500 font-bold">$</span>
+                            <span class="text-lg font-bold text-white tabular-nums">{{ "{:,.2f}".format(proyeccion.get('recaudo_real_desglose', {}).get('USD_EFECTIVO', 0)|float) }}</span>
+                        </div>
+                        <p class="text-[9px] text-slate-500 font-medium">Meta: ${{ "{:,.2f}".format(proyeccion.get('recaudo_desglose', {}).get('USD_EFECTIVO', 0)|float) }}</p>
+                        
+                        {% set p_usd = proyeccion.get('recaudo_desglose', {}).get('USD_EFECTIVO', 1)|float %}
+                        {% set pct_usd = (proyeccion.get('recaudo_real_desglose', {}).get('USD_EFECTIVO', 0)|float / p_usd * 100) if p_usd > 0 else 0 %}
+                        <div class="h-1.5 w-full bg-slate-700 rounded-full mt-3 overflow-hidden">
+                            <div class="h-full bg-emerald-400 rounded-full" style="width: {{ [pct_usd, 100]|min }}%;"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-800/60 rounded-xl p-4 border border-slate-700">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-2 h-2 rounded-full bg-amber-400"></div>
+                            <span class="text-[10px] font-bold text-slate-300 uppercase">Ingreso USDT (P2P)</span>
+                        </div>
+                        <div class="flex items-baseline gap-1 mb-1">
+                            <span class="text-xs text-slate-500 font-bold">$</span>
+                            <span class="text-lg font-bold text-white tabular-nums">{{ "{:,.2f}".format(proyeccion.get('recaudo_real_desglose', {}).get('USDT_BINANCE', 0)|float) }}</span>
+                        </div>
+                        <p class="text-[9px] text-slate-500 font-medium">Meta: ${{ "{:,.2f}".format(proyeccion.get('recaudo_desglose', {}).get('USDT_BINANCE', 0)|float) }}</p>
+                        
+                        {% set p_usdt = proyeccion.get('recaudo_desglose', {}).get('USDT_BINANCE', 1)|float %}
+                        {% set pct_usdt = (proyeccion.get('recaudo_real_desglose', {}).get('USDT_BINANCE', 0)|float / p_usdt * 100) if p_usdt > 0 else 0 %}
+                        <div class="h-1.5 w-full bg-slate-700 rounded-full mt-3 overflow-hidden">
+                            <div class="h-full bg-amber-400 rounded-full" style="width: {{ [pct_usdt, 100]|min }}%;"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-800/60 rounded-xl p-4 border border-slate-700">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-2 h-2 rounded-full bg-blue-400"></div>
+                            <span class="text-[10px] font-bold text-slate-300 uppercase">Ingreso Bolívares (Eq. USD)</span>
+                        </div>
+                        <div class="flex items-baseline gap-1 mb-1">
+                            <span class="text-xs text-slate-500 font-bold">$</span>
+                            <span class="text-lg font-bold text-white tabular-nums">{{ "{:,.2f}".format(proyeccion.get('recaudo_real_desglose', {}).get('VES_BCV', 0)|float) }}</span>
+                        </div>
+                        <p class="text-[9px] text-slate-500 font-medium">Límite Proyectado: ${{ "{:,.2f}".format(proyeccion.get('recaudo_desglose', {}).get('VES_BCV', 0)|float) }}</p>
+                        
+                        {% set p_ves = proyeccion.get('recaudo_desglose', {}).get('VES_BCV', 1)|float %}
+                        {% set r_ves = proyeccion.get('recaudo_real_desglose', {}).get('VES_BCV', 0)|float %}
+                        {% set pct_ves = (r_ves / p_ves * 100) if p_ves > 0 else 0 %}
+                        <div class="h-1.5 w-full bg-slate-700 rounded-full mt-3 overflow-hidden">
+                            <div class="h-full {% if r_ves > p_ves %}bg-rose-500{% else %}bg-blue-400{% endif %} rounded-full" style="width: {{ [pct_ves, 100]|min }}%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800/80 rounded-xl p-5 border border-slate-700 shadow-inner flex flex-col justify-center">
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-3">Radar de Riesgo Cambiario</p>
+                    
+                    {% set r_ves = proyeccion.get('recaudo_real_desglose', {}).get('VES_BCV', 0)|float %}
+                    {% set p_ves = proyeccion.get('recaudo_desglose', {}).get('VES_BCV', 0)|float %}
+                    {% set brecha_bs = r_ves - p_ves %}
+                    
+                    {% if brecha_bs > 0 %}
+                        <div class="flex items-start gap-3">
+                            <div class="mt-1 w-6 h-6 rounded-full bg-rose-500/20 text-rose-500 flex items-center justify-center shrink-0"><i class="bi bi-exclamation-triangle-fill text-[10px]"></i></div>
+                            <div>
+                                <h4 class="text-xs font-bold text-rose-400 mb-1">Riesgo en Aumento (Exceso de Bs)</h4>
+                                <p class="text-[10px] text-slate-400 leading-relaxed">Has recibido <span class="font-bold text-white">${{ "{:,.2f}".format(brecha_bs) }}</span> más en Bolívares de lo proyectado. La pérdida de capital por spread de reposición será <span class="font-bold text-rose-400">mayor</span> a la estimada.</p>
+                            </div>
+                        </div>
+                    {% elif r_ves > 0 %}
+                        <div class="flex items-start gap-3">
+                            <div class="mt-1 w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0"><i class="bi bi-shield-check text-xs"></i></div>
+                            <div>
+                                <h4 class="text-xs font-bold text-emerald-400 mb-1">Riesgo Controlado (Spread a Favor)</h4>
+                                <p class="text-[10px] text-slate-400 leading-relaxed">La entrada de Bolívares está por debajo del límite proyectado. La caja en divisas fuertes está protegiendo el margen operativo.</p>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="flex items-start gap-3">
+                            <div class="mt-1 w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0"><i class="bi bi-activity text-xs"></i></div>
+                            <div>
+                                <h4 class="text-xs font-bold text-blue-400 mb-1">Radar Activo</h4>
+                                <p class="text-[10px] text-slate-400 leading-relaxed">Monitorizando entradas de capital. Si el bloque azul (Bs) supera su meta, el sistema generará una alerta de fuga por spread.</p>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+
             </div>
         </div>
 
