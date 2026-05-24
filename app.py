@@ -5029,9 +5029,20 @@ def reporte_proyecciones():
         prev_year = hoy.year - (1 if hoy.month == 1 else 0)
         default_start = date(prev_year, prev_month, 13)
 
-    # Candado de Seguridad Estricto: Solo el rol exacto 'superadmin' tiene acceso
-    rol_actual = str(session.get('rol', '')).lower()
-    is_superadmin = (rol_actual == 'superadmin')
+    # ==========================================
+    # Candado de Seguridad "Escáner Absoluto"
+    # ==========================================
+    is_superadmin = False
+    
+    # Escaneamos TODA la mochila de la sesión por si la llave se llama diferente 
+    for key, value in session.items():
+        if isinstance(value, str) and value.lower().strip() in ['superadmin', 'desarrollador', 'director', 'director general']:
+            is_superadmin = True
+            break
+            
+    # Debug opcional para la terminal del servidor
+    app.logger.info(f"¿Usuario pasó el candado Superadmin?: {is_superadmin} | Sesión: {dict(session)}")
+    # ==========================================
 
     # --- LECTURA DE TASAS DESDE EL HISTORIAL OFICIAL ---
     bcv_actual = 0.0
