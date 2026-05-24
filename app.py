@@ -5002,7 +5002,7 @@ def _procesar_bloques(conn, bloques: list[dict], start_date: date, end_date: dat
     return ingresos_totales, resultados_por_bloque, clientes_a_cobrar
 
 # =================================================================================
-# Ruta /reportes/proyecciones (TRACKER EN VIVO MULTI-MONEDA + RADAR DE SPREAD)
+# Ruta /reportes/proyecciones (GLASSMORPHISM & ANALISTA FINANCIERO EN VIVO)
 # =================================================================================
 from datetime import date, timedelta
 import json
@@ -5039,6 +5039,7 @@ def reporte_proyecciones():
     fecha_fin = default_end
     period_mode = request.form.get('period_mode', 'auto')
 
+    # Botón de Pánico
     if request.method == 'POST' and request.form.get('action') == 'reset' and is_superadmin:
         try:
             f_i = request.form.get('start_date')
@@ -5074,7 +5075,7 @@ def reporte_proyecciones():
     except Exception:
         pass
 
-    # --- CONSULTA EN VIVO: RECAUDO REAL DESGLOSADO ---
+    # --- CONSULTA EN VIVO: RECAUDO REAL ---
     recaudo_real_usd = 0.0
     real_usd_efectivo = 0.0
     real_usdt_cripto = 0.0
@@ -5093,26 +5094,18 @@ def reporte_proyecciones():
                 AND UPPER(TRIM(COALESCE(estado_pago, ''))) IN ('APROBADO', 'CONFIRMADO', 'VERIFICADO')
                 GROUP BY forma_pago, pago_en, moneda_referencia
             """, (fecha_inicio, fecha_fin))
-            
             for row in cur.fetchall():
                 fp = str(row['f_pago']).upper()
                 pe = str(row['p_en']).upper()
                 mr = str(row['m_ref']).upper()
                 m = float(row['total_usd'])
-                
                 recaudo_real_usd += m
                 
-                if 'BINANCE' in fp or 'BINANCE' in pe or 'USDT' in mr or 'USDT' in fp or 'CRIPT' in fp:
-                    real_usdt_cripto += m
-                elif 'BS' in mr or 'BS' in pe or 'MOVIL' in fp or 'TRANSFERENCIA' in fp or 'PAGO MOVIL' in fp or 'BANCO' in pe:
-                    real_ves_banco += m
-                else:
-                    real_usd_efectivo += m
-                    
-    except Exception as e:
-        app.logger.error(f"Error en recaudo real desglosado: {e}")
-        try: conn.rollback()
-        except: pass
+                if 'BINANCE' in fp or 'BINANCE' in pe or 'USDT' in mr or 'USDT' in fp or 'CRIPT' in fp: real_usdt_cripto += m
+                elif 'BS' in mr or 'BS' in pe or 'MOVIL' in fp or 'TRANSFERENCIA' in fp or 'PAGO MOVIL' in fp or 'BANCO' in pe: real_ves_banco += m
+                else: real_usd_efectivo += m
+    except Exception:
+        pass
 
     simulacion_realizada = False
     
@@ -5123,7 +5116,9 @@ def reporte_proyecciones():
         'recaudo_real_desglose': {'USD_EFECTIVO': real_usd_efectivo, 'USDT_BINANCE': real_usdt_cripto, 'VES_BCV': real_ves_banco},
         'recaudo_desglose': {'USD_EFECTIVO': 0.0, 'USDT_BINANCE': 0.0, 'VES_BCV': 0.0},
         'distribucion_egresos': {'USD_EFECTIVO': 0.0, 'USDT_BINANCE': 0.0, 'VES_BINANCE': 0.0, 'VES_BCV': 0.0},
-        'lista_egresos': []
+        'lista_egresos': [],
+        'tasas_proyectadas': {'bcv': bcv_actual, 'binance': binance_actual},
+        'informe_vivo': {}
     }
 
     if request.method == 'GET':
@@ -5137,14 +5132,47 @@ def reporte_proyecciones():
                 if row and row['resultados_resumen']:
                     data = row['resultados_resumen']
                     if isinstance(data, str): data = json.loads(data)
-                    
-                    # Fusionar sin sobreescribir el recaudo real calculado en vivo
                     for k, v in data.items():
-                        if k != 'recaudo_real_desglose' and k != 'recaudo_real_usd':
+                        if k not in ['recaudo_real_desglose', 'recaudo_real_usd', 'informe_vivo']:
                             proyeccion[k] = v
-                    
                     proyeccion['progreso_recaudo_pct'] = min((recaudo_real_usd / proyeccion.get('recaudo_total_usd', 1)) * 100, 100) if proyeccion.get('recaudo_total_usd', 0) > 0 else 0
                     simulacion_realizada = True
+
+                    # ========================================================
+                    # MOTOR DE ANÁLISIS EN VIVO (Cálculo Fino del Spread y Bs Extra)
+                    # ========================================================
+                    t_bcv_proj = proyeccion.get('tasas_proyectadas', {}).get('bcv', bcv_actual)
+                    t_bin_proj = proyeccion.get('tasas_proyectadas', {}).get('binance', binance_actual)
+                    
+                    # 1. Ahorro o Pérdida por Movimiento de Brecha
+                    eg_expuestos = proyeccion.get('distribucion_egresos', {}).get('VES_BINANCE', 0) + proyeccion.get('distribucion_egresos', {}).get('USDT_BINANCE', 0)
+                    fuga_proyectada = proyeccion.get('perdida_spread_usd', 0)
+                    fuga_live = (eg_expuestos * binance_actual / bcv_actual) - eg_expuestos if bcv_actual > 0 else 0
+                    ahorro_brecha = fuga_proyectada - fuga_live 
+
+                    # El dato exacto de Carlos: ¿Cuántos Bs físicos extras nos costó esto?
+                    bs_usados_spread = fuga_live * bcv_actual
+
+                    # 2. Riesgo por Exceso de Recaudación en Bolívares
+                    meta_bs = proyeccion.get('recaudo_desglose', {}).get('VES_BCV', 0)
+                    exceso_bs = max(0, real_ves_banco - meta_bs)
+                    riesgo_bs = (exceso_bs * binance_actual / bcv_actual) - exceso_bs if bcv_actual > 0 else 0
+                    
+                    # 3. Impacto Total en Caja Fuerte
+                    impacto_total = ahorro_brecha - riesgo_bs
+                    balance_ajustado = proyeccion.get('balance_neto_usd', 0) + impacto_total
+
+                    proyeccion['informe_vivo'] = {
+                        'fuga_live': fuga_live,
+                        'bs_usados_spread': bs_usados_spread,
+                        'ahorro_brecha': ahorro_brecha,
+                        'riesgo_bs': riesgo_bs,
+                        'impacto_total': impacto_total,
+                        'balance_ajustado': balance_ajustado,
+                        't_bcv_proj': t_bcv_proj,
+                        't_bin_proj': t_bin_proj
+                    }
+
         except Exception as e:
             app.logger.error(f"Error cargando proyección: {e}")
 
@@ -5153,6 +5181,7 @@ def reporte_proyecciones():
         try:
             tasa_bcv = float(request.form.get('usd_bcv') or bcv_actual)
             tasa_binance = float(request.form.get('binance_prevision') or binance_actual)
+            proyeccion['tasas_proyectadas'] = {'bcv': tasa_bcv, 'binance': tasa_binance}
             
             if tasa_bcv <= 0: tasa_bcv = 1.0
             if tasa_binance <= 0: tasa_binance = 1.0
@@ -5180,13 +5209,9 @@ def reporte_proyecciones():
                     monto = float(eg['monto_base_usd'])
                     metodo = str(eg['metodo_referencia']).upper()
                     perdida, cat, label = 0.0, 'USD_EFECTIVO', 'USD Físico'
-
-                    if metodo == 'VES_BINANCE':
-                        cat, label, perdida = 'VES_BINANCE', 'Bs (Tasa Binance)', (monto * tasa_binance / tasa_bcv) - monto
-                    elif 'BCV' in metodo or 'EUR' in metodo:
-                        cat, label = 'VES_BCV', 'Bs (Tasa BCV)'
-                    elif 'BINANCE' in metodo or 'USDT' in metodo:
-                        cat, label, perdida = 'USDT_BINANCE', 'USDT (Cripto)', (monto * tasa_binance / tasa_bcv) - monto
+                    if metodo == 'VES_BINANCE': cat, label, perdida = 'VES_BINANCE', 'Bs (Tasa Binance)', (monto * tasa_binance / tasa_bcv) - monto
+                    elif 'BCV' in metodo or 'EUR' in metodo: cat, label = 'VES_BCV', 'Bs (Tasa BCV)'
+                    elif 'BINANCE' in metodo or 'USDT' in metodo: cat, label, perdida = 'USDT_BINANCE', 'USDT (Cripto)', (monto * tasa_binance / tasa_bcv) - monto
 
                     proyeccion['distribucion_egresos'][cat] += monto
                     proyeccion['egresos_total_usd'] += monto
@@ -5199,7 +5224,6 @@ def reporte_proyecciones():
                         monto = float(vals[i] or 0)
                         metodo = metodos[i] if i < len(metodos) else 'USD_EFECTIVO'
                         perdida, cat, label = 0.0, 'USD_EFECTIVO', 'USD Físico'
-
                         if metodo == 'VES_BINANCE': cat, label, perdida = 'VES_BINANCE', 'Bs (Tasa Binance)', (monto * tasa_binance / tasa_bcv) - monto
                         elif metodo == 'USDT_BINANCE': cat, label, perdida = 'USDT_BINANCE', 'USDT (Cripto)', (monto * tasa_binance / tasa_bcv) - monto
                         elif metodo == 'VES_BCV': cat, label = 'VES_BCV', 'Bs (Tasa BCV)'
