@@ -18,10 +18,14 @@
 {% block head_extra %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
 <style>
+    /* Forzado de ancho uniforme para números (Tabular Nums) */
     .tabular-nums { font-variant-numeric: tabular-nums; }
+    
+    /* Limpieza de scrollbars */
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+    /* Ocultar flechas automáticas de inputs numéricos */
     input[type="number"]::-webkit-inner-spin-button,
     input[type="number"]::-webkit-outer-spin-button {
         -webkit-appearance: none;
@@ -29,6 +33,7 @@
     }
     input[type="number"] { -moz-appearance: textfield; }
 
+    /* Inputs Estilo Stripe Clinical */
     .fintech-input {
         @apply w-full bg-slate-50/60 border border-slate-200 text-slate-900 text-sm font-semibold rounded-xl p-3 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium shadow-inner;
     }
@@ -36,6 +41,7 @@
         @apply w-full bg-white border border-slate-200 text-slate-900 text-xs font-semibold rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 shadow-sm;
     }
 
+    /* Rediseño Choices.js Premium */
     .choices__inner { 
         @apply w-full bg-slate-50/60 border border-slate-200 text-slate-900 text-sm font-semibold rounded-xl p-1 shadow-inner min-h-[46px] transition-all;
     }
@@ -56,12 +62,12 @@
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-slate-200">
         <div>
             <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Motor Predictivo de Proyecciones</h1>
-            <p class="text-sm font-medium text-slate-500 mt-1">Simula la cobranza de cartera, integra egresos programados y calcula la brecha del spread cambiario.</p>
+            <p class="text-sm font-medium text-slate-500 mt-1">Simula la cobranza de cartera, integra egresos programados automáticamente y calcula brechas cambiarias.</p>
         </div>
         <div class="flex items-center gap-3">
             <a href="{{ url_for('reporte_proyecciones') }}" class="px-5 py-2.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-all shadow-sm">Restablecer Módulo</a>
             <button type="submit" form="simulation-form" class="px-6 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-md transition-all flex items-center gap-2">
-                Calcular Escenario Financiero <i class="bi bi-arrow-right"></i>
+                Calcular Escenario <i class="bi bi-arrow-right"></i>
             </button>
         </div>
     </div>
@@ -94,7 +100,7 @@
                 </div>
 
                 <div class="space-y-1.5">
-                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Filtros Técnicos Avanzados</label>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Filtros Técnicos</label>
                     <select id="filtro_condicion" multiple class="form-select-choices">
                         {% for opt in condicion_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
                         {% for opt in estatus_opciones %}<option value="{{ opt }}">{{ opt }}</option>{% endfor %}
@@ -184,56 +190,27 @@
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center"><i class="bi bi-shield-exclamation"></i></div>
                     <div>
-                        <h2 class="text-base font-bold text-slate-900">3. Cobertura Cambiaria y Pérdidas por Spread (FX Hedging)</h2>
-                        <p class="text-[11px] text-slate-500 mt-0.5">Calcula el impacto de recibir recaudación en bolívares económicos y tener que reponer inventarios en criptoactivos caros.</p>
+                        <h2 class="text-base font-bold text-slate-900">3. Conversión de Divisas Manual (Carril P2P)</h2>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Calcula la pérdida si necesitas subir bolívares a Binance manualmente. <br/><strong class="text-emerald-600 font-bold">Nota:</strong> Los egresos planificados del mes ya se importan y enrutan automáticamente.</p>
                     </div>
                 </div>
                 <button type="button" class="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-xl hover:bg-rose-100 transition-colors uppercase shrink-0" id="btn-add-carril">+ Simular Conversión</button>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div class="lg:col-span-2 space-y-2">
-                    <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                        <table class="w-full text-left" id="tbl-carril">
-                            <thead class="bg-slate-50 border-b border-slate-100">
-                                <tr>
-                                    <th class="px-4 py-2.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest w-5/12">Fondo / Operación a cubrir</th>
-                                    <th class="px-2 py-2.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Volumen $</th>
-                                    <th class="px-2 py-2.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Tasa Cobro</th>
-                                    <th class="px-2 py-2.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Tasa Recompra</th>
-                                    <th class="w-10"></th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100">
-                                </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="lg:col-span-1 bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-4">
-                    <div>
-                        <p class="text-[10px] font-bold text-slate-900 uppercase tracking-widest">Enrutamiento Automatizado (Keys)</p>
-                        <p class="text-[11px] text-slate-500 mt-0.5">Asigna tus egresos planificados para que el sistema calcule su exposición al riesgo cambiario.</p>
-                    </div>
-
-                    <div class="space-y-4">
-                        <div class="space-y-2">
-                            <div class="flex justify-between items-center">
-                                <span class="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">Cuentas Libres de Riesgo (Tasa Directa)</span>
-                                <button type="button" id="btn-add-bdk" class="text-xs text-emerald-500 hover:text-emerald-700"><i class="bi bi-plus-circle-fill"></i></button>
-                            </div>
-                            <div id="bdk-wrap" class="space-y-1.5"></div>
-                        </div>
-
-                        <div class="space-y-2 pt-2 border-t border-slate-200/60">
-                            <div class="flex justify-between items-center">
-                                <span class="text-[9px] font-bold text-rose-600 uppercase tracking-wider">Cuentas Afectadas por la Brecha (FX)</span>
-                                <button type="button" id="btn-add-p225" class="text-xs text-rose-500 hover:text-rose-700"><i class="bi bi-plus-circle-fill"></i></button>
-                            </div>
-                            <div id="p225-wrap" class="space-y-1.5"></div>
-                        </div>
-                    </div>
-                </div>
+            <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <table class="w-full text-left" id="tbl-carril">
+                    <thead class="bg-slate-50 border-b border-slate-100">
+                        <tr>
+                            <th class="px-4 py-2.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest w-5/12">Fondo / Operación a cubrir</th>
+                            <th class="px-2 py-2.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Volumen $</th>
+                            <th class="px-2 py-2.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right" title="Tasa a la que cobras">Tasa Cobro</th>
+                            <th class="px-2 py-2.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right" title="Tasa a la que recompras USDT">Tasa Recompra</th>
+                            <th class="w-10"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        </tbody>
+                </table>
             </div>
         </div>
 
@@ -269,7 +246,7 @@
     </form>
 
     {% if simulacion_realizada %}
-    <section class="space-y-6 pt-6 border-t border-slate-200">
+    <section class="space-y-6 pt-6 border-t border-slate-200 animate-fade-in">
         <div>
             <h2 class="text-lg font-bold text-slate-900 tracking-tight">Consolidado del Escenario Proyectado</h2>
             <p class="text-xs font-medium text-slate-400 mt-0.5">Resultados de la simulación matemática y comportamiento de cartera.</p>
@@ -361,9 +338,6 @@
 document.addEventListener('DOMContentLoaded', function () {
   const form = document.getElementById('simulation-form');
   
-  // Array de opciones inyectado desde Python de forma segura
-  const egresosOpciones = {{ egresos_titulos_opciones | default([]) | tojson }};
-  
   // 1. INICIALIZADOR DE MULTISELECTS (CHOICES.JS)
   function initChoices(scope) {
     scope.querySelectorAll('.form-select-choices').forEach(select => {
@@ -384,6 +358,7 @@ document.addEventListener('DOMContentLoaded', function () {
     return [];
   }
 
+  // 2. CONSTRUCCIÓN AUTOMÁTICA DEL BLOQUE JSON
   function buildBloquesJSON() {
     const empresas = getChoicesValues('filtro_empresa');
     const estados  = getChoicesValues('filtro_estado_plan');
@@ -400,7 +375,7 @@ document.addEventListener('DOMContentLoaded', function () {
     return JSON.stringify(payload);
   }
 
-  // 2. TABLA DINÁMICA: SPREAD CAMBIARIO (CARRIL)
+  // 3. TABLA DINÁMICA: SPREAD CAMBIARIO MANUAL (CARRIL P2P)
   const tblCarril = document.getElementById('tbl-carril').querySelector('tbody');
   document.getElementById('btn-add-carril').addEventListener('click', () => addCarrilRow());
   
@@ -416,7 +391,7 @@ document.addEventListener('DOMContentLoaded', function () {
     tblCarril.appendChild(tr);
   }
 
-  // 3. TABLA DINÁMICA: EGRESOS ADICIONALES MANUALES
+  // 4. TABLA DINÁMICA: EGRESOS ADICIONALES MANUALES
   const tblEgDiv = document.getElementById('tbl-egdiv').querySelector('tbody');
   document.getElementById('btn-add-egdiv').addEventListener('click', () => addEgDivRow());
   
@@ -430,35 +405,6 @@ document.addEventListener('DOMContentLoaded', function () {
     tblEgDiv.appendChild(tr);
   }
 
-  // 4. ENRUTAMIENTO MEDIANTE MENU DESPLEGABLE (DROPDOWN DE KEYS)
-  const bdkWrap  = document.getElementById('bdk-wrap');
-  const p225Wrap = document.getElementById('p225-wrap');
-  document.getElementById('btn-add-bdk').addEventListener('click', () => addKeyDropdown(bdkWrap, 'bloque_directo_keys[]', 'emerald'));
-  document.getElementById('btn-add-p225').addEventListener('click', () => addKeyDropdown(p225Wrap, 'pagan_por_225_247_keys[]', 'rose'));
-  
-  function addKeyDropdown(container, name, color) {
-    const div = document.createElement('div');
-    div.className = 'flex items-center gap-2 animate-fade-in mb-1.5';
-    
-    // Construir dinámicamente las opciones del select detectando su moneda base
-    let optionsHtml = '<option value="">Seleccionar cuenta...</option>';
-    egresosOpciones.forEach(opt => {
-        const metodo = String(opt.metodo_referencia || '').toUpperCase();
-        const isVes = metodo.includes('VES') || metodo.includes('BS');
-        const badge = isVes ? 'Bs' : '$';
-        optionsHtml += `<option value="${opt.titulo}">${opt.titulo} (${badge})</option>`;
-    });
-
-    div.innerHTML = `
-        <select name="${name}" class="fintech-input-sm border-${color}-200 focus:border-${color}-500 focus:ring-${color}-500/10 cursor-pointer appearance-none bg-white" style="background-image: url('data:image/svg+xml,%3csvg xmlns=\\\'http://www.w3.org/2000/svg\\\' fill=\\\'none\\\' viewBox=\\\'0 0 20 20\\\'%3e%3cpath stroke=\\\'%2364748b\\\' stroke-linecap=\\\'round\\\' stroke-linejoin=\\\'round\\\' stroke-width=\\\'1.5\\\' d=\\\'M6 8l4 4 4-4\\\'/%3e%3c/svg%3e'); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.25em 1.25em; padding-right: 2rem;">
-            ${optionsHtml}
-        </select>
-        <button type="button" class="text-slate-300 hover:text-rose-500 rm-key"><i class="bi bi-x-circle-fill"></i></button>
-    `;
-    div.querySelector('.rm-key').addEventListener('click', () => div.remove());
-    container.appendChild(div);
-  }
-
   function serializeCarrilJSON() {
     return JSON.stringify(Array.from(tblCarril.querySelectorAll('tr')).map(tr => {
       const inp = (f) => tr.querySelector(`input[data-field="${f}"]`)?.value;
@@ -466,10 +412,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }).filter(i => i.concepto && i.monto_usd > 0));
   }
 
-  // UX Inicial: Inicializar con una fila base por cortesía
+  // UX Inicial: Fila base por defecto
   addCarrilRow('Fondo de Reposición Base', '1000.00', '{{ (tasas.bcv_now.usd or 0)|float }}', '{{ (tasas.bcv_now.tasa_binance or 0)|float }}');
-  addKeyDropdown(bdkWrap, 'bloque_directo_keys[]', 'emerald');
-  addKeyDropdown(p225Wrap, 'pagan_por_225_247_keys[]', 'rose');
+  addEgDivRow();
 
   form.addEventListener('submit', () => {
     document.getElementById('bloques_json').value = buildBloquesJSON();
@@ -477,7 +422,7 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 
-// Inicializador de AlpineJS para el Segmented Control
+// AlpineJS
 document.addEventListener('alpine:init', () => {
   Alpine.data('simulationController', () => ({
     period_mode: '{{ (parametros.period_mode or "auto") | lower }}',
