@@ -87,15 +87,23 @@
                     </div>
                 </div>
 
-                <div class="pt-2">
-                    <p class="text-[9px] font-bold text-slate-500 uppercase mb-2">Ingresos Extra (Fuera de cartera)</p>
-                    <div class="grid grid-cols-3 gap-2">
-                        <input type="number" step="0.01" name="ing_efectivo" class="fintech-input-sm" placeholder="+ USD Cash">
-                        <input type="number" step="0.01" name="ing_usdt" class="fintech-input-sm" placeholder="+ USDT Cripto">
-                        <input type="number" step="0.01" name="ing_bs_sc" class="fintech-input-sm" placeholder="+ Bs Banesco">
+                <div class="pt-4">
+                    <p class="text-[9px] font-bold text-slate-500 uppercase mb-2">Comportamiento esperado del recaudo</p>
+                    <div class="flex flex-row gap-2 sm:gap-3 bg-slate-50 p-2 sm:p-3 rounded-xl border border-slate-100 overflow-hidden w-full">
+                        <div class="flex-1 min-w-0">
+                            <label class="text-[8px] sm:text-[9px] font-bold text-slate-500 uppercase block mb-1 text-center truncate">% Bs</label>
+                            <input type="text" inputmode="numeric" name="pct_bs" class="fintech-input-sm text-center !px-1" value="50">
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <label class="text-[8px] sm:text-[9px] font-bold text-slate-500 uppercase block mb-1 text-center truncate">% USDT</label>
+                            <input type="text" inputmode="numeric" name="pct_usdt" class="fintech-input-sm text-center !px-1" value="30">
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <label class="text-[8px] sm:text-[9px] font-bold text-slate-500 uppercase block mb-1 text-center truncate">% USD</label>
+                            <input type="text" inputmode="numeric" name="pct_usd" class="fintech-input-sm text-center !px-1" value="20">
+                        </div>
                     </div>
                 </div>
-            </div>
 
             <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 flex flex-col">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
