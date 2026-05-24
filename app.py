@@ -5020,7 +5020,7 @@ def reporte_proyecciones():
 
     simulacion_realizada = False
     
-    # Estructura de resultados unificada
+    # Estructura de resultados unificada (AHORA CON VES_BINANCE EXPLICITO)
     proyeccion = {
         'recaudo_total_usd': 0.0,
         'clientes_activos': 0,
@@ -5028,7 +5028,7 @@ def reporte_proyecciones():
         'perdida_spread_usd': 0.0,
         'balance_neto_usd': 0.0,
         'recaudo_desglose': {'USD_EFECTIVO': 0.0, 'USDT_BINANCE': 0.0, 'VES_BCV': 0.0},
-        'distribucion_egresos': {'USD_EFECTIVO': 0.0, 'USDT_BINANCE': 0.0, 'VES_BCV': 0.0},
+        'distribucion_egresos': {'USD_EFECTIVO': 0.0, 'USDT_BINANCE': 0.0, 'VES_BINANCE': 0.0, 'VES_BCV': 0.0},
         'lista_egresos': []
     }
 
@@ -5042,7 +5042,7 @@ def reporte_proyecciones():
             if tasa_binance <= 0: tasa_binance = 1.0
 
             with conn.cursor() as cur:
-                # 1. RECAUDO (Suma valor_cuota de todos los Ahorradores/Activos)
+                # 1. RECAUDO
                 cur.execute("""
                     SELECT COUNT(id) as total, COALESCE(SUM(valor_cuota), 0) as recaudo 
                     FROM clientes 
@@ -5052,7 +5052,7 @@ def reporte_proyecciones():
                 proyeccion['clientes_activos'] = row_clientes['total']
                 recaudo_base = float(row_clientes['recaudo'])
 
-                # 1.1 Distribución de Recaudo (Simulación de qué monedas entrarán)
+                # 1.1 Distribución de Recaudo
                 pct_bs = float(request.form.get('pct_bs') or 50)
                 pct_usdt = float(request.form.get('pct_usdt') or 30)
                 pct_usd = float(request.form.get('pct_usd') or 20)
@@ -5064,7 +5064,7 @@ def reporte_proyecciones():
                 proyeccion['recaudo_desglose']['USDT_BINANCE'] = recaudo_base * (pct_usdt / total_pct)
                 proyeccion['recaudo_desglose']['USD_EFECTIVO'] = recaudo_base * (pct_usd / total_pct)
 
-                # 1.2 Sumar Ingresos Extra (Cajas)
+                # 1.2 Sumar Ingresos Extra
                 ing_extra = float(request.form.get('ing_efectivo') or 0) + \
                             float(request.form.get('ing_usdt') or 0) + \
                             float(request.form.get('ing_bs_sc') or 0) / tasa_bcv + \
@@ -5072,7 +5072,7 @@ def reporte_proyecciones():
                 
                 proyeccion['recaudo_total_usd'] = recaudo_base + ing_extra
 
-                # 2. EGRESOS AUTOMÁTICOS (Importados directo de la BD con su moneda original)
+                # 2. EGRESOS AUTOMÁTICOS
                 cur.execute("""
                     SELECT titulo, monto_base_usd, metodo_referencia, tipo 
                     FROM egresos_planificados 
@@ -5086,12 +5086,19 @@ def reporte_proyecciones():
                     
                     perdida = 0.0
                     cat = 'USD_EFECTIVO'
+                    label = 'USD Físico'
 
-                    if 'BCV' in metodo or 'EUR' in metodo:
+                    # NUEVA LÓGICA DE RUTEO 100% PRECISA
+                    if metodo == 'VES_BINANCE':
+                        cat = 'VES_BINANCE'
+                        label = 'Bs (Tasa Binance)'
+                        perdida = (monto * tasa_binance / tasa_bcv) - monto
+                    elif 'BCV' in metodo or 'EUR' in metodo:
                         cat = 'VES_BCV'
+                        label = 'Bs (Tasa BCV)'
                     elif 'BINANCE' in metodo or 'USDT' in metodo:
                         cat = 'USDT_BINANCE'
-                        # FÓRMULA DE SPREAD: Si el gasto es en Binance, cuesta más dólares reales al pagarse con la cobranza en Bolívares.
+                        label = 'USDT (Cripto)'
                         perdida = (monto * tasa_binance / tasa_bcv) - monto
 
                     proyeccion['distribucion_egresos'][cat] += monto
@@ -5101,11 +5108,11 @@ def reporte_proyecciones():
                     proyeccion['lista_egresos'].append({
                         'titulo': eg['titulo'],
                         'monto': monto,
-                        'metodo': cat.replace('_', ' '),
+                        'metodo': label,
                         'perdida': perdida
                     })
 
-                # 3. EGRESOS MANUALES ADICIONALES (Formulario)
+                # 3. EGRESOS MANUALES ADICIONALES
                 keys = request.form.getlist('eg_div_key[]')
                 vals = request.form.getlist('eg_div_monto[]')
                 metodos = request.form.getlist('eg_div_metodo[]')
@@ -5117,24 +5124,36 @@ def reporte_proyecciones():
                         metodo = metodos[i] if i < len(metodos) else 'USD_EFECTIVO'
                         
                         perdida = 0.0
-                        if metodo == 'USDT_BINANCE':
+                        cat = 'USD_EFECTIVO'
+                        label = 'USD Físico'
+
+                        if metodo == 'VES_BINANCE':
+                            cat = 'VES_BINANCE'
+                            label = 'Bs (Tasa Binance)'
                             perdida = (monto * tasa_binance / tasa_bcv) - monto
+                        elif metodo == 'USDT_BINANCE':
+                            cat = 'USDT_BINANCE'
+                            label = 'USDT (Cripto)'
+                            perdida = (monto * tasa_binance / tasa_bcv) - monto
+                        elif metodo == 'VES_BCV':
+                            cat = 'VES_BCV'
+                            label = 'Bs (Tasa BCV)'
                             
-                        proyeccion['distribucion_egresos'][metodo] += monto
+                        proyeccion['distribucion_egresos'][cat] += monto
                         proyeccion['egresos_total_usd'] += monto
                         proyeccion['perdida_spread_usd'] += perdida
                         
                         proyeccion['lista_egresos'].append({
                             'titulo': f"{k} (Extra)",
                             'monto': monto,
-                            'metodo': metodo.replace('_', ' '),
+                            'metodo': label,
                             'perdida': perdida
                         })
 
                 # 4. BALANCE NETO FINAL
                 proyeccion['balance_neto_usd'] = proyeccion['recaudo_total_usd'] - proyeccion['egresos_total_usd'] - proyeccion['perdida_spread_usd']
 
-                # 5. GUARDAR PROYECCIÓN (Para Tesorería y Flujo de Caja)
+                # 5. GUARDAR PROYECCIÓN
                 payload_json = json.dumps({
                     'resumen': {
                         'ingresos_totales_proyectados': proyeccion['recaudo_total_usd'],
