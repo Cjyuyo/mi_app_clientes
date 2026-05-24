@@ -5002,9 +5002,10 @@ def _procesar_bloques(conn, bloques: list[dict], start_date: date, end_date: dat
     return ingresos_totales, resultados_por_bloque, clientes_a_cobrar
 
 # =================================================================================
-# Ruta /reportes/proyecciones (MOTOR CON FILTRO DE CALENDARIO Y CANDADO SUPERADMIN)
+# Ruta /reportes/proyecciones (TRACKER EN VIVO + BOTÓN DE PÁNICO SUPERADMIN)
 # =================================================================================
 from datetime import date, timedelta
+import json
 
 @app.route('/reportes/proyecciones', methods=['GET', 'POST'])
 @admin_required
@@ -5017,7 +5018,6 @@ def reporte_proyecciones():
 
     hoy = get_venezuela_current_date()
     
-    # --- 1. LÓGICA DEL MOTOR DE TIEMPO (13 al 12 automático) ---
     if hoy.day >= 13:
         default_start = date(hoy.year, hoy.month, 13)
         next_month = hoy.month % 12 + 1
@@ -5029,22 +5029,44 @@ def reporte_proyecciones():
         prev_year = hoy.year - (1 if hoy.month == 1 else 0)
         default_start = date(prev_year, prev_month, 13)
 
-    # ==========================================
-    # Candado de Seguridad "Escáner Absoluto"
-    # ==========================================
     is_superadmin = False
-    
-    # Escaneamos TODA la mochila de la sesión por si la llave se llama diferente 
     for key, value in session.items():
         if isinstance(value, str) and value.lower().strip() in ['superadmin', 'desarrollador', 'director', 'director general']:
             is_superadmin = True
             break
-            
-    # Debug opcional para la terminal del servidor
-    app.logger.info(f"¿Usuario pasó el candado Superadmin?: {is_superadmin} | Sesión: {dict(session)}")
-    # ==========================================
 
-    # --- LECTURA DE TASAS DESDE EL HISTORIAL OFICIAL ---
+    fecha_inicio = default_start
+    fecha_fin = default_end
+    period_mode = request.form.get('period_mode', 'auto')
+
+    # --- NUEVO: BOTÓN DE PÁNICO (ELIMINAR CICLO ACTIVO) ---
+    if request.method == 'POST' and request.form.get('action') == 'reset' and is_superadmin:
+        try:
+            f_i = request.form.get('start_date')
+            if f_i: 
+                fecha_inicio = date.fromisoformat(f_i)
+            
+            with conn.cursor() as cur:
+                # Borramos la proyección de este ciclo específico
+                cur.execute("DELETE FROM proyecciones_activas WHERE mes_proyeccion = %s AND ano_proyeccion = %s", (fecha_inicio.month, fecha_inicio.year))
+            conn.commit()
+            flash("Ciclo activo eliminado correctamente. Puedes comenzar la planificación desde cero.", "success")
+            return redirect(url_for('reporte_proyecciones'))
+        except Exception as e:
+            conn.rollback()
+            flash(f"Error al eliminar el ciclo: {e}", "danger")
+            return redirect(url_for('reporte_proyecciones'))
+
+    # Ajuste manual de fechas si el Superadmin lo solicitó
+    if request.method == 'POST' and period_mode == 'manual' and is_superadmin:
+        try:
+            f_i = request.form.get('start_date')
+            f_f = request.form.get('end_date')
+            if f_i: fecha_inicio = date.fromisoformat(f_i)
+            if f_f: fecha_fin = date.fromisoformat(f_f)
+        except ValueError:
+            pass 
+
     bcv_actual = 0.0
     binance_actual = 0.0
     try:
@@ -5054,43 +5076,55 @@ def reporte_proyecciones():
             if t_row:
                 bcv_actual = float(t_row['tasa'] or 0.0)
                 binance_actual = float(t_row['tasa_binance_p2p'] or 0.0)
-    except Exception as e:
-        app.logger.error(f"Error leyendo tasas en proyecciones: {e}")
-        try: conn.rollback()
-        except: pass
+    except Exception:
+        pass
 
     simulacion_realizada = False
     
+    recaudo_real_usd = 0.0
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT COALESCE(SUM(monto), 0) as total_recaudado 
+                FROM pagos 
+                WHERE fecha_pago >= %s AND fecha_pago <= %s 
+                AND UPPER(TRIM(COALESCE(estado_pago, ''))) IN ('APROBADO', 'CONFIRMADO', 'VERIFICADO')
+            """, (fecha_inicio, fecha_fin))
+            row = cur.fetchone()
+            if row:
+                recaudo_real_usd = float(row['total_recaudado'])
+    except Exception:
+        pass
+
     proyeccion = {
-        'recaudo_total_usd': 0.0,
-        'clientes_activos': 0,
-        'egresos_total_usd': 0.0,
-        'perdida_spread_usd': 0.0,
-        'balance_neto_usd': 0.0,
+        'recaudo_total_usd': 0.0, 'clientes_activos': 0, 'egresos_total_usd': 0.0,
+        'perdida_spread_usd': 0.0, 'balance_neto_usd': 0.0,
+        'recaudo_real_usd': recaudo_real_usd, 'progreso_recaudo_pct': 0.0,
         'recaudo_desglose': {'USD_EFECTIVO': 0.0, 'USDT_BINANCE': 0.0, 'VES_BCV': 0.0},
         'distribucion_egresos': {'USD_EFECTIVO': 0.0, 'USDT_BINANCE': 0.0, 'VES_BINANCE': 0.0, 'VES_BCV': 0.0},
         'lista_egresos': []
     }
 
-    # Parámetros de control de fecha para la interfaz
-    fecha_inicio = default_start
-    fecha_fin = default_end
-    period_mode = 'auto'
+    if request.method == 'GET':
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT resultados_resumen FROM proyecciones_activas 
+                    WHERE mes_proyeccion = %s AND ano_proyeccion = %s AND estado = 'Activa'
+                """, (fecha_inicio.month, fecha_inicio.year))
+                row = cur.fetchone()
+                if row and row['resultados_resumen']:
+                    data = row['resultados_resumen']
+                    if isinstance(data, str): data = json.loads(data)
+                    proyeccion.update(data)
+                    proyeccion['recaudo_real_usd'] = recaudo_real_usd
+                    proyeccion['progreso_recaudo_pct'] = min((recaudo_real_usd / proyeccion.get('recaudo_total_usd', 1)) * 100, 100) if proyeccion.get('recaudo_total_usd', 0) > 0 else 0
+                    simulacion_realizada = True
+        except Exception as e:
+            app.logger.error(f"Error cargando proyección: {e}")
 
-    if request.method == 'POST':
+    if request.method == 'POST' and request.form.get('action') != 'reset':
         simulacion_realizada = True
-        
-        # Si se envía modo manual y es superadmin, se procesan las fechas del calendario
-        period_mode = request.form.get('period_mode', 'auto')
-        if period_mode == 'manual' and is_superadmin:
-            try:
-                f_i = request.form.get('start_date')
-                f_f = request.form.get('end_date')
-                if f_i: fecha_inicio = date.fromisoformat(f_i)
-                if f_f: fecha_fin = date.fromisoformat(f_f)
-            except ValueError:
-                pass 
-
         try:
             tasa_bcv = float(request.form.get('usd_bcv') or bcv_actual)
             tasa_binance = float(request.form.get('binance_prevision') or binance_actual)
@@ -5099,132 +5133,67 @@ def reporte_proyecciones():
             if tasa_binance <= 0: tasa_binance = 1.0
 
             with conn.cursor() as cur:
-                # 1. RECAUDO
-                cur.execute("""
-                    SELECT COUNT(id) as total, COALESCE(SUM(valor_cuota), 0) as recaudo 
-                    FROM clientes 
-                    WHERE UPPER(TRIM(estatus_cliente)) = 'ACTIVO' AND valor_cuota > 0
-                """)
+                cur.execute("SELECT COUNT(id) as total, COALESCE(SUM(valor_cuota), 0) as recaudo FROM clientes WHERE UPPER(TRIM(estatus_cliente)) = 'ACTIVO' AND valor_cuota > 0")
                 row_clientes = cur.fetchone()
                 proyeccion['clientes_activos'] = row_clientes['total']
                 recaudo_base = float(row_clientes['recaudo'])
 
-                # 1.1 Distribución de Recaudo
                 pct_bs = float(request.form.get('pct_bs') or 50)
                 pct_usdt = float(request.form.get('pct_usdt') or 30)
                 pct_usd = float(request.form.get('pct_usd') or 20)
-                
-                total_pct = pct_bs + pct_usdt + pct_usd
-                if total_pct == 0: total_pct = 100
+                total_pct = pct_bs + pct_usdt + pct_usd or 100
 
                 proyeccion['recaudo_desglose']['VES_BCV'] = recaudo_base * (pct_bs / total_pct)
                 proyeccion['recaudo_desglose']['USDT_BINANCE'] = recaudo_base * (pct_usdt / total_pct)
                 proyeccion['recaudo_desglose']['USD_EFECTIVO'] = recaudo_base * (pct_usd / total_pct)
 
-                # 1.2 Sumar Ingresos Extra
-                ing_extra = float(request.form.get('ing_efectivo') or 0) + \
-                            float(request.form.get('ing_usdt') or 0) + \
-                            float(request.form.get('ing_bs_sc') or 0) / tasa_bcv + \
-                            float(request.form.get('ing_bs_cc') or 0) / tasa_bcv
-                
+                ing_extra = float(request.form.get('ing_efectivo') or 0) + float(request.form.get('ing_usdt') or 0) + float(request.form.get('ing_bs_sc') or 0) / tasa_bcv
                 proyeccion['recaudo_total_usd'] = recaudo_base + ing_extra
 
-                # 2. EGRESOS AUTOMÁTICOS
-                cur.execute("""
-                    SELECT titulo, monto_base_usd, metodo_referencia, tipo 
-                    FROM egresos_planificados 
-                    WHERE LOWER(COALESCE(estado, 'activo')) IN ('activo', 'activa')
-                """)
-                egresos_bd = cur.fetchall()
-
-                for eg in egresos_bd:
+                cur.execute("SELECT titulo, monto_base_usd, metodo_referencia FROM egresos_planificados WHERE LOWER(COALESCE(estado, 'activo')) IN ('activo', 'activa')")
+                for eg in cur.fetchall():
                     monto = float(eg['monto_base_usd'])
                     metodo = str(eg['metodo_referencia']).upper()
-                    
-                    perdida = 0.0
-                    cat = 'USD_EFECTIVO'
-                    label = 'USD Físico'
+                    perdida, cat, label = 0.0, 'USD_EFECTIVO', 'USD Físico'
 
                     if metodo == 'VES_BINANCE':
-                        cat = 'VES_BINANCE'
-                        label = 'Bs (Tasa Binance)'
-                        perdida = (monto * tasa_binance / tasa_bcv) - monto
+                        cat, label, perdida = 'VES_BINANCE', 'Bs (Tasa Binance)', (monto * tasa_binance / tasa_bcv) - monto
                     elif 'BCV' in metodo or 'EUR' in metodo:
-                        cat = 'VES_BCV'
-                        label = 'Bs (Tasa BCV)'
+                        cat, label = 'VES_BCV', 'Bs (Tasa BCV)'
                     elif 'BINANCE' in metodo or 'USDT' in metodo:
-                        cat = 'USDT_BINANCE'
-                        label = 'USDT (Cripto)'
-                        perdida = (monto * tasa_binance / tasa_bcv) - monto
+                        cat, label, perdida = 'USDT_BINANCE', 'USDT (Cripto)', (monto * tasa_binance / tasa_bcv) - monto
 
                     proyeccion['distribucion_egresos'][cat] += monto
                     proyeccion['egresos_total_usd'] += monto
                     proyeccion['perdida_spread_usd'] += perdida
-                    
-                    proyeccion['lista_egresos'].append({
-                        'titulo': eg['titulo'],
-                        'monto': monto,
-                        'metodo': label,
-                        'perdida': perdida,
-                        'salida_real': monto + perdida
-                    })
+                    proyeccion['lista_egresos'].append({'titulo': eg['titulo'], 'monto': monto, 'metodo': label, 'perdida': perdida, 'salida_real': monto + perdida})
 
-                # 3. EGRESOS MANUALES ADICIONALES
-                keys = request.form.getlist('eg_div_key[]')
-                vals = request.form.getlist('eg_div_monto[]')
-                metodos = request.form.getlist('eg_div_metodo[]')
-                
+                keys, vals, metodos = request.form.getlist('eg_div_key[]'), request.form.getlist('eg_div_monto[]'), request.form.getlist('eg_div_metodo[]')
                 for i, k in enumerate(keys):
-                    k = k.strip()
-                    if k:
+                    if k.strip():
                         monto = float(vals[i] or 0)
                         metodo = metodos[i] if i < len(metodos) else 'USD_EFECTIVO'
-                        
-                        perdida = 0.0
-                        cat = 'USD_EFECTIVO'
-                        label = 'USD Físico'
+                        perdida, cat, label = 0.0, 'USD_EFECTIVO', 'USD Físico'
 
-                        if metodo == 'VES_BINANCE':
-                            cat = 'VES_BINANCE'
-                            label = 'Bs (Tasa Binance)'
-                            perdida = (monto * tasa_binance / tasa_bcv) - monto
-                        elif metodo == 'USDT_BINANCE':
-                            cat = 'USDT_BINANCE'
-                            label = 'USDT (Cripto)'
-                            perdida = (monto * tasa_binance / tasa_bcv) - monto
-                        elif metodo == 'VES_BCV':
-                            cat = 'VES_BCV'
-                            label = 'Bs (Tasa BCV)'
+                        if metodo == 'VES_BINANCE': cat, label, perdida = 'VES_BINANCE', 'Bs (Tasa Binance)', (monto * tasa_binance / tasa_bcv) - monto
+                        elif metodo == 'USDT_BINANCE': cat, label, perdida = 'USDT_BINANCE', 'USDT (Cripto)', (monto * tasa_binance / tasa_bcv) - monto
+                        elif metodo == 'VES_BCV': cat, label = 'VES_BCV', 'Bs (Tasa BCV)'
                             
                         proyeccion['distribucion_egresos'][cat] += monto
                         proyeccion['egresos_total_usd'] += monto
                         proyeccion['perdida_spread_usd'] += perdida
-                        
-                        proyeccion['lista_egresos'].append({
-                            'titulo': f"{k} (Extra)",
-                            'monto': monto,
-                            'metodo': label,
-                            'perdida': perdida,
-                            'salida_real': monto + perdida
-                        })
+                        proyeccion['lista_egresos'].append({'titulo': f"{k.strip()} (Extra)", 'monto': monto, 'metodo': label, 'perdida': perdida, 'salida_real': monto + perdida})
 
-                # 4. BALANCE NETO FINAL
                 proyeccion['balance_neto_usd'] = proyeccion['recaudo_total_usd'] - proyeccion['egresos_total_usd'] - proyeccion['perdida_spread_usd']
+                proyeccion['progreso_recaudo_pct'] = min((recaudo_real_usd / proyeccion['recaudo_total_usd']) * 100, 100) if proyeccion['recaudo_total_usd'] > 0 else 0
 
-                # 5. PERSISTENCIA DE LA LIQUIDACIÓN
-                payload_json = json.dumps({
-                    'resumen': {
-                        'ingresos_totales_proyectados': proyeccion['recaudo_total_usd'],
-                        'balance_neto_proyectado': proyeccion['balance_neto_usd']
-                    },
-                    'kpis': {'perdida_devaluacion_usd': proyeccion['perdida_spread_usd']}
-                })
-                
+                # FIX SQL: Eliminado el campo 'fecha_actualizacion' que no existía en la DB
+                payload_json = json.dumps(proyeccion)
                 cur.execute("""
-                    INSERT INTO proyecciones_activas (mes_proyeccion, ano_proyeccion, estado, resultados_resumen, fecha_actualizacion)
-                    VALUES (%s, %s, 'Activa', %s, NOW())
+                    INSERT INTO proyecciones_activas (mes_proyeccion, ano_proyeccion, estado, resultados_resumen)
+                    VALUES (%s, %s, 'Activa', %s)
                     ON CONFLICT (mes_proyeccion, ano_proyeccion) 
-                    DO UPDATE SET resultados_resumen = EXCLUDED.resultados_resumen, fecha_actualizacion = NOW()
+                    DO UPDATE SET resultados_resumen = EXCLUDED.resultados_resumen
                 """, (fecha_inicio.month, fecha_inicio.year, payload_json))
                 conn.commit()
 
