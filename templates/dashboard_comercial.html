@@ -1,262 +1,317 @@
 {% extends "base_sidebar.html" %}
 
-{% block title %}Dashboard Comercial{% endblock %}
+{% block title %}Dashboard Comercial | Moto Plan Motors{% endblock %}
 {% block page_title %}Dashboard Comercial{% endblock %}
 {% block head_extra %}{% endblock %}
 
 {% block body %}
-  <header class="mb-6">
-    <p class="text-sm text-slate-500">Comisiones y bonos — filtros, aprobación y exportes.</p>
-  </header>
+<div class="max-w-7xl mx-auto space-y-8 mb-12">
+
+  <div class="bg-slate-900 rounded-2xl shadow-sm border border-slate-800 p-6 sm:p-8 relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center gap-6">
+      <div class="absolute top-0 right-0 w-64 h-64 bg-slate-800 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
+      <div class="flex-shrink-0 w-14 h-14 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center relative z-10 shadow-inner">
+          <i class="bi bi-graph-up-arrow text-xl text-orange-500"></i>
+      </div>
+      <div class="relative z-10">
+          <h2 class="text-2xl font-bold text-white tracking-tight">Dashboard Comercial</h2>
+          <p class="text-slate-400 text-sm mt-1">Gestión integral de comisiones, bonos, filtros de rendimiento y exportación de datos.</p>
+      </div>
+  </div>
 
   {# ===================== SOLO SUPERADMIN: CONFIGURACIÓN DE COMISIONES ===================== #}
   {% set is_superadmin = (current_user and current_user.rol == 'superadmin') or (es_superadmin if es_superadmin is defined else false) %}
   {% if is_superadmin %}
-  <section class="mb-6">
-    <div class="bg-white rounded-xl shadow p-4">
-      <div class="flex items-center justify-between gap-4">
+  <section class="space-y-4 animate-fade-in">
+    <div class="flex items-center gap-2 mb-2">
+      <i class="bi bi-sliders2-vertical text-slate-400"></i>
+      <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Motor de Reglas y Comisiones</h3>
+    </div>
+    
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6">
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6 border-b border-slate-100 pb-4">
         <div>
-          <h2 class="text-base font-semibold text-slate-800">Configuración de Comisiones</h2>
-          <p class="text-xs text-slate-500">Administra los escenarios, splits del pool (16%) y el % extra para el cerrador (cuando es distinto del asesor responsable).</p>
+          <h2 class="text-lg font-bold text-slate-800 tracking-tight">Configuración de Splits</h2>
+          <p class="text-xs font-medium text-slate-500 mt-1">Administra los escenarios, divisiones del pool (16%) y el % extra para el cerrador.</p>
         </div>
-        <div class="flex items-center gap-2">
-          <button id="btnGuardarReglas" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold shadow hover:bg-indigo-700">Guardar</button>
-          <button id="btnResetReglas" class="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm font-semibold shadow hover:bg-slate-200">Restablecer</button>
+        <div class="flex items-center gap-3">
+          <button id="btnResetReglas" class="px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-100 hover:text-slate-900 transition-colors">Restablecer</button>
+          <button id="btnGuardarReglas" class="px-5 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold shadow-md hover:bg-slate-800 transition-all flex items-center gap-2">
+            <i class="bi bi-cloud-arrow-up-fill"></i> Guardar Reglas
+          </button>
         </div>
       </div>
 
-      <div class="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Editor de reglas -->
-        <div class="lg:col-span-2">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-slate-700">Escenario</label>
-              <select id="escenarioSelect" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-                <option value="asesor">Asesor</option>
-                <option value="gerente">Gerente</option>
-                <option value="superadmin">Superadmin</option>
-              </select>
-            </div>
-
-            <div class="flex items-end justify-between gap-2">
-              <div>
-                <span class="block text-xs text-slate-500">Suma del Split</span>
-                <span id="sumSplit" class="font-semibold text-slate-800">0.00%</span>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <div class="lg:col-span-2 space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <div class="col-span-1 md:col-span-2 p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div class="w-full sm:w-1/2">
+                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Escenario Operativo</label>
+                <select id="escenarioSelect" class="block w-full bg-white border border-slate-300 text-slate-800 text-sm font-semibold rounded-lg p-2.5 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-colors">
+                  <option value="asesor">Cierre por Asesor</option>
+                  <option value="gerente">Cierre por Gerente</option>
+                  <option value="superadmin">Cierre por Superadmin</option>
+                </select>
               </div>
-              <div id="sumBadge" class="text-xs px-2 py-1 rounded-md bg-slate-100 text-slate-700">Pendiente</div>
+              <div class="flex flex-col items-end justify-center bg-white p-3 rounded-lg border border-slate-200 min-w-[150px]">
+                <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Suma del Split</span>
+                <div class="flex items-center gap-2">
+                  <span id="sumSplit" class="font-black text-slate-800 text-lg">0.00%</span>
+                  <span id="sumBadge" class="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-slate-100 text-slate-500">Pendiente</span>
+                </div>
+              </div>
             </div>
 
-            <!-- Campos de split (pool 16%) -->
             <div>
-              <label class="block text-sm font-medium text-slate-700">Asesor Comercial (%)</label>
-              <input id="pct_asesor" type="number" step="0.01" min="0" class="mt-1 w-full rounded-md border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" />
+              <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Asesor Comercial (%)</label>
+              <input id="pct_asesor" type="number" step="0.01" min="0" class="block w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm font-semibold rounded-lg p-2.5 focus:ring-2 focus:ring-orange-500 outline-none transition-colors" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-slate-700">Gerencia (%)</label>
-              <input id="pct_gerencia" type="number" step="0.01" min="0" class="mt-1 w-full rounded-md border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" />
+              <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Gerencia (%)</label>
+              <input id="pct_gerencia" type="number" step="0.01" min="0" class="block w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm font-semibold rounded-lg p-2.5 focus:ring-2 focus:ring-orange-500 outline-none transition-colors" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-slate-700">Presidencia A (%)</label>
-              <input id="pct_pres_a" type="number" step="0.01" min="0" class="mt-1 w-full rounded-md border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" />
+              <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Presidencia A (%)</label>
+              <input id="pct_pres_a" type="number" step="0.01" min="0" class="block w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm font-semibold rounded-lg p-2.5 focus:ring-2 focus:ring-orange-500 outline-none transition-colors" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-slate-700">Presidencia B (%)</label>
-              <input id="pct_pres_b" type="number" step="0.01" min="0" class="mt-1 w-full rounded-md border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" />
+              <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Presidencia B (%)</label>
+              <input id="pct_pres_b" type="number" step="0.01" min="0" class="block w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm font-semibold rounded-lg p-2.5 focus:ring-2 focus:ring-orange-500 outline-none transition-colors" />
             </div>
 
-            <!-- Cerrador externo (fuera del 16%) -->
-            <div class="md:col-span-2">
-              <label class="block text-sm font-medium text-slate-700">% Extra Cerrador (cuando cerrador ≠ asesor)</label>
-              <div class="mt-1 flex items-center gap-3">
-                <input id="pct_cerrador_extra" type="number" step="0.01" min="0" class="w-32 rounded-md border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" />
-                <span class="text-xs text-slate-500">Este porcentaje se aplica sobre el plan y es adicional al split de 16%.</span>
+            <div class="col-span-1 md:col-span-2 pt-4 border-t border-slate-100">
+              <label class="block text-[10px] font-bold text-indigo-600 uppercase tracking-wider mb-1.5">Comisión Extra por Cierre</label>
+              <div class="flex items-center gap-4 bg-indigo-50 border border-indigo-100 p-4 rounded-xl">
+                <input id="pct_cerrador_extra" type="number" step="0.01" min="0" class="w-24 bg-white border border-indigo-200 text-indigo-900 text-sm font-bold rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none text-center" />
+                <span class="text-xs font-medium text-indigo-800/80 leading-snug">
+                  <strong>% Extra Cerrador.</strong> Se aplica directamente sobre el valor del plan, totalmente independiente del Split del 16%.
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Simulador -->
         <div class="lg:col-span-1">
-          <div class="rounded-lg border border-slate-200 p-3">
-            <h3 class="text-sm font-semibold text-slate-800">Simulador</h3>
-            <div class="mt-2 grid grid-cols-1 gap-2">
-              <div>
-                <label class="block text-xs font-medium text-slate-600">Monto del plan</label>
-                <input id="sim_plan" type="number" step="0.01" min="0" class="mt-1 w-full rounded-md border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="0.00" />
-              </div>
-              <div class="flex items-center gap-2">
-                <input id="sim_cerrador_externo" type="checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
-                <label for="sim_cerrador_externo" class="text-xs text-slate-600">Cerrador distinto al asesor</label>
-              </div>
-            </div>
+          <div class="relative p-6 rounded-[1.25rem] bg-slate-900/90 backdrop-blur-xl border border-slate-700/60 shadow-xl text-white overflow-hidden h-full flex flex-col">
+            <div class="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-50 pointer-events-none"></div>
+            <div class="absolute -top-12 -right-12 w-32 h-32 bg-orange-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
-            <div class="mt-3 text-xs">
-              <div class="flex justify-between py-1 border-b">
-                <span>Asesor</span><span id="sim_out_asesor">$0.00</span>
+            <div class="relative z-10 flex-grow flex flex-col">
+              <div class="flex items-center gap-3 mb-5 border-b border-slate-700/80 pb-4">
+                <div class="w-8 h-8 rounded-lg bg-slate-800/80 backdrop-blur-md text-emerald-400 flex items-center justify-center border border-slate-600/50 shadow-sm"><i class="bi bi-calculator-fill"></i></div>
+                <h3 class="text-base font-bold text-white tracking-tight">Simulador en Vivo</h3>
               </div>
-              <div class="flex justify-between py-1 border-b">
-                <span>Gerencia</span><span id="sim_out_gerencia">$0.00</span>
-              </div>
-              <div class="flex justify-between py-1 border-b">
-                <span>Presidencia A</span><span id="sim_out_pres_a">$0.00</span>
-              </div>
-              <div class="flex justify-between py-1 border-b">
-                <span>Presidencia B</span><span id="sim_out_pres_b">$0.00</span>
-              </div>
-              <div class="flex justify-between py-1">
-                <span>Cerrador (extra)</span><span id="sim_out_cerrador">$0.00</span>
-              </div>
-            </div>
 
-            <button id="btnSimular" class="mt-3 w-full px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm font-semibold hover:bg-slate-200">Simular</button>
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Monto del Plan ($)</label>
+                  <input id="sim_plan" type="number" step="0.01" min="0" class="w-full bg-slate-800/60 backdrop-blur-sm border border-slate-600/50 text-white font-black text-lg rounded-lg p-3 focus:ring-2 focus:ring-orange-500 outline-none transition-colors placeholder:text-slate-600 placeholder:font-normal" placeholder="Ej: 2500" />
+                </div>
+                
+                <label class="flex items-center gap-3 cursor-pointer p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
+                  <input id="sim_cerrador_externo" type="checkbox" class="w-4 h-4 rounded border-slate-500 text-orange-500 focus:ring-orange-500 bg-transparent" />
+                  <span class="text-xs font-semibold text-slate-300">Simular con Cerrador Externo</span>
+                </label>
+              </div>
+
+              <div class="mt-6 flex-grow">
+                <div class="bg-black/20 rounded-xl p-4 space-y-2.5 text-sm border border-white/5">
+                  <div class="flex justify-between items-center pb-2.5 border-b border-white/10">
+                    <span class="text-slate-400 font-medium">Asesor</span>
+                    <span id="sim_out_asesor" class="font-bold text-white">$0.00</span>
+                  </div>
+                  <div class="flex justify-between items-center pb-2.5 border-b border-white/10">
+                    <span class="text-slate-400 font-medium">Gerencia</span>
+                    <span id="sim_out_gerencia" class="font-bold text-white">$0.00</span>
+                  </div>
+                  <div class="flex justify-between items-center pb-2.5 border-b border-white/10">
+                    <span class="text-slate-400 font-medium">Presidencia A</span>
+                    <span id="sim_out_pres_a" class="font-bold text-white">$0.00</span>
+                  </div>
+                  <div class="flex justify-between items-center pb-2.5 border-b border-white/10">
+                    <span class="text-slate-400 font-medium">Presidencia B</span>
+                    <span id="sim_out_pres_b" class="font-bold text-white">$0.00</span>
+                  </div>
+                  <div class="flex justify-between items-center pt-1">
+                    <span class="text-indigo-400 font-bold uppercase text-[10px] tracking-wider">Cerrador (Extra)</span>
+                    <span id="sim_out_cerrador" class="font-black text-indigo-400">$0.00</span>
+                  </div>
+                </div>
+              </div>
+
+              <button id="btnSimular" class="mt-5 w-full px-4 py-3 rounded-xl bg-orange-500 text-white text-sm font-bold shadow-lg shadow-orange-500/20 hover:bg-orange-600 transition-all active:scale-[0.98]">
+                Ejecutar Simulación
+              </button>
+            </div>
           </div>
         </div>
+        
       </div>
     </div>
   </section>
   {% endif %}
   {# =================== FIN SOLO SUPERADMIN: CONFIGURACIÓN DE COMISIONES =================== #}
 
-  <!-- Filtros -->
-  <form id="filtrosForm" method="get" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end bg-white p-4 rounded-xl shadow">
-    <div>
-      <label for="fecha_desde_origen" class="block text-sm font-medium text-slate-700">Desde</label>
-      <input type="date" id="fecha_desde_origen" name="fecha_desde_origen" value="{{ filters.fecha_desde_origen if filters is defined else '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
-    </div>
-    <div>
-      <label for="fecha_hasta_origen" class="block text-sm font-medium text-slate-700">Hasta</label>
-      <input type="date" id="fecha_hasta_origen" name="fecha_hasta_origen" value="{{ filters.fecha_hasta_origen if filters is defined else '' }}" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+  <section class="space-y-4 pt-4">
+    <div class="flex items-center gap-2 mb-2">
+      <i class="bi bi-funnel-fill text-slate-400"></i>
+      <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Gestión y Filtros de Comisiones</h3>
     </div>
 
-    {% set asesores_list = (asesores if asesores is defined else (todos_los_admins if todos_los_admins is defined else [])) %}
-    <div>
-      <label for="asesor_id" class="block text-sm font-medium text-slate-700">Asesor</label>
-      <select id="asesor_id" name="asesor_id" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-        <option value="">Todos</option>
-        {% for a in asesores_list %}
-          <option value="{{ a.id }}"
-            {% if filters is defined and filters.asesor_id and (filters.asesor_id|string) == (a.id|string) %}selected{% endif %}>
-            {{ a.nombre or a.nombre_completo or '—' }}
-          </option>
-        {% endfor %}
-      </select>
-    </div>
+    <form id="filtrosForm" method="get" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+      <div>
+        <label for="fecha_desde_origen" class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Desde</label>
+        <input type="date" id="fecha_desde_origen" name="fecha_desde_origen" value="{{ filters.fecha_desde_origen if filters is defined else '' }}" class="block w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm font-medium rounded-lg p-2.5 focus:ring-2 focus:ring-orange-500 outline-none transition-colors" />
+      </div>
+      <div>
+        <label for="fecha_hasta_origen" class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Hasta</label>
+        <input type="date" id="fecha_hasta_origen" name="fecha_hasta_origen" value="{{ filters.fecha_hasta_origen if filters is defined else '' }}" class="block w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm font-medium rounded-lg p-2.5 focus:ring-2 focus:ring-orange-500 outline-none transition-colors" />
+      </div>
 
-    <div>
-      <label for="estado" class="block text-sm font-medium text-slate-700">Estado</label>
-      <select id="estado" name="estado" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-        <option value="">Todos</option>
-        {% set estados_posibles = ['pendiente','aprobado','pagado','anulado'] %}
-        {% for e in estados_posibles %}
-          <option value="{{ e }}" {% if filters is defined and filters.estado == e %}selected{% endif %}>{{ e|capitalize }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <div>
-      <label for="tipo" class="block text-sm font-medium text-slate-700">Tipo</label>
-      <select name="tipo" id="tipo" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-        <option value="">Todos</option>
-        <option value="COMISION" {% if filters is defined and filters.tipo == 'COMISION' %}selected{% endif %}>Comisión</option>
-        <option value="BONO" {% if filters is defined and filters.tipo == 'BONO' %}selected{% endif %}>Bono</option>
-      </select>
-    </div>
-
-    <div class="flex gap-2 col-span-1 md:col-span-2 lg:col-span-5 justify-end">
-      <button type="submit" class="inline-flex items-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold shadow hover:bg-indigo-700">Filtrar</button>
-      <a href="{{ request.path }}" class="inline-flex items-center px-4 py-2 rounded-lg bg-slate-200 text-slate-700 text-sm font-semibold shadow hover:bg-slate-300">Limpiar</a>
-    </div>
-  </form>
-
-  <!-- Acciones / Exportes -->
-  <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
-    <div class="flex items-center gap-3">
-      <label class="inline-flex items-center gap-2 text-sm text-slate-600 select-none">
-        <input id="seleccionar-todo" type="checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
-        Seleccionar todo
-      </label>
-    </div>
-    <div class="flex items-center gap-2">
-      <a href="#" class="data-export-btn inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm font-semibold shadow hover:bg-slate-200" data-formato="xlsx">Exportar XLSX</a>
-      <a href="#" class="data-export-btn inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm font-semibold shadow hover:bg-slate-200" data-formato="csv">Exportar CSV</a>
-      <a href="#" class="data-export-btn inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-100 text-slate-700 text-sm font-semibold shadow hover:bg-slate-200" data-formato="pdf">Exportar PDF</a>
-    </div>
-  </div>
-
-  <!-- Tabla -->
-  <div class="mt-4 overflow-x-auto bg-white rounded-xl shadow">
-    <table class="min-w-full text-sm">
-      <thead class="bg-slate-100 text-slate-700">
-        <tr>
-          <th class="p-3 text-left font-semibold w-10"><span class="sr-only">Sel</span></th>
-          <th class="p-3 text-left font-semibold">Fecha</th>
-          <th class="p-3 text-left font-semibold">Asesor</th>
-          <th class="p-3 text-left font-semibold">Cliente / Origen</th>
-          <th class="p-3 text-left font-semibold">Tipo</th>
-          <th class="p-3 text-right font-semibold">Monto</th>
-          <th class="p-3 text-left font-semibold">Estado</th>
-          <th class="p-3 text-left font-semibold">Lote</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% if comisiones and comisiones|length > 0 %}
-          {% for comision in comisiones %}
-            <tr class="border-b last:border-0 hover:bg-slate-50/60">
-              <td class="p-3 align-top">
-                <input type="checkbox" class="comision-checkbox rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" value="{{ comision.id }}" />
-              </td>
-              <td class="p-3 align-top">
-                <span class="whitespace-nowrap">{{ comision.fecha_origen | default('') | string }}</span>
-              </td>
-              <td class="p-3 align-top">{{ comision.asesor or '—' }}</td>
-              <td class="p-3 align-top">{{ comision.cliente or comision.origen_tipo or '—' }}</td>
-              <td class="p-3 align-top">
-                <span class="inline-flex items-center gap-2">
-                  <span class="px-2 py-0.5 rounded-md text-xs font-semibold {{ 'bg-purple-100 text-purple-800' if comision.tipo == 'BONO' else 'bg-slate-100 text-slate-800' }}">
-                    {{ comision.tipo or 'N/A' }}
-                  </span>
-                  {% if comision.notas %}
-                    <span class="text-slate-400" title="{{ comision.notas }}"><i class="bi bi-info-circle"></i></span>
-                  {% endif %}
-                </span>
-              </td>
-              <td class="p-3 align-top text-right">
-                <span class="font-bold">{{ comision.moneda or 'USD' }} {{ '{:,.2f}'.format(comision.monto) }}</span>
-              </td>
-              <td class="p-3 align-top">
-                <span class="px-2 py-0.5 rounded-md text-xs font-semibold
-                  {% if comision.estado == 'pagado' %} bg-green-100 text-green-800
-                  {% elif comision.estado == 'aprobado' %} bg-amber-100 text-amber-800
-                  {% elif comision.estado == 'anulado' %} bg-rose-100 text-rose-800
-                  {% else %} bg-slate-100 text-slate-800 {% endif %}">
-                  {{ comision.estado|capitalize if comision.estado else 'Pendiente' }}
-                </span>
-              </td>
-              <td class="p-3 align-top">{{ comision.payment_batch_id or '—' }}</td>
-            </tr>
+      {% set asesores_list = (asesores if asesores is defined else (todos_los_admins if todos_los_admins is defined else [])) %}
+      <div>
+        <label for="asesor_id" class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Personal / Asesor</label>
+        <select id="asesor_id" name="asesor_id" class="block w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm font-medium rounded-lg p-2.5 focus:ring-2 focus:ring-orange-500 outline-none transition-colors">
+          <option value="">Todos los asesores</option>
+          {% for a in asesores_list %}
+            <option value="{{ a.id }}" {% if filters is defined and filters.asesor_id and (filters.asesor_id|string) == (a.id|string) %}selected{% endif %}>
+              {{ a.nombre or a.nombre_completo or '—' }}
+            </option>
           {% endfor %}
-        {% else %}
-          <tr>
-            <td class="p-6 text-center text-slate-500" colspan="8">No hay registros que coincidan con los filtros.</td>
-          </tr>
-        {% endif %}
-      </tbody>
-    </table>
-  </div>
+        </select>
+      </div>
 
-  {% if pagination is defined %}
-    <div class="mt-4 flex items-center justify-between text-sm">
-      <div class="text-slate-500">Mostrando {{ pagination.current_count }} de {{ pagination.total }}</div>
-      <div class="flex gap-2">
-        {% if pagination.prev_url %}
-          <a class="px-3 py-1 rounded-md bg-white border border-slate-200 hover:bg-slate-50" href="{{ pagination.prev_url }}">Anterior</a>
-        {% endif %}
-        {% if pagination.next_url %}
-          <a class="px-3 py-1 rounded-md bg-white border border-slate-200 hover:bg-slate-50" href="{{ pagination.next_url }}">Siguiente</a>
-        {% endif %}
+      <div>
+        <label for="estado" class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Estado</label>
+        <select id="estado" name="estado" class="block w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm font-medium rounded-lg p-2.5 focus:ring-2 focus:ring-orange-500 outline-none transition-colors">
+          <option value="">Todos los estados</option>
+          {% set estados_posibles = ['pendiente','aprobado','pagado','anulado'] %}
+          {% for e in estados_posibles %}
+            <option value="{{ e }}" {% if filters is defined and filters.estado == e %}selected{% endif %}>{{ e|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label for="tipo" class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tipo de Ingreso</label>
+        <select name="tipo" id="tipo" class="block w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm font-medium rounded-lg p-2.5 focus:ring-2 focus:ring-orange-500 outline-none transition-colors">
+          <option value="">Ambos (Comisión / Bono)</option>
+          <option value="COMISION" {% if filters is defined and filters.tipo == 'COMISION' %}selected{% endif %}>Comisión</option>
+          <option value="BONO" {% if filters is defined and filters.tipo == 'BONO' %}selected{% endif %}>Bono</option>
+        </select>
+      </div>
+
+      <div class="col-span-1 md:col-span-2 lg:col-span-5 flex justify-end gap-3 mt-2 border-t border-slate-100 pt-5">
+        <a href="{{ request.path }}" class="inline-flex items-center justify-center px-6 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-700 text-sm font-bold shadow-sm hover:bg-slate-50 transition-colors">Limpiar Filtros</a>
+        <button type="submit" class="inline-flex items-center justify-center gap-2 px-8 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold shadow-md hover:bg-slate-800 transition-colors">
+          <i class="bi bi-funnel-fill"></i> Aplicar Filtros
+        </button>
+      </div>
+    </form>
+
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center pl-2">
+        <label class="inline-flex items-center gap-3 text-sm text-slate-700 font-bold cursor-pointer select-none">
+          <input id="seleccionar-todo" type="checkbox" class="w-5 h-5 rounded border-slate-300 text-orange-500 focus:ring-orange-500" />
+          Seleccionar Todo en Pantalla
+        </label>
+      </div>
+      <div class="flex items-center flex-wrap gap-2">
+        <a href="#" class="data-export-btn inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold hover:bg-emerald-100 transition-colors uppercase tracking-wider" data-formato="xlsx">
+          <i class="bi bi-file-earmark-excel-fill text-lg"></i> Excel
+        </a>
+        <a href="#" class="data-export-btn inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold hover:bg-blue-100 transition-colors uppercase tracking-wider" data-formato="csv">
+          <i class="bi bi-filetype-csv text-lg"></i> CSV
+        </a>
+        <a href="#" class="data-export-btn inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-100 transition-colors uppercase tracking-wider" data-formato="pdf">
+          <i class="bi bi-file-earmark-pdf-fill text-lg"></i> PDF
+        </a>
       </div>
     </div>
-  {% endif %}
+
+    <div class="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+      <div class="overflow-x-auto custom-scrollbar">
+        <table class="min-w-full text-sm text-left">
+          <thead class="bg-slate-50/80 border-b border-slate-200">
+            <tr>
+              <th class="px-5 py-4 w-12"><span class="sr-only">Sel</span></th>
+              <th class="px-5 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fecha</th>
+              <th class="px-5 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Asesor</th>
+              <th class="px-5 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cliente / Origen</th>
+              <th class="px-5 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tipo</th>
+              <th class="px-5 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right">Monto</th>
+              <th class="px-5 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center">Estado</th>
+              <th class="px-5 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Lote</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% if comisiones and comisiones|length > 0 %}
+              {% for comision in comisiones %}
+                <tr class="hover:bg-slate-50/50 transition-colors group">
+                  <td class="px-5 py-4 align-middle">
+                    <input type="checkbox" class="comision-checkbox w-4 h-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500 cursor-pointer" value="{{ comision.id }}" />
+                  </td>
+                  <td class="px-5 py-4 align-middle font-medium text-slate-700 whitespace-nowrap">
+                    {{ comision.fecha_origen | default('') | string }}
+                  </td>
+                  <td class="px-5 py-4 align-middle font-bold text-slate-900">{{ comision.asesor or '—' }}</td>
+                  <td class="px-5 py-4 align-middle text-slate-600">{{ comision.cliente or comision.origen_tipo or '—' }}</td>
+                  <td class="px-5 py-4 align-middle">
+                    <div class="inline-flex items-center gap-2">
+                      <span class="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border {{ 'bg-indigo-50 text-indigo-700 border-indigo-200' if comision.tipo == 'BONO' else 'bg-slate-100 text-slate-700 border-slate-200' }}">
+                        {{ comision.tipo or 'N/A' }}
+                      </span>
+                      {% if comision.notas %}
+                        <span class="text-slate-400 hover:text-slate-600 cursor-help transition-colors" title="{{ comision.notas }}"><i class="bi bi-info-circle-fill"></i></span>
+                      {% endif %}
+                    </div>
+                  </td>
+                  <td class="px-5 py-4 align-middle text-right">
+                    <span class="font-black text-slate-900 tracking-tight text-base">{{ comision.moneda or 'USD' }} {{ '{:,.2f}'.format(comision.monto) }}</span>
+                  </td>
+                  <td class="px-5 py-4 align-middle text-center">
+                    {% set estado_lower = comision.estado | lower if comision.estado else 'pendiente' %}
+                    {% set badge_class = 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' if estado_lower == 'pagado' else ('bg-amber-50 text-amber-700 ring-amber-600/20' if estado_lower == 'aprobado' else ('bg-rose-50 text-rose-700 ring-rose-600/20' if estado_lower == 'anulado' else 'bg-slate-100 text-slate-600 ring-slate-500/20')) %}
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ring-1 ring-inset {{ badge_class }}">
+                      {{ estado_lower }}
+                    </span>
+                  </td>
+                  <td class="px-5 py-4 align-middle text-slate-500 font-mono text-xs">{{ comision.payment_batch_id or '—' }}</td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td class="px-6 py-12 text-center text-slate-500" colspan="8">
+                  <div class="flex flex-col items-center justify-center space-y-3">
+                    <i class="bi bi-inbox text-4xl text-slate-300"></i>
+                    <p class="font-medium text-sm">No hay registros que coincidan con los filtros actuales.</p>
+                  </div>
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if pagination is defined %}
+        <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-sm">
+          <div class="text-slate-500 font-medium">Mostrando <span class="font-bold text-slate-800">{{ pagination.current_count }}</span> de <span class="font-bold text-slate-800">{{ pagination.total }}</span> registros</div>
+          <div class="flex gap-2">
+            {% if pagination.prev_url %}
+              <a class="px-4 py-2 rounded-lg bg-white border border-slate-300 text-slate-700 font-bold hover:bg-slate-50 shadow-sm transition-colors" href="{{ pagination.prev_url }}"><i class="bi bi-chevron-left"></i> Anterior</a>
+            {% endif %}
+            {% if pagination.next_url %}
+              <a class="px-4 py-2 rounded-lg bg-white border border-slate-300 text-slate-700 font-bold hover:bg-slate-50 shadow-sm transition-colors" href="{{ pagination.next_url }}">Siguiente <i class="bi bi-chevron-right"></i></a>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+  </section>
+</div>
 {% endblock %}
 
 {% block scripts_extra %}
@@ -302,7 +357,6 @@ document.addEventListener('DOMContentLoaded', function() {
     gerente:    { pct_asesor: 0.00, pct_gerencia: 1.00, pct_pres_a: 5.50, pct_pres_b: 5.50, pct_cerrador_extra: 0.40 },
     superadmin: { pct_asesor: 0.00, pct_gerencia: 0.50, pct_pres_a: 5.50, pct_pres_b: 5.50, pct_cerrador_extra: 0.40 }
   };
-
   let rulesByScenario = structuredClone(defaults);
 
   const csrf = "{{ csrf_token() if csrf_token is defined else '' }}";
@@ -318,7 +372,6 @@ document.addEventListener('DOMContentLoaded', function() {
     pct_pres_b: f('pct_pres_b'),
     pct_cerrador_extra: f('pct_cerrador_extra'),
   };
-
   const sim = {
     plan: f('sim_plan'),
     cerradorExt: f('sim_cerrador_externo'),
@@ -361,12 +414,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const r = rulesByScenario[scn];
     const sum = (r.pct_asesor + r.pct_gerencia + r.pct_pres_a + r.pct_pres_b);
     sumSplit.textContent = sum.toFixed(2) + '% de 16%';
+
     if (Math.abs(sum - 16.00) < 0.001){
-      sumBadge.textContent = 'OK: suma 16%';
-      sumBadge.className = 'text-xs px-2 py-1 rounded-md bg-green-100 text-green-800';
+      sumBadge.textContent = 'Correcto: Suma 16%';
+      sumBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-emerald-100 text-emerald-700';
     } else {
-      sumBadge.textContent = 'Debe sumar 16%';
-      sumBadge.className = 'text-xs px-2 py-1 rounded-md bg-rose-100 text-rose-800';
+      sumBadge.textContent = 'Error: Debe sumar 16%';
+      sumBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-rose-100 text-rose-700';
     }
   }
 
@@ -379,7 +433,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const presAAmt    = plan * (r.pct_pres_a/100);
     const presBAmt    = plan * (r.pct_pres_b/100);
     const cerradorAmt = sim.cerradorExt.checked ? plan * (r.pct_cerrador_extra/100) : 0;
-
+    
     sim.out.asesor.textContent   = fmtMoney(asesorAmt);
     sim.out.gerencia.textContent = fmtMoney(gerenciaAmt);
     sim.out.pres_a.textContent   = fmtMoney(presAAmt);
@@ -406,10 +460,16 @@ document.addEventListener('DOMContentLoaded', function() {
       const r = rulesByScenario[scn];
       const sum = r.pct_asesor + r.pct_gerencia + r.pct_pres_a + r.pct_pres_b;
       if (Math.abs(sum - 16.00) > 0.001){
-        alert(`El split de "${scn}" debe sumar 16%. Actualmente: ${sum.toFixed(2)}%.`);
+        Swal.fire('Error de Reglas', `El split de "${scn}" debe sumar 16%. Actualmente: ${sum.toFixed(2)}%.`, 'error');
         return;
       }
     }
+    
+    const btn = document.getElementById('btnGuardarReglas');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = `<i class="bi bi-arrow-repeat animate-spin"></i> Guardando...`;
+    btn.disabled = true;
+
     try{
       const resp = await fetch('/comisiones/config', {
         method: 'POST',
@@ -420,10 +480,13 @@ document.addEventListener('DOMContentLoaded', function() {
         body: JSON.stringify({ reglas: rulesByScenario })
       });
       if (!resp.ok) throw new Error('Error HTTP ' + resp.status);
-      alert('Reglas guardadas.');
+      Swal.fire({ icon: 'success', title: 'Reglas Actualizadas', text: 'Las nuevas reglas de comisiones han sido guardadas correctamente.', timer: 2000, showConfirmButton: false });
     }catch(err){
       console.error(err);
-      alert('No se pudo guardar. Revisa el servidor.');
+      Swal.fire('Error', 'No se pudo guardar la configuración. Revisa el servidor.', 'error');
+    } finally {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
     }
   });
 
