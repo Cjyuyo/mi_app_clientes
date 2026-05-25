@@ -14,23 +14,24 @@
 
     <style>
         :root {
-            --admin-bg: #020617; /* Very Deep Slate */
-            --card-bg: rgba(15, 23, 42, 0.7); /* Translucent dark glass */
+            /* Paleta Dark Mode Corporativo - Más Luminoso */
+            --admin-bg: #0F172A; /* Slate 900 - Azul oscuro profundo y elegante, ya no es negro */
+            --card-bg: rgba(30, 41, 59, 0.75); /* Slate 800 translúcido (más claro) */
             --primary-accent: #6366F1; /* Indigo Premium */
             --primary-hover: #4F46E5;
-            --text-main: #F8FAFC;
-            --text-muted: #94A3B8;
-            --input-bg: rgba(2, 6, 23, 0.5);
-            --input-border: rgba(51, 65, 85, 0.6);
-            --focus-ring: rgba(99, 102, 241, 0.25);
+            --text-main: #FFFFFF;
+            --text-muted: #CBD5E1; /* Gris mucho más claro para no cansar la vista */
+            --input-bg: rgba(15, 23, 42, 0.6); /* Fondo de input más amigable */
+            --input-border: rgba(71, 85, 105, 0.7); /* Borde más visible */
+            --focus-ring: rgba(99, 102, 241, 0.35);
         }
 
         body {
             font-family: 'Inter', sans-serif;
             background-color: var(--admin-bg);
             background-image: 
-                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
             background-size: 30px 30px;
             min-height: 100vh;
             display: flex;
@@ -42,25 +43,25 @@
             overflow: hidden;
         }
 
-        /* Server Glow Effects */
+        /* Server Glow Effects - Más grandes y brillantes */
         .glow-1 {
             position: absolute;
-            top: 20%;
-            left: 15%;
-            width: 300px;
-            height: 300px;
-            background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
-            filter: blur(40px);
+            top: 10%;
+            left: 10%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(99,102,241,0.25) 0%, transparent 70%);
+            filter: blur(50px);
             z-index: 0;
         }
         .glow-2 {
             position: absolute;
-            bottom: 15%;
-            right: 15%;
-            width: 400px;
-            height: 400px;
-            background: radial-gradient(circle, rgba(43,58,85,0.3) 0%, transparent 70%); /* Azul Corporativo */
-            filter: blur(50px);
+            bottom: 10%;
+            right: 10%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(56,189,248,0.2) 0%, transparent 70%); /* Cian brillante */
+            filter: blur(60px);
             z-index: 0;
         }
 
@@ -70,8 +71,8 @@
             -webkit-backdrop-filter: blur(24px);
             padding: 3rem 2.5rem;
             border-radius: 24px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
             width: 100%;
             max-width: 400px;
             position: relative;
@@ -83,20 +84,20 @@
             margin-bottom: 2.5rem;
         }
         .server-icon {
-            width: 56px;
-            height: 56px;
-            background: linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(99,102,241,0.05) 100%);
-            border: 1px solid rgba(99,102,241,0.3);
-            border-radius: 14px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(99,102,241,0.05) 100%);
+            border: 1px solid rgba(99,102,241,0.4);
+            border-radius: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0 auto 1.25rem auto;
-            box-shadow: 0 0 20px rgba(99,102,241,0.15);
+            box-shadow: 0 0 25px rgba(99,102,241,0.2);
         }
         .server-icon i {
-            font-size: 1.5rem;
-            color: #818CF8;
+            font-size: 1.75rem;
+            color: #A5B4FC; /* Ícono más luminoso */
         }
 
         .admin-header h1 {
@@ -109,7 +110,7 @@
         }
         .admin-header p {
             color: var(--text-muted);
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             margin: 0;
         }
 
@@ -118,7 +119,7 @@
         }
         .form-label {
             display: block;
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             font-weight: 600;
             color: var(--text-muted);
             text-transform: uppercase;
@@ -133,7 +134,7 @@
         .input-wrapper i {
             position: absolute;
             left: 1rem;
-            color: #475569;
+            color: #94A3B8;
             font-size: 1.1rem;
             transition: color 0.2s ease;
         }
@@ -149,10 +150,10 @@
             outline: none;
         }
         .form-control-dark::placeholder {
-            color: #475569;
+            color: #64748B;
         }
         .form-control-dark:focus {
-            background-color: rgba(2, 6, 23, 0.8);
+            background-color: rgba(15, 23, 42, 0.9);
             border-color: var(--primary-accent);
             box-shadow: 0 0 0 4px var(--focus-ring);
         }
@@ -167,10 +168,10 @@
             font-weight: 600;
             font-size: 0.95rem;
             padding: 0.875rem;
-            border: 1px solid rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.15);
             border-radius: 12px;
             margin-top: 1.5rem;
-            box-shadow: 0 4px 12px rgba(99,102,241,0.25);
+            box-shadow: 0 4px 12px rgba(99,102,241,0.3);
             transition: all 0.2s ease;
             display: flex;
             justify-content: center;
@@ -181,26 +182,27 @@
         }
         .btn-auth:hover {
             transform: translateY(-1px);
-            box-shadow: 0 8px 16px rgba(99,102,241,0.35);
+            box-shadow: 0 8px 16px rgba(99,102,241,0.4);
         }
 
         .alert-dark {
-            background-color: rgba(239,68,68,0.1);
-            border: 1px solid rgba(239,68,68,0.2);
-            color: #FCA5A5;
+            background-color: rgba(239,68,68,0.15);
+            border: 1px solid rgba(239,68,68,0.3);
+            color: #FECACA;
             border-radius: 12px;
             font-size: 0.85rem;
             padding: 1rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            margin-bottom: 1.5rem;
         }
 
         .footer-secure {
             margin-top: 2rem;
             text-align: center;
-            font-size: 0.75rem;
-            color: #475569;
+            font-size: 0.8rem;
+            color: #94A3B8;
             display: flex;
             flex-direction: column;
             gap: 0.3rem;
@@ -210,7 +212,7 @@
             align-items: center;
             justify-content: center;
             gap: 0.25rem;
-            color: #10B981;
+            color: #34D399; /* Verde esmeralda más brillante */
             font-weight: 600;
             margin-bottom: 0.5rem;
         }
@@ -236,7 +238,7 @@
                     <div class="alert alert-dark alert-dismissible fade show" role="alert">
                         <i class="bi bi-exclamation-triangle-fill"></i>
                         <div>{{ message }}</div>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="filter: invert(1); opacity: 0.5;"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="filter: invert(1); opacity: 0.7;"></button>
                     </div>
                 {% endfor %}
             {% endif %}
