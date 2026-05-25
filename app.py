@@ -4316,14 +4316,15 @@ def gestion_egresos():
             frecuencia = request.form.get('frecuencia', 'Unico')
             fecha_inicio = request.form.get('fecha_inicio_recurrencia') or hoy.strftime('%Y-%m-%d')
             fecha_fin = request.form.get('fecha_fin_recurrencia') or None
-            descripcion = request.form.get('descripcion')
+            descripcion = request.form.get('descripcion') or ''
             
             intervalo = request.form.get('intervalo_semana') or 1
             byday = ','.join(request.form.getlist('byday')) if request.form.getlist('byday') else None
             dia_mes = request.form.get('dia_mes')
             dias_quincena = request.form.get('dias_quincena')
             
-            cliente_id = request.form.get('cliente_asociado_id') or None
+            # Variables de Devoluciones (No se insertan como columnas, se interceptan)
+            cliente_id = request.form.get('cliente_asociado_id')
             num_cuotas = request.form.get('numero_de_cuotas') or 1
 
             if tipo == 'Devolucion':
@@ -4334,23 +4335,23 @@ def gestion_egresos():
                         c_info = cur.fetchone()
                         if c_info:
                             titulo = f"Devolución: {c_info['nombre']} {c_info['apellido']}"
+                # Inyectamos el número de cuotas en las notas para mantener la DB limpia
+                descripcion = f"Acuerdo en {num_cuotas} cuota(s). {descripcion}"
 
             with conn.cursor() as cur:
+                # INSERT LIMPIO: Eliminadas las columnas fantasma (numero_de_cuotas, cliente_asociado_id)
                 cur.execute("""
                     INSERT INTO egresos_planificados 
                     (titulo, tipo, monto_base_usd, metodo_referencia, frecuencia, 
                      fecha_inicio_recurrencia, fecha_fin_recurrencia, descripcion,
-                     intervalo_semana, byday, dia_mes, dias_quincena, 
-                     cliente_asociado_id, numero_de_cuotas, estado, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'activo', NOW())
+                     intervalo_semana, byday, dia_mes, dias_quincena, estado, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'activo', NOW())
                 """, (
                     titulo, tipo, float(monto), metodo, frecuencia,
                     fecha_inicio, fecha_fin, descripcion,
                     int(intervalo), byday, 
                     int(dia_mes) if dia_mes else None, 
-                    dias_quincena, 
-                    int(cliente_id) if cliente_id else None, 
-                    int(num_cuotas)
+                    dias_quincena
                 ))
             conn.commit()
             flash('Egreso planificado registrado exitosamente.', 'success')
@@ -4374,12 +4375,14 @@ def gestion_egresos():
     resumen = resumen_egresos_periodo(conn, periodo_tipo, clave)
 
     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        # SELECT LIMPIO: Eliminada la columna fantasma
         cur.execute("""
             SELECT id, titulo, tipo, frecuencia, intervalo_semana, byday, dia_mes, dias_quincena,
                    monto_base_usd, metodo_referencia, estado, fecha_inicio_recurrencia, fecha_fin_recurrencia,
-                   descripcion, cliente_asociado_id
+                   descripcion
             FROM egresos_planificados
-            ORDER BY (LOWER(COALESCE(estado,'inactivo')) IN ('activo', 'activa')) DESC, titulo
+            WHERE LOWER(COALESCE(estado,'inactivo')) IN ('activo', 'activa')
+            ORDER BY titulo
         """)
         rows = cur.fetchall() or []
         
@@ -4389,7 +4392,7 @@ def gestion_egresos():
 
     def _f(kind):
         k = (kind or '').lower()
-        return [r for r in rows if ((r.get('tipo') or '').lower() == k and (r.get('estado') or '').lower() != 'inactivo')]
+        return [r for r in rows if ((r.get('tipo') or '').lower() == k)]
 
     egresos = {
         'fijos': _f('fijo'),
