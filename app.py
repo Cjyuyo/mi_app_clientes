@@ -4273,7 +4273,32 @@ def resumen_egresos_periodo(conn, periodo_tipo: str, clave: str):
     )
     return SimpleNamespace(totales=totales, items=items)
 # ================== /Helpers Gestión de Egresos ==================
+# =================================================================================
+# Ruta para Eliminar (Desactivar) Egresos Planificados del Catálogo
+# =================================================================================
+@app.route('/egresos/eliminar/<int:egreso_id>', methods=['POST'])
+@admin_required
+def eliminar_egreso(egreso_id):
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", "danger")
+        return redirect(request.referrer or url_for('gestion_egresos'))
+        
+    try:
+        with conn.cursor() as cur:
+            # Borrado Lógico: Lo pasamos a 'Inactivo' para no romper el historial
+            cur.execute("UPDATE egresos_planificados SET estado = 'Inactivo' WHERE id = %s", (egreso_id,))
+        conn.commit()
+        flash("Gasto eliminado del sistema exitosamente.", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Error al eliminar el gasto: {e}", "danger")
+        
+    return redirect(request.referrer or url_for('gestion_egresos'))
 
+# =================================================================================
+# Gestión Principal de Egresos
+# =================================================================================
 @app.route('/gestion/egresos', methods=['GET', 'POST'], endpoint='gestion_egresos')
 @admin_required
 def gestion_egresos():
@@ -4364,7 +4389,7 @@ def gestion_egresos():
 
     def _f(kind):
         k = (kind or '').lower()
-        return [r for r in rows if ((r.get('tipo') or '').lower() == k)]
+        return [r for r in rows if ((r.get('tipo') or '').lower() == k and (r.get('estado') or '').lower() != 'inactivo')]
 
     egresos = {
         'fijos': _f('fijo'),
