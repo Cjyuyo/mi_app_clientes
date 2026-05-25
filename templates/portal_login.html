@@ -3,125 +3,305 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal de Clientes - Iniciar Sesión</title>
+    <title>Admin Workspace | Moto Plan Motors</title>
     
-    <!-- Bootstrap CSS y Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" xintegrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
         :root {
-            --azul-corporativo: #2B3A55;
-            --naranja-corporativo: #F99417;
-            --naranja-hover: #E88300;
-            --blanco-tarjetas: #FFFFFF;
-            --texto-claro: #6c757d;
+            /* Paleta Dark Mode Corporativo */
+            --admin-bg: #030712; /* Slate muy oscuro, casi negro */
+            --card-bg: rgba(17, 24, 39, 0.7); /* Gris oscuro translúcido */
+            --primary-accent: #6366F1; /* Indigo Fintech */
+            --primary-hover: #4F46E5;
+            --text-main: #F9FAFB;
+            --text-muted: #9CA3AF;
+            --input-bg: rgba(3, 7, 18, 0.5);
+            --input-border: rgba(55, 65, 81, 0.5);
+            --input-focus-ring: rgba(99, 102, 241, 0.25);
         }
+
         body {
-            font-family: 'Roboto', sans-serif;
-            background-color: var(--azul-corporativo);
-            background-image: linear-gradient(160deg, var(--azul-corporativo) 0%, #1a2233 100%);
+            font-family: 'Inter', sans-serif;
+            background-color: var(--admin-bg);
+            margin: 0;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            padding: 1rem;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            /* Patrón de cuadrícula sutil para dar look de "Sistema" */
+            background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
         }
-        .login-card {
-            background-color: var(--blanco-tarjetas);
-            padding: 2.5rem;
-            border-radius: 1rem;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+
+        /* Ambient Glows (Efecto Bóveda/Servidor) */
+        .ambient-glow-1 {
+            position: absolute;
+            top: 10%;
+            left: 20%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            filter: blur(40px);
+        }
+        .ambient-glow-2 {
+            position: absolute;
+            bottom: 10%;
+            right: 20%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(56, 189, 248, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            filter: blur(50px);
+        }
+
+        /* Tarjeta Flotante Glassmorphism Oscuro */
+        .admin-card {
+            background-color: var(--card-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 3rem 2.5rem;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
             width: 100%;
             max-width: 420px;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Header del Admin */
+        .admin-header {
             text-align: center;
-            border-top: 5px solid var(--naranja-corporativo);
+            margin-bottom: 2.5rem;
         }
-        .login-header .icon {
-            font-size: 3rem;
-            color: var(--naranja-corporativo);
-            margin-bottom: 1rem;
+        .shield-icon-wrapper {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0.05) 100%);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.25rem auto;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
         }
-        .login-header h1 {
-            color: var(--azul-corporativo);
-            margin-bottom: 0.5rem;
+        .shield-icon-wrapper i {
+            font-size: 1.5rem;
+            color: #818CF8;
+        }
+        .admin-header h1 {
+            color: var(--text-main);
+            font-size: 1.25rem;
             font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
         }
-        .login-header p {
-            margin-bottom: 2rem;
-            color: var(--texto-claro);
+        .admin-header p {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin: 0;
         }
-        .form-control {
-            border-radius: 0.5rem;
-            padding: 0.85rem 1rem;
+
+        /* Inputs Alta Seguridad */
+        .form-group {
+            margin-bottom: 1.25rem;
+            position: relative;
         }
-        .input-group-text {
-             border-radius: 0.5rem 0 0 0.5rem;
-        }
-        .btn-primary {
-            background-color: var(--naranja-corporativo);
-            border-color: var(--naranja-corporativo);
+        .form-label {
+            display: block;
+            font-size: 0.7rem;
             font-weight: 600;
-            padding: 0.85rem;
-            border-radius: 0.5rem;
-            transition: all 0.2s ease-in-out;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
         }
-        .btn-primary:hover {
-            background-color: var(--naranja-hover);
-            border-color: var(--naranja-hover);
-            transform: scale(1.02);
+        .fintech-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .fintech-input-wrapper i {
+            position: absolute;
+            left: 1rem;
+            color: #4B5563;
+            font-size: 1.1rem;
+            transition: color 0.2s ease;
+        }
+        .fintech-control {
+            width: 100%;
+            padding: 0.875rem 1rem 0.875rem 2.75rem;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: var(--text-main);
+            background-color: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 12px;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+        .fintech-control::placeholder {
+            color: #4B5563;
+            font-weight: 400;
+        }
+        .fintech-control:focus {
+            background-color: rgba(3, 7, 18, 0.8);
+            border-color: var(--primary-accent);
+            box-shadow: 0 0 0 4px var(--input-focus-ring);
+        }
+        .fintech-control:focus + i,
+        .fintech-input-wrapper:focus-within i {
+            color: #818CF8;
+        }
+
+        /* Botón de Autenticación */
+        .btn-auth {
+            width: 100%;
+            background: linear-gradient(135deg, var(--primary-accent) 0%, var(--primary-hover) 100%);
+            color: white;
+            font-weight: 600;
+            font-size: 0.95rem;
+            padding: 0.875rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            margin-top: 1.5rem;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .btn-auth:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 16px rgba(99, 102, 241, 0.4);
+            color: white;
+        }
+        .btn-auth:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(99, 102, 241, 0.3);
+        }
+
+        /* Alertas Dark Mode */
+        .alert {
+            background-color: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #FCA5A5;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .btn-close {
+            filter: invert(1) grayscale(100%) brightness(200%);
+            opacity: 0.5;
+            font-size: 0.75rem;
+        }
+
+        /* Footer Seguro */
+        .fintech-footer {
+            margin-top: 2.5rem;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #4B5563;
+            font-weight: 500;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .fintech-footer .secure-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            color: #10B981; /* Verde esmeralda para seguridad */
+            font-weight: 600;
+            margin-bottom: 0.5rem;
         }
     </style>
 </head>
 <body>
-    <div class="login-card">
-        <div class="login-header">
-            <div class="icon"><i class="bi bi-shield-lock-fill"></i></div>
-            <h1>Portal de Clientes</h1>
-            <p>Ingresa para gestionar tu cuenta.</p>
+    
+    <div class="ambient-glow-1"></div>
+    <div class="ambient-glow-2"></div>
+
+    <div class="admin-card">
+        <div class="admin-header">
+            <div class="shield-icon-wrapper">
+                <i class="bi bi-cpu-fill"></i>
+            </div>
+            <h1>Workspace Admin</h1>
+            <p>Moto Plan Motors C.A.</p>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show" role="alert">
-                        {{ message }}
+                    <div class="alert alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <div>{{ message }}</div>
                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
 
-        <form method="POST" action="{{ url_for('portal_login') }}">
-            <div class="mb-3">
-                <div class="input-group">
-                    <span class="input-group-text"><i class="bi bi-person-vcard"></i></span>
-                    <input type="text" class="form-control" id="cedula" name="cedula" placeholder="Cédula de Identidad" required>
+        <form method="POST" action="{{ url_for('login') }}">
+            
+            <div class="form-group">
+                <label class="form-label" for="username">Usuario Autorizado</label>
+                <div class="fintech-input-wrapper">
+                    <i class="bi bi-person-badge"></i>
+                    <input type="text" class="fintech-control" id="username" name="username" placeholder="Ingresa tu ID de usuario" required autocomplete="off" autofocus>
                 </div>
             </div>
-            <div class="mb-4">
-                <div class="input-group">
-                    <span class="input-group-text"><i class="bi bi-file-earmark-text"></i></span>
-                    <input type="text" class="form-control" id="contrato_nro" name="contrato_nro" placeholder="Número de Contrato" required>
+
+            <div class="form-group mb-2">
+                <label class="form-label" for="password">Credencial de Acceso</label>
+                <div class="fintech-input-wrapper">
+                    <i class="bi bi-key"></i>
+                    <input type="password" class="fintech-control" id="password" name="password" placeholder="••••••••••••" required>
                 </div>
             </div>
-            <div class="d-grid">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-box-arrow-in-right me-2"></i>Iniciar Sesión
-                </button>
-            </div>
+
+            <button type="submit" class="btn-auth">
+                <i class="bi bi-fingerprint fs-5"></i> Autenticar
+            </button>
         </form>
         
-        <!-- CORRECCIÓN: Se elimina el enlace que causaba el error -->
-
-        <div class="mt-4 text-muted small">
-            &copy; {{ g.anio_actual | default('2024') }} Moto Plan Motors C.A.
+        <div class="fintech-footer">
+            <div class="secure-badge">
+                <i class="bi bi-shield-check"></i> Cifrado End-to-End Activo
+            </div>
+            <span>Acceso Restringido y Auditado.</span>
+            <span>&copy; {{ g.anio_actual | default('2026') }} Moto Plan Motors.</span>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" xintegrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
