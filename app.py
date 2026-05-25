@@ -4187,11 +4187,12 @@ def generar_ocurrencias_periodo(conn, periodo_tipo: str, clave: str, start: date
                     """, (e['id'], d))
                     row = cur.fetchone()
                     if not row:
+                        # CORREGIDO: Se agregaron periodo_tipo y periodo_clave al INSERT
                         cur.execute("""
                             INSERT INTO egresos_ocurrencias
-                                (egreso_id, fecha_programada, monto_programado_usd, monto_pagado_usd, estado, created_at)
-                            VALUES (%s, %s, %s, %s, %s, NOW())
-                        """, (e['id'], d, monto, Decimal('0.00'), 'Pendiente'))
+                                (egreso_id, periodo_tipo, periodo_clave, fecha_programada, monto_programado_usd, monto_pagado_usd, estado, created_at)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                        """, (e['id'], periodo_tipo, clave, d, monto, Decimal('0.00'), 'Pendiente'))
         conn.commit()
     except psycopg2.Error:
         conn.rollback()
