@@ -3,120 +3,272 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acceso de Administración - Moto Plan Motors</title>
+    <title>Admin Workspace | Moto Plan Motors</title>
     
-    <!-- Bootstrap CSS y Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" xintegrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
         :root {
-            --azul-corporativo: #2B3A55;
-            --azul-hover: #1e2a40;
-            --naranja-corporativo: #F99417;
-            --blanco-tarjetas: #FFFFFF;
-            --texto-claro: #6c757d;
+            --admin-bg: #020617; /* Very Deep Slate */
+            --card-bg: rgba(15, 23, 42, 0.7); /* Translucent dark glass */
+            --primary-accent: #6366F1; /* Indigo Premium */
+            --primary-hover: #4F46E5;
+            --text-main: #F8FAFC;
+            --text-muted: #94A3B8;
+            --input-bg: rgba(2, 6, 23, 0.5);
+            --input-border: rgba(51, 65, 85, 0.6);
+            --focus-ring: rgba(99, 102, 241, 0.25);
         }
+
         body {
-            font-family: 'Roboto', sans-serif;
-            background-color: var(--azul-corporativo);
-            background-image: linear-gradient(160deg, var(--azul-corporativo) 0%, #1a2233 100%);
+            font-family: 'Inter', sans-serif;
+            background-color: var(--admin-bg);
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 30px 30px;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
-            padding: 1rem;
+            margin: 0;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
         }
-        .login-card {
-            background-color: var(--blanco-tarjetas);
-            padding: 2.5rem;
-            border-radius: 1rem;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+
+        /* Server Glow Effects */
+        .glow-1 {
+            position: absolute;
+            top: 20%;
+            left: 15%;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
+            filter: blur(40px);
+            z-index: 0;
+        }
+        .glow-2 {
+            position: absolute;
+            bottom: 15%;
+            right: 15%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(43,58,85,0.3) 0%, transparent 70%); /* Azul Corporativo */
+            filter: blur(50px);
+            z-index: 0;
+        }
+
+        .admin-card {
+            background-color: var(--card-bg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            padding: 3rem 2.5rem;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
             width: 100%;
-            max-width: 420px;
+            max-width: 400px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .admin-header {
             text-align: center;
-            border-top: 5px solid var(--azul-corporativo);
+            margin-bottom: 2.5rem;
         }
-        .login-header .icon {
-            font-size: 3rem;
-            color: var(--azul-corporativo);
-            margin-bottom: 1rem;
+        .server-icon {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(99,102,241,0.05) 100%);
+            border: 1px solid rgba(99,102,241,0.3);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.25rem auto;
+            box-shadow: 0 0 20px rgba(99,102,241,0.15);
         }
-        .login-header h1 {
-            color: var(--azul-corporativo);
-            margin-bottom: 0.5rem;
+        .server-icon i {
+            font-size: 1.5rem;
+            color: #818CF8;
+        }
+
+        .admin-header h1 {
+            color: var(--text-main);
+            font-size: 1.25rem;
             font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
         }
-        .login-header p {
-            margin-bottom: 2rem;
-            color: var(--texto-claro);
+        .admin-header p {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin: 0;
         }
-        .form-control {
-            border-radius: 0.5rem;
-            padding: 0.85rem 1rem;
+
+        .form-group {
+            margin-bottom: 1.25rem;
         }
-        .input-group-text {
-             border-radius: 0.5rem 0 0 0.5rem;
-        }
-        .btn-primary {
-            background-color: var(--azul-corporativo);
-            border-color: var(--azul-corporativo);
+        .form-label {
+            display: block;
+            font-size: 0.7rem;
             font-weight: 600;
-            padding: 0.85rem;
-            border-radius: 0.5rem;
-            transition: all 0.2s ease-in-out;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
         }
-        .btn-primary:hover {
-            background-color: var(--azul-hover);
-            border-color: var(--azul-hover);
-            transform: scale(1.02);
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .input-wrapper i {
+            position: absolute;
+            left: 1rem;
+            color: #475569;
+            font-size: 1.1rem;
+            transition: color 0.2s ease;
+        }
+        .form-control-dark {
+            width: 100%;
+            padding: 0.875rem 1rem 0.875rem 2.75rem;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            background-color: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 12px;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+        .form-control-dark::placeholder {
+            color: #475569;
+        }
+        .form-control-dark:focus {
+            background-color: rgba(2, 6, 23, 0.8);
+            border-color: var(--primary-accent);
+            box-shadow: 0 0 0 4px var(--focus-ring);
+        }
+        .form-control-dark:focus + i, .input-wrapper:focus-within i {
+            color: #818CF8;
+        }
+
+        .btn-auth {
+            width: 100%;
+            background: linear-gradient(135deg, var(--primary-accent) 0%, var(--primary-hover) 100%);
+            color: white;
+            font-weight: 600;
+            font-size: 0.95rem;
+            padding: 0.875rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            margin-top: 1.5rem;
+            box-shadow: 0 4px 12px rgba(99,102,241,0.25);
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .btn-auth:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 16px rgba(99,102,241,0.35);
+        }
+
+        .alert-dark {
+            background-color: rgba(239,68,68,0.1);
+            border: 1px solid rgba(239,68,68,0.2);
+            color: #FCA5A5;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .footer-secure {
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #475569;
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+        .badge-secure {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            color: #10B981;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
         }
     </style>
 </head>
 <body>
-    <div class="login-card">
-        <div class="login-header">
-            <div class="icon"><i class="bi bi-person-workspace"></i></div>
-            <h1>Portal de Administración</h1>
-            <p>Ingresa tus credenciales de acceso.</p>
+    
+    <div class="glow-1"></div>
+    <div class="glow-2"></div>
+
+    <div class="admin-card">
+        <div class="admin-header">
+            <div class="server-icon">
+                <i class="bi bi-person-workspace"></i>
+            </div>
+            <h1>Portal Administrativo</h1>
+            <p>Acceso Restringido</p>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category in ['error', 'danger'] else category }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    <div class="alert alert-dark alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <div>{{ message }}</div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="filter: invert(1); opacity: 0.5;"></button>
                     </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
 
         <form method="POST" action="{{ url_for('admin_login') }}">
-            <div class="mb-3">
-                <div class="input-group">
-                    <span class="input-group-text"><i class="bi bi-person-fill"></i></span>
-                    <input type="text" class="form-control" id="usuario" name="usuario" placeholder="Nombre de usuario" required>
+            <div class="form-group">
+                <label class="form-label" for="usuario">Credencial de Usuario</label>
+                <div class="input-wrapper">
+                    <i class="bi bi-person-fill"></i>
+                    <input type="text" class="form-control-dark" id="usuario" name="usuario" placeholder="Nombre de usuario" required autocomplete="off" autofocus>
                 </div>
             </div>
-            <div class="mb-4">
-                <div class="input-group">
-                    <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
-                    <input type="password" class="form-control" id="password" name="password" placeholder="Contraseña" required>
+            
+            <div class="form-group mb-2">
+                <label class="form-label" for="password">Clave de Acceso</label>
+                <div class="input-wrapper">
+                    <i class="bi bi-lock-fill"></i>
+                    <input type="password" class="form-control-dark" id="password" name="password" placeholder="••••••••••••" required>
                 </div>
             </div>
-            <div class="d-grid">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-box-arrow-in-right me-2"></i>Iniciar Sesión
-                </button>
-            </div>
+
+            <button type="submit" class="btn-auth">
+                <i class="bi bi-fingerprint fs-5"></i> Autenticar
+            </button>
         </form>
-        
-        <div class="mt-4 text-muted small">
-            &copy; {{ anio_actual }} Moto Plan Motors C.A.
+
+        <div class="footer-secure">
+            <div class="badge-secure">
+                <i class="bi bi-shield-check"></i> Conexión Cifrada SSL
+            </div>
+            <span>&copy; {{ anio_actual }} Moto Plan Motors C.A.</span>
         </div>
     </div>
 
