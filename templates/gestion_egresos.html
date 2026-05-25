@@ -10,7 +10,6 @@
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-    /* Evitar flechas en los inputs numéricos */
     input[type="number"]::-webkit-inner-spin-button,
     input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     input[type="number"] { -moz-appearance: textfield; }
@@ -18,12 +17,12 @@
     /* UI Estilo Stripe / Fintech */
     .stripe-input {
         width: 100%;
-        min-width: 0; /* Evita que los números desaparezcan */
+        min-width: 0;
         background-color: #ffffff;
         border: 1px solid #e2e8f0;
         color: #0f172a;
         font-size: 0.875rem;
-        font-weight: 500;
+        font-weight: 600;
         border-radius: 0.5rem;
         padding: 0.625rem 0.75rem;
         box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -109,9 +108,9 @@
                 </div>
 
                 <div x-show="activeTab === 'gastos'" x-cloak class="p-6">
-                    <form action="{{ url_for('gestion_egresos') }}" method="POST" class="space-y-4" x-data="{ tipoEgreso: '' }">
+                    <form action="{{ url_for('gestion_egresos') }}" method="POST" class="space-y-4" x-data="{ tipoEgreso: '', freq: 'Mensual' }">
                         
-                        <input type="hidden" name="frecuencia" :value="tipoEgreso === 'Fijo' ? 'Mensual' : 'Unico'">
+                        <input type="hidden" name="frecuencia" value="Unico" :disabled="tipoEgreso !== 'Variable'">
 
                         <div>
                             <label class="stripe-label">Clasificación*</label>
@@ -124,7 +123,7 @@
 
                         <div>
                             <label class="stripe-label">Título / Concepto*</label>
-                            <input type="text" name="titulo" required class="stripe-input" placeholder="Ej: Pago de Internet">
+                            <input type="text" name="titulo" required class="stripe-input" placeholder="Ej: Nómina Administrativa">
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
@@ -147,6 +146,44 @@
                         <div>
                             <label class="stripe-label">Fecha de Inicio / Ejecución*</label>
                             <input type="date" name="fecha_inicio_recurrencia" required class="stripe-input">
+                        </div>
+
+                        <div x-show="tipoEgreso === 'Fijo'" x-cloak x-transition class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-4 shadow-inner">
+                            <h4 class="text-[10px] font-bold text-slate-800 uppercase tracking-widest"><i class="bi bi-arrow-repeat text-blue-500 me-1"></i> Reglas de Recurrencia</h4>
+                            
+                            <div>
+                                <label class="stripe-label">Frecuencia*</label>
+                                <select name="frecuencia" x-model="freq" :disabled="tipoEgreso !== 'Fijo'" required class="stripe-input stripe-select bg-white">
+                                    <option value="Mensual">Mensual</option>
+                                    <option value="Quincenal">Quincenal</option>
+                                    <option value="Semanal">Semanal</option>
+                                </select>
+                            </div>
+
+                            <div x-show="freq === 'Mensual'" x-cloak>
+                                <label class="stripe-label">Día del mes (1 al 31)*</label>
+                                <input type="number" name="dia_mes" min="1" max="31" value="1" :disabled="tipoEgreso !== 'Fijo' || freq !== 'Mensual'" class="stripe-input bg-white w-24 text-center">
+                            </div>
+
+                            <div x-show="freq === 'Quincenal'" x-cloak>
+                                <label class="stripe-label">Días de pago (Separados por coma)*</label>
+                                <input type="text" name="dias_quincena" value="1,16" :disabled="tipoEgreso !== 'Fijo' || freq !== 'Quincenal'" class="stripe-input bg-white" placeholder="Ej: 1,16">
+                            </div>
+
+                            <div x-show="freq === 'Semanal'" x-cloak>
+                                <label class="stripe-label">Días de la semana*</label>
+                                <div class="flex flex-wrap gap-2">
+                                    {% set labels = {'MO':'Lu','TU':'Ma','WE':'Mi','TH':'Ju','FR':'Vi','SA':'Sa','SU':'Do'} %}
+                                    {% for d in ['MO','TU','WE','TH','FR','SA','SU'] %}
+                                    <label class="relative cursor-pointer">
+                                        <input type="checkbox" name="byday" value="{{ d }}" :disabled="tipoEgreso !== 'Fijo' || freq !== 'Semanal'" class="peer sr-only">
+                                        <div class="w-8 h-8 rounded-lg border border-slate-300 bg-white flex items-center justify-center text-[10px] font-bold text-slate-500 transition-colors peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 hover:bg-slate-100 shadow-sm">
+                                            {{ labels[d] }}
+                                        </div>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
                         </div>
 
                         <div>
@@ -206,7 +243,7 @@
 
                         <div>
                             <label class="stripe-label">Motivo / Acuerdo</label>
-                            <textarea name="descripcion" rows="2" class="stripe-input resize-none" placeholder="Ej: Cancelación de contrato por mutuo acuerdo"></textarea>
+                            <textarea name="descripcion" rows="2" class="stripe-input resize-none" placeholder="Ej: Cancelación por mutuo acuerdo"></textarea>
                         </div>
 
                         <div class="pt-2">
@@ -311,7 +348,7 @@
             </div>
 
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="px-6 py-4 border-b border-slate-100">
+                <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                     <h3 class="stripe-label mb-0 text-slate-800 flex items-center gap-2"><i class="bi bi-archive text-orange-500"></i> Historial de Gastos Registrados</h3>
                 </div>
 

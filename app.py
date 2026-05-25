@@ -9035,6 +9035,21 @@ def arreglar_base_datos():
     except Exception as e:
         if conn: conn.rollback()
         return f"<h3>Error intentando agregar la columna:</h3> <p>{str(e)}</p>"
+# =================================================================================
+# FIX DE EMERGENCIA: Reparar tabla de Ocurrencias
+# =================================================================================
+@app.route('/fix_db_ocurrencias')
+@admin_required
+def fix_db_ocurrencias():
+    conn = get_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("ALTER TABLE public.egresos_ocurrencias ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();")
+        conn.commit()
+        return "<h3>¡Base de datos reparada! La columna 'created_at' fue agregada con éxito. Ya puedes volver a la Gestión de Egresos y guardar.</h3>"
+    except Exception as e:
+        conn.rollback()
+        return f"<h3>Error:</h3> <p>{str(e)}</p>"
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
