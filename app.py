@@ -4317,13 +4317,24 @@ def eliminar_egreso(egreso_id):
     return redirect(request.referrer or url_for('gestion_egresos'))
 
 # =================================================================================
-# Gestión Principal de Egresos
+# Gestión Principal de Egresos y Modal Fintech de Pagos
 # =================================================================================
 @app.route('/gestion/egresos', methods=['GET', 'POST'], endpoint='gestion_egresos')
 @admin_required
 def gestion_egresos():
     conn = get_db()
     hoy = get_venezuela_current_date()
+
+    # --- NUEVO: Extraer tasas vivas para alimentar el Modal en tiempo real ---
+    tasas_hoy = {'usd': 1.0, 'binance': 1.0}
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT tasa, tasa_binance_p2p FROM historial_tasas_bcv ORDER BY fecha DESC LIMIT 1")
+            trow = cur.fetchone()
+            if trow:
+                tasas_hoy = {'usd': float(trow['tasa'] or 1), 'binance': float(trow['tasa_binance_p2p'] or 1)}
+    except Exception:
+        pass
 
     # --- LÓGICA POST: GUARDAR NUEVOS EGRESOS ---
     if request.method == 'POST':
@@ -4343,7 +4354,6 @@ def gestion_egresos():
             dia_mes = request.form.get('dia_mes')
             dias_quincena = request.form.get('dias_quincena')
             
-            # Variables de Devoluciones (No se insertan como columnas, se interceptan)
             cliente_id = request.form.get('cliente_asociado_id')
             num_cuotas = request.form.get('numero_de_cuotas') or 1
 
@@ -4355,11 +4365,9 @@ def gestion_egresos():
                         c_info = cur.fetchone()
                         if c_info:
                             titulo = f"Devolución: {c_info['nombre']} {c_info['apellido']}"
-                # Inyectamos el número de cuotas en las notas para mantener la DB limpia
                 descripcion = f"Acuerdo en {num_cuotas} cuota(s). {descripcion}"
 
             with conn.cursor() as cur:
-                # INSERT LIMPIO: Eliminadas las columnas fantasma (numero_de_cuotas, cliente_asociado_id)
                 cur.execute("""
                     INSERT INTO egresos_planificados 
                     (titulo, tipo, monto_base_usd, metodo_referencia, frecuencia, 
@@ -4395,7 +4403,6 @@ def gestion_egresos():
     resumen = resumen_egresos_periodo(conn, periodo_tipo, clave)
 
     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-        # SELECT LIMPIO: Eliminada la columna fantasma
         cur.execute("""
             SELECT id, titulo, tipo, frecuencia, intervalo_semana, byday, dia_mes, dias_quincena,
                    monto_base_usd, metodo_referencia, estado, fecha_inicio_recurrencia, fecha_fin_recurrencia,
@@ -4406,7 +4413,6 @@ def gestion_egresos():
         """)
         rows = cur.fetchall() or []
         
-        # Traemos los clientes retirados para el selector de devoluciones
         cur.execute("SELECT id, nombre || ' ' || apellido AS nombre_completo FROM clientes WHERE UPPER(TRIM(estatus_cliente)) = 'RETIRO'")
         clientes_retiro = cur.fetchall() or []
 
@@ -4423,41 +4429,97 @@ def gestion_egresos():
     return render_template(
         'gestion_egresos.html',
         periodo_tipo=periodo_tipo, periodo=clave, start=start, end=end,
-        resumen=resumen, egresos=egresos, clientes_retiro=clientes_retiro
+        resumen=resumen, egresos=egresos, clientes_retiro=clientes_retiro,
+        tasas_hoy=tasas_hoy
     )
 
-@app.route('/gestion/egresos/ocurrencias/<int:occ_id>/prefill-pago', methods=['POST'])
+
+# --- NUEVA RUTA DE EJECUCIÓN (MODAL) QUE CALCULA Y CONGELA EL SPREAD ---
+@app.route('/gestion/egresos/ocurrencias/<int:occ_id>/procesar_pago', methods=['POST'])
 @admin_required
-def egreso_prefill_pago(occ_id):
+def procesar_pago_egreso_modal(occ_id):
     conn = get_db()
     if not conn:
         flash("Error de conexión a la base de datos.", "danger")
         return redirect(url_for('gestion_egresos'))
 
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT eo.id, eo.monto_programado_usd, eo.monto_pagado_usd, ep.titulo
-            FROM egresos_ocurrencias eo
-            JOIN egresos_planificados ep ON ep.id=eo.egreso_id
-            WHERE eo.id=%s
-        """, (occ_id,))
-        row = cur.fetchone()
-        if not row:
-            flash("Ocurrencia no encontrada.", "warning")
-            return redirect(url_for('gestion_egresos'))
+    caja_origen = request.form.get('caja_origen')
+    moneda_origen = request.form.get('moneda_origen')
+    monto_origen = Decimal(request.form.get('monto_origen', '0').replace(',', '.'))
+    tasa_aplicada_str = request.form.get('tasa_aplicada', '0').replace(',', '.')
+    tasa_aplicada = Decimal(tasa_aplicada_str) if tasa_aplicada_str and float(tasa_aplicada_str) > 0 else None
+    referencia = request.form.get('referencia', '')
 
-    pendiente = max(0.0, float(row['monto_programado_usd']) - float(row['monto_pagado_usd']))
-    if pendiente <= 0:
-        flash("Esta ocurrencia ya está pagada.", "info")
-        return redirect(url_for('gestion_egresos'))
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT eo.id, eo.monto_programado_usd, eo.monto_pagado_usd, ep.titulo 
+                FROM egresos_ocurrencias eo 
+                JOIN egresos_planificados ep ON ep.id=eo.egreso_id 
+                WHERE eo.id=%s
+            """, (occ_id,))
+            row = cur.fetchone()
+            
+            if not row:
+                flash("Gasto no encontrado.", "danger")
+                return redirect(url_for('gestion_egresos'))
 
-    return redirect(url_for(
-        'tesoreria_rebalanceo',
-        tipo_operacion='PAGO_GASTO',
-        nota=f"Pago {row['titulo']}",
-        monto_origen=f"{pendiente:.2f}",
-        egreso_ocurrencia_id=occ_id
-    ))
+            cur.execute("SELECT tasa, tasa_binance_p2p FROM historial_tasas_bcv ORDER BY fecha DESC LIMIT 1")
+            t_row = cur.fetchone()
+            tasa_bcv = Decimal(t_row['tasa']) if t_row and t_row['tasa'] else Decimal('1.0')
+            tasa_bin = Decimal(t_row['tasa_binance_p2p']) if t_row and t_row['tasa_binance_p2p'] else Decimal('1.0')
+
+            # Si el administrador desactivó el toggle y usa la del sistema:
+            if not tasa_aplicada:
+                if moneda_origen in ['VES', 'BS', 'USDT']:
+                    tasa_aplicada = tasa_bin if caja_origen == 'BINANCE_USDT' else tasa_bcv
+                else:
+                    tasa_aplicada = Decimal('1.0')
+
+            # Cálculo Matemático del Spread Real (Slippage)
+            if moneda_origen in ['VES', 'BS', 'USDT']:
+                equivalente_usd = monto_origen / tasa_aplicada if tasa_aplicada > 0 else monto_origen
+            else:
+                equivalente_usd = monto_origen
+
+            nota = f"Pago de {row['titulo']} | Ref: {referencia}"
+
+            # 1. Descuento Real en Tesorería
+            cur.execute("""
+                INSERT INTO operaciones_tesoreria 
+                (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, tasa_aplicada, nota, realizada_por, fecha_operacion, perdida_cambiaria)
+                VALUES ('PAGO_GASTO', %s, %s, %s, 'GASTO_OPERATIVO', 'USD', %s, %s, %s, %s, NOW(), 0)
+                RETURNING id
+            """, (caja_origen, moneda_origen, monto_origen, equivalente_usd, tasa_aplicada, nota, g.admin['id']))
+            operacion_id = cur.fetchone()['id']
+
+            # 2. Sello del pago al egreso (esto congela el número en la Auditoría)
+            cur.execute("""
+                INSERT INTO egresos_pagos (egreso_ocurrencia_id, movimiento_tesoreria_id, monto_original, moneda, tasa_aplicada, monto_equivalente_usd, nota)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (occ_id, operacion_id, monto_origen, moneda_origen, tasa_aplicada, equivalente_usd, referencia))
+
+            # 3. Transición del Estatus a Pagado
+            cur.execute("""
+                UPDATE egresos_ocurrencias
+                SET monto_pagado_usd = COALESCE(monto_pagado_usd,0) + %s
+                WHERE id=%s RETURNING monto_programado_usd, monto_pagado_usd
+            """, (equivalente_usd, occ_id))
+            occ_upd = cur.fetchone()
+
+            pendiente = float(occ_upd['monto_programado_usd']) - float(occ_upd['monto_pagado_usd'])
+            nuevo_estado = 'pagado' if pendiente <= 0.0001 else 'parcial'
+            cur.execute("UPDATE egresos_ocurrencias SET estado=%s WHERE id=%s", (nuevo_estado, occ_id))
+            cur.execute("UPDATE operaciones_tesoreria SET referencia_tipo='EGRESO', referencia_id=%s WHERE id=%s", (occ_id, operacion_id))
+
+            conn.commit()
+            flash(f"¡Pago ejecutado y auditado! El spread ha quedado sellado utilizando la tasa de {tasa_aplicada:,.2f}.", "success")
+
+    except Exception as e:
+        conn.rollback()
+        flash(f"Error al registrar el pago: {e}", "danger")
+
+    return redirect(url_for('gestion_egresos'))
 
 # ====== FIN: REEMPLAZO ======
 
