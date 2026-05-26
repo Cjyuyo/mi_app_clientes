@@ -53,99 +53,7 @@
 {% endblock %}
 
 {% block body %}
-<div class="min-h-screen bg-[#f8fafc] -m-6 p-6 sm:p-10 font-sans" x-data="{
-    activeTab: 'gastos',
-    isModalOpen: false,
-    occ_id: null,
-    titulo: '',
-    monto_deuda_original: 0,
-    abono_usd: 0,
-    grupo_cajas: 'EFECTIVO',
-    tipo_pago: '',
-    moneda_simbolo: '',
-    total_debitar: 0,
-    tasa_bcv: {{ tasas_hoy.usd if tasas_hoy else 1 }},
-    tasa_binance: {{ tasas_hoy.binance if tasas_hoy else 1 }},
-    tasa_custom: 1,
-    usar_tasa_custom: false,
-    mostrar_tasa: false,
-    referencia: '',
-
-    abrirModal(id, tit, monto, metodoRaw) {
-        this.occ_id = id;
-        this.titulo = tit;
-        this.monto_deuda_original = parseFloat(monto);
-        this.abono_usd = this.monto_deuda_original.toFixed(2);
-        this.usar_tasa_custom = false;
-        this.referencia = '';
-        
-        let m = String(metodoRaw || '').toUpperCase().trim();
-        
-        // Asignación directa y a prueba de errores
-        if (m.includes('BINANCE') || m.includes('CRIPTO') || m.includes('USDT')) {
-            this.grupo_cajas = 'BINANCE';
-            this.tipo_pago = 'BANESCO_BINANCE';
-        } else if (m.includes('BCV') || m.includes('EUR') || m.includes('BS') || m.includes('VES')) {
-            this.grupo_cajas = 'BCV';
-            this.tipo_pago = 'BANESCO_BCV';
-        } else {
-            this.grupo_cajas = 'EFECTIVO';
-            this.tipo_pago = 'EFECTIVO_USD';
-        }
-        
-        this.cambioCaja();
-        this.isModalOpen = true;
-    },
-    
-    cambioCaja() {
-        if (this.tipo_pago === 'BANESCO_BCV') {
-            this.moneda_simbolo = 'Bs';
-            this.tasa_custom = this.tasa_bcv;
-            this.mostrar_tasa = true;
-            this.total_debitar = (this.abono_usd * this.tasa_custom).toFixed(2);
-        } else if (this.tipo_pago === 'BANESCO_BINANCE') {
-            this.moneda_simbolo = 'Bs';
-            this.tasa_custom = this.tasa_binance;
-            this.mostrar_tasa = true;
-            this.total_debitar = (this.abono_usd * this.tasa_custom).toFixed(2);
-        } else if (this.tipo_pago === 'BINANCE_DIRECTO') {
-            this.moneda_simbolo = 'USDT';
-            this.tasa_custom = 1.0;
-            this.mostrar_tasa = false;
-            this.total_debitar = this.abono_usd;
-        } else if (this.tipo_pago === 'EFECTIVO_USD') {
-            this.moneda_simbolo = 'USD';
-            this.tasa_custom = 1.0;
-            this.mostrar_tasa = false;
-            this.total_debitar = this.abono_usd;
-        }
-        this.usar_tasa_custom = false;
-    },
-
-    calcTotal() {
-        let abono = parseFloat(this.abono_usd) || 0;
-        let tasa = parseFloat(this.tasa_custom) || 1;
-        
-        if (this.tipo_pago.startsWith('BANESCO')) {
-            this.total_debitar = (abono * tasa).toFixed(2);
-        } else {
-            this.total_debitar = abono.toFixed(2);
-        }
-    },
-
-    calcTasa() {
-        let abono = parseFloat(this.abono_usd) || 0;
-        let total = parseFloat(this.total_debitar) || 0;
-        
-        if (this.tipo_pago.startsWith('BANESCO') && abono > 0) {
-            this.usar_tasa_custom = true;
-            this.tasa_custom = (total / abono).toFixed(4);
-        } else if (!this.tipo_pago.startsWith('BANESCO')) {
-            this.total_debitar = total.toFixed(2);
-        }
-    }
-}">
-
+<div class="min-h-screen bg-[#f8fafc] -m-6 p-6 sm:p-10 font-sans" x-data="moduloEgresos()">
 <div class="max-w-[1400px] mx-auto space-y-8 mb-12">
 
     <div class="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6">
@@ -419,7 +327,7 @@
                                     <td class="px-6 py-4 text-right align-middle">
                                         {% if o.pendiente > 0.0001 %}
                                             <button type="button" 
-                                                    @click.prevent="abrirModal('{{ o.ocurrencia_id }}', '{{ item.titulo|replace('\'', '')|replace('\"', '') }}', {{ o.pendiente }}, '{{ item.metodo_referencia or "USD_EFECTIVO" }}')" 
+                                                    @click.prevent="abrirModal({{ o.ocurrencia_id }}, {{ item.titulo|tojson|safe }}, {{ o.pendiente }}, '{{ item.metodo_referencia|default('USD_EFECTIVO') }}')" 
                                                     class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white border border-slate-800 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700 transition-all shadow-sm active:scale-95">
                                                 <i class="bi bi-wallet2 pointer-events-none"></i> Pagar
                                             </button>
@@ -552,56 +460,39 @@
                 </div>
 
                 <form :action="'/gestion/egresos/ocurrencias/' + occ_id + '/procesar_pago'" method="POST" class="space-y-5">
-                    <input type="hidden" name="caja_origen" :value="tipo_pago.startsWith('BANESCO') ? 'CAJA_BS_USD' : (tipo_pago === 'BINANCE_DIRECTO' ? 'BINANCE_USDT' : 'EFECTIVO_USD')">
-                    <input type="hidden" name="moneda_origen" :value="tipo_pago.startsWith('BANESCO') ? 'VES' : (tipo_pago === 'BINANCE_DIRECTO' ? 'USDT' : 'USD')">
+                    
+                    <input type="hidden" name="caja_origen" :value="caja_seleccionada">
+                    <input type="hidden" name="moneda_origen" :value="monedaOrigenName">
                     <input type="hidden" name="tasa_aplicada" :value="tasa_custom">
                     
                     <div class="bg-blue-50/50 border border-blue-100 p-4 rounded-xl shadow-inner">
                         <label class="stripe-label text-blue-800"><i class="bi bi-piggy-bank"></i> Abonar a la Deuda (USD) <span class="text-rose-500">*</span></label>
                         <div class="relative mt-1">
                             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-blue-600 text-sm font-black">$</span>
-                            <input type="number" step="0.01" min="0.01" name="abono_usd" x-model="abono_usd" @input="calcTotal()" required class="stripe-input pl-8 font-black text-blue-700 bg-white border-blue-200 text-lg shadow-sm" :max="monto_deuda_original">
+                            <input type="number" step="0.01" min="0.01" name="abono_usd" x-model="abono_usd" required class="stripe-input pl-8 font-black text-blue-700 bg-white border-blue-200 text-lg shadow-sm" :max="monto_deuda_original">
                         </div>
                         <p class="text-[9px] font-semibold text-blue-400 mt-1.5 ml-1">Monto de la deuda que vas a liquidar. Puedes fraccionarlo.</p>
                     </div>
 
                     <div>
                         <label class="stripe-label">Caja y Tasa a Aplicar</label>
-                        
-                        <div x-show="grupo_cajas === 'BINANCE'">
-                            <select x-model="tipo_pago" @change="cambioCaja()" class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300 w-full">
-                                <option value="BANESCO_BINANCE">Caja Banesco Bs (Tasa Binance)</option>
-                                <option value="BINANCE_DIRECTO">Binance Directo (Saldo USDT)</option>
-                            </select>
-                        </div>
-                        
-                        <div x-show="grupo_cajas === 'BCV'">
-                            <select x-model="tipo_pago" @change="cambioCaja()" class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300 w-full">
-                                <option value="BANESCO_BCV">Caja Banesco Bs (Tasa BCV)</option>
-                                <option value="BINANCE_DIRECTO">Binance Directo (Saldo USDT)</option>
-                            </select>
-                        </div>
-
-                        <div x-show="grupo_cajas === 'EFECTIVO'">
-                            <select x-model="tipo_pago" @change="cambioCaja()" class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300 w-full">
-                                <option value="EFECTIVO_USD">Caja Efectivo USD</option>
-                            </select>
-                        </div>
+                        <select id="select_caja_origen" @change="alCambiarCaja()" class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300 w-full shadow-sm">
+                        </select>
                     </div>
 
-                    <div x-show="mostrar_tasa" x-collapse>
+                    <div x-show="mostrarTasa" x-collapse>
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm mt-2">
                             <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-200">
                                 <label class="stripe-label !mb-0 text-slate-700"><i class="bi bi-arrow-left-right text-blue-500"></i> Tasa de Cambio Operativa</label>
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     <span class="text-[9px] font-bold text-slate-500 uppercase">Editar Tasa Real</span>
-                                    <input type="checkbox" x-model="usar_tasa_custom" @change="calcTotal()" class="sr-only peer">
+                                    <input type="checkbox" x-model="usar_tasa_custom" @change="actualizarTasa()" class="sr-only peer">
                                     <div class="w-7 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-500 relative"></div>
                                 </label>
                             </div>
                             <div class="relative">
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">Bs.</span>
-                                <input type="number" step="0.0001" x-model="tasa_custom" :readonly="!usar_tasa_custom" @input="calcTotal()" class="stripe-input pl-8 text-right font-bold transition-all" :class="usar_tasa_custom ? 'bg-white text-blue-700 border-blue-400 ring-2 ring-blue-100' : 'bg-slate-200/50 text-slate-500 cursor-not-allowed border-transparent'">
+                                <input type="number" step="0.0001" x-model="tasa_custom" :readonly="!usar_tasa_custom" class="stripe-input pl-8 text-right font-bold transition-all" :class="usar_tasa_custom ? 'bg-white text-blue-700 border-blue-400 ring-2 ring-blue-100' : 'bg-slate-200/50 text-slate-500 cursor-not-allowed border-transparent'">
                             </div>
                         </div>
                     </div>
@@ -610,8 +501,8 @@
                         <div>
                             <label class="stripe-label">Total Exacto a Debitar</label>
                             <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-black" x-text="moneda_simbolo"></span>
-                                <input type="number" step="0.01" name="monto_origen" x-model="total_debitar" @input="calcTasa()" class="stripe-input pl-14 pr-2 font-black text-slate-900 bg-white border-slate-300 shadow-inner text-lg w-full" required>
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-black" x-text="monedaSimbolo"></span>
+                                <input type="number" step="0.01" name="monto_origen" x-ref="inputMontoReal" :value="totalDebitar" @input="recalcularTasaInversa()" class="stripe-input pl-14 pr-2 font-black text-slate-900 bg-white border-slate-300 shadow-inner text-lg w-full" required>
                             </div>
                         </div>
                         <div>
@@ -620,8 +511,8 @@
                         </div>
                     </div>
                     
-                    <div class="text-[9px] font-bold text-slate-400 text-right mt-1" x-show="tipo_pago.startsWith('BANESCO')">
-                        Tasa Implícita: <span class="text-slate-600" x-text="(abono_usd > 0 ? (total_debitar / abono_usd) : 0).toFixed(4)"></span> Bs/$
+                    <div class="text-[9px] font-bold text-slate-400 text-right mt-1" x-show="mostrarTasa">
+                        Tasa Implícita: <span class="text-slate-600" x-text="(parseFloat(abono_usd) > 0 ? (parseFloat($refs.inputMontoReal?.value || 0) / parseFloat(abono_usd)) : 0).toFixed(4)"></span> Bs/$
                     </div>
 
                     <button type="submit" class="w-full py-3.5 rounded-xl bg-slate-900 text-white text-sm font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2 mt-4 active:scale-[0.98]">
@@ -638,4 +529,109 @@
 
 {% block scripts_extra %}
 <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<script>
+    function moduloEgresos() {
+        return {
+            activeTab: 'gastos',
+            
+            // Estado del Modal
+            isModalOpen: false,
+            occ_id: null,
+            titulo: '',
+            monto_deuda_original: 0,
+            abono_usd: 0,
+            metodo_origen: '',
+            
+            caja_seleccionada: '',
+            tasa_custom: 1,
+            usar_tasa_custom: false,
+            referencia: '',
+            
+            // Constantes inyectadas
+            tasa_bcv: {{ tasas_hoy.usd if tasas_hoy else 1 }},
+            tasa_binance: {{ tasas_hoy.binance if tasas_hoy else 1 }},
+
+            // Propiedades Computadas
+            get totalDebitar() {
+                let abono = parseFloat(this.abono_usd) || 0;
+                let tasa = parseFloat(this.tasa_custom) || 1;
+                if (String(this.caja_seleccionada).startsWith('BANESCO')) {
+                    return (abono * tasa).toFixed(2);
+                }
+                return abono.toFixed(2);
+            },
+            
+            get monedaSimbolo() {
+                if (String(this.caja_seleccionada).startsWith('BANESCO')) return 'Bs';
+                if (this.caja_seleccionada === 'BINANCE_DIRECTO') return 'USDT';
+                return 'USD';
+            },
+            
+            get monedaOrigenName() {
+                if (String(this.caja_seleccionada).startsWith('BANESCO')) return 'VES';
+                if (this.caja_seleccionada === 'BINANCE_DIRECTO') return 'USDT';
+                return 'USD';
+            },
+
+            get mostrarTasa() {
+                return String(this.caja_seleccionada).startsWith('BANESCO');
+            },
+
+            // Funciones del Modal
+            abrirModal(id, titulo, monto, metodo) {
+                this.occ_id = id;
+                this.titulo = titulo;
+                this.monto_deuda_original = parseFloat(monto);
+                this.abono_usd = this.monto_deuda_original.toFixed(2);
+                this.metodo_origen = String(metodo || '').toUpperCase().trim();
+                this.usar_tasa_custom = false;
+                this.referencia = '';
+                
+                // Construcción manual e indestructible del select
+                let sel = document.getElementById('select_caja_origen');
+                sel.innerHTML = ''; 
+                
+                if (this.metodo_origen.includes('BINANCE') || this.metodo_origen.includes('USDT') || this.metodo_origen.includes('CRIPTO')) {
+                    sel.add(new Option('Caja Banesco Bs (Tasa Binance)', 'BANESCO_BINANCE'));
+                    sel.add(new Option('Binance Directo (Saldo USDT)', 'BINANCE_DIRECTO'));
+                } else if (this.metodo_origen.includes('BCV') || this.metodo_origen.includes('BS') || this.metodo_origen.includes('EUR')) {
+                    sel.add(new Option('Caja Banesco Bs (Tasa BCV)', 'BANESCO_BCV'));
+                    sel.add(new Option('Binance Directo (Saldo USDT)', 'BINANCE_DIRECTO'));
+                } else {
+                    sel.add(new Option('Caja Efectivo USD', 'EFECTIVO_USD'));
+                }
+                
+                this.caja_seleccionada = sel.options[0].value;
+                this.actualizarTasa();
+                this.isModalOpen = true;
+            },
+            
+            alCambiarCaja() {
+                this.caja_seleccionada = document.getElementById('select_caja_origen').value;
+                this.usar_tasa_custom = false;
+                this.actualizarTasa();
+            },
+            
+            actualizarTasa() {
+                if (this.caja_seleccionada === 'BANESCO_BCV') {
+                    this.tasa_custom = this.tasa_bcv;
+                } else if (this.caja_seleccionada === 'BANESCO_BINANCE') {
+                    this.tasa_custom = this.tasa_binance;
+                } else {
+                    this.tasa_custom = 1.0;
+                }
+            },
+            
+            recalcularTasaInversa() {
+                let abono = parseFloat(this.abono_usd) || 0;
+                let total = parseFloat(this.$refs.inputMontoReal.value) || 0;
+                
+                if (String(this.caja_seleccionada).startsWith('BANESCO') && abono > 0) {
+                    this.usar_tasa_custom = true;
+                    this.tasa_custom = (total / abono).toFixed(4);
+                }
+            }
+        };
+    }
+</script>
 {% endblock %}
