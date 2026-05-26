@@ -60,6 +60,7 @@
     titulo: '',
     monto_deuda_original: 0,
     abono_usd: 0,
+    metodo_esperado: '',
     caja_origen: '',
     moneda_simbolo: '',
     total_debitar: 0,
@@ -74,6 +75,7 @@
         this.monto_deuda_original = parseFloat(monto);
         this.abono_usd = this.monto_deuda_original.toFixed(2);
         this.usar_tasa_custom = false;
+        this.metodo_esperado = metodo;
         
         if (metodo.includes('Binance') || metodo.includes('Cripto') || metodo.includes('USDT')) {
             this.caja_origen = 'BINANCE_USDT';
@@ -406,7 +408,7 @@
                                                     data-titulo="{{ item.titulo }}"
                                                     @click.prevent="abrirModal('{{ o.ocurrencia_id }}', $el.dataset.titulo, {{ o.pendiente }}, '{{ item.metodo_referencia|default('USD_EFECTIVO') }}')" 
                                                     class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white border border-slate-800 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700 transition-all shadow-sm active:scale-95">
-                                                <i class="bi bi-wallet2"></i> Pagar (${{ '%.2f'|format(o.pendiente) }})
+                                                <i class="bi bi-wallet2"></i> Pagar
                                             </button>
                                         {% else %}
                                             <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 text-[10px] font-bold uppercase tracking-widest">
@@ -553,8 +555,8 @@
                         <label class="stripe-label">Caja a Debitar</label>
                         <select name="caja_origen" x-model="caja_origen" @change="cambioCaja()" required class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300">
                             <option value="CAJA_BS_USD">Caja Banesco Bs</option>
-                            <option value="BINANCE_USDT">Binance Directo (USDT)</option>
-                            <option value="EFECTIVO_USD">Caja Efectivo USD</option>
+                            <option value="BINANCE_USDT">Binance</option>
+                            <option value="EFECTIVO_USD" x-show="!metodo_esperado.includes('BINANCE')">Caja efectivo USD</option>
                         </select>
                     </div>
 
@@ -580,7 +582,7 @@
                             <label class="stripe-label">Total Exacto a Debitar</label>
                             <div class="relative">
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold" x-text="moneda_simbolo"></span>
-                                <input type="number" step="0.01" name="monto_origen" x-model="total_debitar" @input="calcTasa()" class="stripe-input pl-8 font-black text-slate-900 bg-white border-slate-300 shadow-inner text-lg" required>
+                                <input type="number" step="0.01" name="monto_origen" x-model="total_debitar" @input="calcTasa()" class="stripe-input pl-14 font-black text-slate-900 bg-white border-slate-300 shadow-inner text-lg" required>
                             </div>
                         </div>
                         <div>
