@@ -10,29 +10,30 @@
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
         :root {
-            /* Paleta Dark Mode Corporativo - Más Luminoso */
-            --admin-bg: #0F172A; /* Slate 900 - Azul oscuro profundo y elegante, ya no es negro */
-            --card-bg: rgba(30, 41, 59, 0.75); /* Slate 800 translúcido (más claro) */
-            --primary-accent: #6366F1; /* Indigo Premium */
-            --primary-hover: #4F46E5;
-            --text-main: #FFFFFF;
-            --text-muted: #CBD5E1; /* Gris mucho más claro para no cansar la vista */
-            --input-bg: rgba(15, 23, 42, 0.6); /* Fondo de input más amigable */
-            --input-border: rgba(71, 85, 105, 0.7); /* Borde más visible */
-            --focus-ring: rgba(99, 102, 241, 0.35);
+            /* Paleta Luminosa y Profesional */
+            --bg-light: #F8FAFC; /* Slate 50 */
+            --card-bg: #FFFFFF;
+            --slate-900: #0F172A;
+            --slate-800: #1E293B;
+            --slate-500: #64748B;
+            --slate-300: #CBD5E1;
+            --slate-200: #E2E8F0;
+            --accent-blue: #2563EB; /* Blue 600 */
+            --focus-ring: rgba(37, 99, 235, 0.15);
         }
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--admin-bg);
+            background-color: var(--bg-light);
+            /* Patrón sutil de cuadrícula para un toque técnico */
             background-image: 
-                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-            background-size: 30px 30px;
+                linear-gradient(rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(15, 23, 42, 0.03) 1px, transparent 1px);
+            background-size: 32px 32px;
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -43,38 +44,36 @@
             overflow: hidden;
         }
 
-        /* Server Glow Effects - Más grandes y brillantes */
+        /* Efectos de luz suaves de fondo */
         .glow-1 {
             position: absolute;
-            top: 10%;
-            left: 10%;
-            width: 400px;
-            height: 400px;
-            background: radial-gradient(circle, rgba(99,102,241,0.25) 0%, transparent 70%);
-            filter: blur(50px);
+            top: -10%;
+            left: -10%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(37, 99, 235, 0.08) 0%, transparent 70%);
+            filter: blur(40px);
             z-index: 0;
         }
         .glow-2 {
             position: absolute;
-            bottom: 10%;
-            right: 10%;
-            width: 500px;
-            height: 500px;
-            background: radial-gradient(circle, rgba(56,189,248,0.2) 0%, transparent 70%); /* Cian brillante */
-            filter: blur(60px);
+            bottom: -10%;
+            right: -10%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(249, 148, 23, 0.05) 0%, transparent 70%);
+            filter: blur(50px);
             z-index: 0;
         }
 
         .admin-card {
             background-color: var(--card-bg);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            padding: 3rem 2.5rem;
+            padding: 3.5rem 2.5rem;
             border-radius: 24px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+            border: 1px solid var(--slate-200);
+            box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.02);
             width: 100%;
-            max-width: 400px;
+            max-width: 420px;
             position: relative;
             z-index: 10;
         }
@@ -83,34 +82,34 @@
             text-align: center;
             margin-bottom: 2.5rem;
         }
+        
         .server-icon {
-            width: 60px;
-            height: 60px;
-            background: linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(99,102,241,0.05) 100%);
-            border: 1px solid rgba(99,102,241,0.4);
-            border-radius: 16px;
+            width: 64px;
+            height: 64px;
+            background: var(--slate-900);
+            border-radius: 18px;
             display: flex;
             align-items: center;
             justify-content: center;
             margin: 0 auto 1.25rem auto;
-            box-shadow: 0 0 25px rgba(99,102,241,0.2);
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.3);
         }
         .server-icon i {
             font-size: 1.75rem;
-            color: #A5B4FC; /* Ícono más luminoso */
+            color: #FFFFFF;
         }
 
         .admin-header h1 {
-            color: var(--text-main);
-            font-size: 1.25rem;
-            font-weight: 700;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-            margin-bottom: 0.25rem;
+            color: var(--slate-900);
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            margin-bottom: 0.35rem;
         }
         .admin-header p {
-            color: var(--text-muted);
+            color: var(--slate-500);
             font-size: 0.9rem;
+            font-weight: 500;
             margin: 0;
         }
 
@@ -120,8 +119,8 @@
         .form-label {
             display: block;
             font-size: 0.75rem;
-            font-weight: 600;
-            color: var(--text-muted);
+            font-weight: 700;
+            color: var(--slate-500);
             text-transform: uppercase;
             letter-spacing: 0.05em;
             margin-bottom: 0.5rem;
@@ -133,88 +132,102 @@
         }
         .input-wrapper i {
             position: absolute;
-            left: 1rem;
+            left: 1.1rem;
             color: #94A3B8;
             font-size: 1.1rem;
             transition: color 0.2s ease;
         }
-        .form-control-dark {
+        .form-control-light {
             width: 100%;
-            padding: 0.875rem 1rem 0.875rem 2.75rem;
+            padding: 0.875rem 1rem 0.875rem 2.85rem;
             font-size: 0.95rem;
-            color: var(--text-main);
-            background-color: var(--input-bg);
-            border: 1px solid var(--input-border);
+            font-weight: 500;
+            color: var(--slate-900);
+            background-color: #FFFFFF;
+            border: 1px solid var(--slate-300);
             border-radius: 12px;
             transition: all 0.2s ease;
             outline: none;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
         }
-        .form-control-dark::placeholder {
-            color: #64748B;
+        .form-control-light::placeholder {
+            color: #94A3B8;
+            font-weight: 400;
         }
-        .form-control-dark:focus {
-            background-color: rgba(15, 23, 42, 0.9);
-            border-color: var(--primary-accent);
+        .form-control-light:focus {
+            border-color: var(--accent-blue);
             box-shadow: 0 0 0 4px var(--focus-ring);
         }
-        .form-control-dark:focus + i, .input-wrapper:focus-within i {
-            color: #818CF8;
+        .form-control-light:focus + i, .input-wrapper:focus-within i {
+            color: var(--accent-blue);
         }
 
         .btn-auth {
             width: 100%;
-            background: linear-gradient(135deg, var(--primary-accent) 0%, var(--primary-hover) 100%);
+            background: var(--slate-900);
             color: white;
-            font-weight: 600;
+            font-weight: 700;
             font-size: 0.95rem;
             padding: 0.875rem;
-            border: 1px solid rgba(255,255,255,0.15);
+            border: none;
             border-radius: 12px;
             margin-top: 1.5rem;
-            box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+            box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.2), 0 2px 4px -1px rgba(15, 23, 42, 0.1);
             transition: all 0.2s ease;
             display: flex;
             justify-content: center;
             align-items: center;
             gap: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
         }
         .btn-auth:hover {
+            background: var(--slate-800);
             transform: translateY(-1px);
-            box-shadow: 0 8px 16px rgba(99,102,241,0.4);
+            box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.25);
         }
 
-        .alert-dark {
-            background-color: rgba(239,68,68,0.15);
-            border: 1px solid rgba(239,68,68,0.3);
-            color: #FECACA;
+        .alert-light {
+            background-color: #FEF2F2;
+            border: 1px solid #FCA5A5;
+            color: #DC2626;
             border-radius: 12px;
             font-size: 0.85rem;
+            font-weight: 500;
             padding: 1rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
             margin-bottom: 1.5rem;
         }
+        
+        .alert-light .btn-close {
+            font-size: 0.75rem;
+        }
 
         .footer-secure {
-            margin-top: 2rem;
+            margin-top: 2.5rem;
             text-align: center;
-            font-size: 0.8rem;
-            color: #94A3B8;
             display: flex;
             flex-direction: column;
-            gap: 0.3rem;
+            align-items: center;
+            gap: 0.75rem;
         }
         .badge-secure {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 0.25rem;
-            color: #34D399; /* Verde esmeralda más brillante */
+            gap: 0.35rem;
+            color: #059669;
+            background-color: #ECFDF5;
+            border: 1px solid #A7F3D0;
+            padding: 0.35rem 0.85rem;
+            border-radius: 9999px;
             font-weight: 600;
-            margin-bottom: 0.5rem;
+            font-size: 0.75rem;
+        }
+        .footer-copyright {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #94A3B8;
         }
     </style>
 </head>
@@ -226,7 +239,7 @@
     <div class="admin-card">
         <div class="admin-header">
             <div class="server-icon">
-                <i class="bi bi-person-workspace"></i>
+                <i class="bi bi-shield-lock-fill"></i>
             </div>
             <h1>Portal Administrativo</h1>
             <p>Acceso Restringido</p>
@@ -235,10 +248,10 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-dark alert-dismissible fade show" role="alert">
+                    <div class="alert alert-light alert-dismissible fade show" role="alert">
                         <i class="bi bi-exclamation-triangle-fill"></i>
                         <div>{{ message }}</div>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" style="filter: invert(1); opacity: 0.7;"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                 {% endfor %}
             {% endif %}
@@ -249,20 +262,20 @@
                 <label class="form-label" for="usuario">Credencial de Usuario</label>
                 <div class="input-wrapper">
                     <i class="bi bi-person-fill"></i>
-                    <input type="text" class="form-control-dark" id="usuario" name="usuario" placeholder="Nombre de usuario" required autocomplete="off" autofocus>
+                    <input type="text" class="form-control-light" id="usuario" name="usuario" placeholder="Nombre de usuario" required autocomplete="off" autofocus>
                 </div>
             </div>
             
             <div class="form-group mb-2">
                 <label class="form-label" for="password">Clave de Acceso</label>
                 <div class="input-wrapper">
-                    <i class="bi bi-lock-fill"></i>
-                    <input type="password" class="form-control-dark" id="password" name="password" placeholder="••••••••••••" required>
+                    <i class="bi bi-key-fill"></i>
+                    <input type="password" class="form-control-light" id="password" name="password" placeholder="••••••••••••" required>
                 </div>
             </div>
 
             <button type="submit" class="btn-auth">
-                <i class="bi bi-fingerprint fs-5"></i> Autenticar
+                Autenticar <i class="bi bi-arrow-right-short fs-5"></i>
             </button>
         </form>
 
@@ -270,7 +283,9 @@
             <div class="badge-secure">
                 <i class="bi bi-shield-check"></i> Conexión Cifrada SSL
             </div>
-            <span>&copy; {{ anio_actual }} Moto Plan Motors C.A.</span>
+            <div class="footer-copyright">
+                &copy; {{ anio_actual }} Moto Plan Motors C.A.
+            </div>
         </div>
     </div>
 
