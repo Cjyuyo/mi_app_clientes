@@ -314,7 +314,7 @@
                                             {{ item.titulo }}
                                         </summary>
                                         <div class="mt-3 ml-4 pl-4 border-l-2 border-slate-200 space-y-2">
-                                            {{% for o in item.ocurrencias %}
+                                            {% for o in item.ocurrencias %}
                                             <form method="post" action="{{ url_for('egreso_prefill_pago', occ_id=o.ocurrencia_id) }}" class="flex items-center justify-between gap-4 p-2.5 rounded-lg border border-slate-200 bg-white hover:border-blue-300 transition-all shadow-sm">
                                                 <div class="flex items-center gap-3">
                                                     <span class="px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest rounded-md border {{ o.clase_visual|default('bg-amber-50 text-amber-600 border-amber-200') }}">
