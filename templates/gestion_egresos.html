@@ -58,68 +58,75 @@
     isModalOpen: false,
     occ_id: null,
     titulo: '',
-    monto_pendiente_usd: 0,
-    metodo_esperado: '',
+    monto_deuda_original: 0,
+    abono_usd: 0,
     caja_origen: '',
-    moneda_origen: '',
-    tasa_sistema: 0,
-    usar_tasa_custom: false,
-    tasa_custom: 0,
-    monto_pago_moneda: 0,
-    referencia: '',
+    moneda_simbolo: '',
+    total_debitar: 0,
     tasa_bcv: {{ tasas_hoy.usd if tasas_hoy else 1 }},
-    tasa_binance: {{ tasas_hoy.binance if tasas_hoy else 1 }},
+    tasa_custom: 1,
+    usar_tasa_custom: false,
+    mostrar_tasa: false,
 
     abrirModal(id, tit, monto, metodo) {
         this.occ_id = id;
         this.titulo = tit;
-        this.monto_pendiente_usd = parseFloat(monto);
-        this.metodo_esperado = metodo;
+        this.monto_deuda_original = parseFloat(monto);
+        this.abono_usd = this.monto_deuda_original.toFixed(2);
         this.usar_tasa_custom = false;
-        this.referencia = '';
         
         if (metodo.includes('Binance') || metodo.includes('Cripto') || metodo.includes('USDT')) {
             this.caja_origen = 'BINANCE_USDT';
-            this.moneda_origen = 'VES';
-            this.tasa_sistema = this.tasa_binance;
-            this.monto_pago_moneda = (this.monto_pendiente_usd * this.tasa_sistema).toFixed(2);
         } else if (metodo.includes('BCV') || metodo.includes('Bs') || metodo.includes('VES')) {
             this.caja_origen = 'CAJA_BS_USD';
-            this.moneda_origen = 'VES';
-            this.tasa_sistema = this.tasa_bcv;
-            this.monto_pago_moneda = (this.monto_pendiente_usd * this.tasa_sistema).toFixed(2);
         } else {
             this.caja_origen = 'EFECTIVO_USD';
-            this.moneda_origen = 'USD';
-            this.tasa_sistema = 1;
-            this.monto_pago_moneda = this.monto_pendiente_usd.toFixed(2);
         }
-        this.tasa_custom = this.tasa_sistema;
+        this.cambioCaja();
         this.isModalOpen = true;
     },
     
-    recalcular() {
-        let tasa = this.usar_tasa_custom ? parseFloat(this.tasa_custom) : this.tasa_sistema;
-        if (this.caja_origen !== 'EFECTIVO_USD' && tasa > 0) {
-            this.monto_pago_moneda = (this.monto_pendiente_usd * tasa).toFixed(2);
+    cambioCaja() {
+        if (this.caja_origen === 'CAJA_BS_USD') {
+            this.moneda_simbolo = 'Bs';
+            this.tasa_custom = this.tasa_bcv;
+            this.mostrar_tasa = true;
+            this.total_debitar = (this.abono_usd * this.tasa_custom).toFixed(2);
+        } else if (this.caja_origen === 'BINANCE_USDT') {
+            this.moneda_simbolo = 'USDT';
+            this.tasa_custom = 1.0;
+            this.mostrar_tasa = false;
+            this.total_debitar = this.abono_usd;
         } else {
-            this.monto_pago_moneda = this.monto_pendiente_usd.toFixed(2);
+            this.moneda_simbolo = 'USD';
+            this.tasa_custom = 1.0;
+            this.mostrar_tasa = false;
+            this.total_debitar = this.abono_usd;
+        }
+        this.usar_tasa_custom = false;
+    },
+
+    calcTotal() {
+        let abono = parseFloat(this.abono_usd) || 0;
+        let tasa = parseFloat(this.tasa_custom) || 1;
+        
+        if (this.caja_origen === 'CAJA_BS_USD') {
+            this.total_debitar = (abono * tasa).toFixed(2);
+        } else {
+            this.total_debitar = abono.toFixed(2);
         }
     },
 
-    cambioCaja() {
-        if (this.caja_origen === 'CAJA_BS_USD') {
-            this.moneda_origen = 'VES';
-            this.tasa_sistema = this.tasa_bcv;
-        } else if (this.caja_origen === 'BINANCE_USDT') {
-            this.moneda_origen = 'VES';
-            this.tasa_sistema = this.tasa_binance;
-        } else {
-            this.moneda_origen = 'USD';
-            this.tasa_sistema = 1;
+    calcTasa() {
+        let abono = parseFloat(this.abono_usd) || 0;
+        let total = parseFloat(this.total_debitar) || 0;
+        
+        if (this.caja_origen === 'CAJA_BS_USD' && abono > 0) {
+            this.usar_tasa_custom = true;
+            this.tasa_custom = (total / abono).toFixed(4);
+        } else if (this.caja_origen !== 'CAJA_BS_USD') {
+            this.total_debitar = total.toFixed(2);
         }
-        this.tasa_custom = this.tasa_sistema;
-        this.recalcular();
     }
 }">
 
@@ -362,7 +369,7 @@
                             <tr>
                                 <th class="py-3 px-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left">Concepto</th>
                                 <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left">Fecha</th>
-                                <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Monto</th>
+                                <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Deuda Base</th>
                                 <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Estatus</th>
                                 <th class="py-3 px-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Acción</th>
                             </tr>
@@ -385,9 +392,13 @@
                                         <span class="font-bold text-slate-700 tabular-nums">${{ '%.2f'|format(o.programado) }}</span>
                                     </td>
                                     <td class="px-4 py-4 text-center align-middle">
-                                        <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border {{ o.clase_visual|default('bg-amber-50 text-amber-600 border-amber-200') }}">
-                                            {{ o.estado_visual|default('Pendiente') }}
-                                        </span>
+                                        {% if o.estado_visual == 'Parcial' %}
+                                            <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border bg-blue-50 text-blue-600 border-blue-200">Parcial</span>
+                                        {% else %}
+                                            <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border {{ o.clase_visual|default('bg-amber-50 text-amber-600 border-amber-200') }}">
+                                                {{ o.estado_visual|default('Pendiente') }}
+                                            </span>
+                                        {% endif %}
                                     </td>
                                     <td class="px-6 py-4 text-right align-middle">
                                         {% if o.pendiente > 0.0001 %}
@@ -395,11 +406,11 @@
                                                     data-titulo="{{ item.titulo }}"
                                                     @click.prevent="abrirModal('{{ o.ocurrencia_id }}', $el.dataset.titulo, {{ o.pendiente }}, '{{ item.metodo_referencia|default('USD_EFECTIVO') }}')" 
                                                     class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white border border-slate-800 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700 transition-all shadow-sm active:scale-95">
-                                                <i class="bi bi-wallet2"></i> Pagar
+                                                <i class="bi bi-wallet2"></i> Pagar (${{ '%.2f'|format(o.pendiente) }})
                                             </button>
                                         {% else %}
                                             <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 text-[10px] font-bold uppercase tracking-widest">
-                                                <i class="bi bi-check2-all"></i> Pagado
+                                                <i class="bi bi-check2-all"></i> Cancelado
                                             </span>
                                         {% endif %}
                                     </td>
@@ -510,58 +521,80 @@
 
     <div x-show="isModalOpen" style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" x-transition.opacity>
         <div @click.away="isModalOpen = false" class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden" x-transition.scale.origin.bottom>
+            
             <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
                 <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                    <i class="bi bi-shield-check text-emerald-500"></i> Ejecutar Pago
+                    <i class="bi bi-shield-check text-emerald-500"></i> Ejecución de Pago
                 </h3>
                 <button @click="isModalOpen = false" type="button" class="text-slate-400 hover:text-slate-700"><i class="bi bi-x-lg"></i></button>
             </div>
-            <div class="p-6">
-                <p class="text-sm font-bold text-slate-900 mb-1" x-text="titulo"></p>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-5">Monto Estimado: $<span x-text="monto_pendiente_usd.toFixed(2)"></span></p>
+            
+            <div class="p-6 bg-white">
+                <p class="text-lg font-black text-slate-900 mb-1 leading-tight" x-text="titulo"></p>
+                <div class="flex items-center gap-2 mb-6">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Saldo Pendiente:</p>
+                    <span class="text-sm font-black text-rose-500 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-100">$<span x-text="monto_deuda_original.toFixed(2)"></span></span>
+                </div>
 
-                <form :action="'/gestion/egresos/ocurrencias/' + occ_id + '/procesar_pago'" method="POST" class="space-y-4">
-                    <input type="hidden" name="moneda_origen" :value="moneda_origen">
+                <form :action="'/gestion/egresos/ocurrencias/' + occ_id + '/procesar_pago'" method="POST" class="space-y-5">
+                    <input type="hidden" name="moneda_origen" :value="caja_origen === 'CAJA_BS_USD' ? 'VES' : (caja_origen === 'BINANCE_USDT' ? 'USDT' : 'USD')">
+                    <input type="hidden" name="tasa_aplicada" :value="tasa_custom">
                     
+                    <div class="bg-blue-50/50 border border-blue-100 p-4 rounded-xl shadow-inner">
+                        <label class="stripe-label text-blue-800"><i class="bi bi-piggy-bank"></i> Abonar a la Deuda (USD) <span class="text-rose-500">*</span></label>
+                        <div class="relative mt-1">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-blue-600 text-sm font-black">$</span>
+                            <input type="number" step="0.01" min="0.01" name="abono_usd" x-model="abono_usd" @input="calcTotal()" required class="stripe-input pl-8 font-black text-blue-700 bg-white border-blue-200 text-lg shadow-sm" :max="monto_deuda_original">
+                        </div>
+                        <p class="text-[9px] font-semibold text-blue-400 mt-1.5 ml-1">Monto de la deuda que vas a liquidar. Puedes fraccionarlo.</p>
+                    </div>
+
                     <div>
-                        <label class="stripe-label">Origen de Fondos</label>
-                        <select name="caja_origen" x-model="caja_origen" @change="cambioCaja()" required class="stripe-input stripe-select bg-slate-50">
+                        <label class="stripe-label">Caja a Debitar</label>
+                        <select name="caja_origen" x-model="caja_origen" @change="cambioCaja()" required class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300">
                             <option value="CAJA_BS_USD">Caja Banesco Bs</option>
-                            <option value="BINANCE_USDT">Binance</option>
-                            <option value="EFECTIVO_USD">Caja efectivo USD</option>
+                            <option value="BINANCE_USDT">Binance Directo (USDT)</option>
+                            <option value="EFECTIVO_USD">Caja Efectivo USD</option>
                         </select>
                     </div>
 
-                    <div x-show="caja_origen !== 'EFECTIVO_USD'">
-                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                            <div class="flex justify-between items-center mb-2">
-                                <label class="stripe-label !mb-0">Tasa de Cambio</label>
+                    <div x-show="mostrar_tasa" x-collapse>
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm mt-2">
+                            <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-200">
+                                <label class="stripe-label !mb-0 text-slate-700"><i class="bi bi-arrow-left-right text-blue-500"></i> Tasa de Cambio Operativa</label>
                                 <label class="flex items-center gap-2 cursor-pointer">
                                     <span class="text-[9px] font-bold text-slate-500 uppercase">Editar Tasa Real</span>
-                                    <input type="checkbox" x-model="usar_tasa_custom" @change="recalcular()" class="sr-only peer">
+                                    <input type="checkbox" x-model="usar_tasa_custom" @change="calcTotal()" class="sr-only peer">
                                     <div class="w-7 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-500 relative"></div>
                                 </label>
                             </div>
                             <div class="relative">
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">Bs.</span>
-                                <input type="number" step="0.0001" name="tasa_aplicada" x-model="tasa_custom" :readonly="!usar_tasa_custom" @input="recalcular()" class="stripe-input pl-8 text-right font-bold" :class="usar_tasa_custom ? 'bg-white text-blue-700 border-blue-400 ring-2 ring-blue-100' : 'bg-slate-200/50 text-slate-500 cursor-not-allowed border-slate-200'">
+                                <input type="number" step="0.0001" name="tasa_aplicada" x-model="tasa_custom" :readonly="!usar_tasa_custom" @input="calcTotal()" class="stripe-input pl-8 text-right font-bold transition-all" :class="usar_tasa_custom ? 'bg-white text-blue-700 border-blue-400 ring-2 ring-blue-100' : 'bg-slate-200/50 text-slate-500 cursor-not-allowed border-transparent'">
                             </div>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4 mt-2">
+                    <div class="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
                         <div>
-                            <label class="stripe-label">Total a Pagar (<span x-text="moneda_origen === 'VES' ? 'Bs' : '$'"></span>)</label>
-                            <input type="number" step="0.01" name="monto_origen" x-model="monto_pago_moneda" class="stripe-input font-black text-slate-900 border-slate-300 shadow-inner text-lg" required>
+                            <label class="stripe-label">Total Exacto a Debitar</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold" x-text="moneda_simbolo"></span>
+                                <input type="number" step="0.01" name="monto_origen" x-model="total_debitar" @input="calcTasa()" class="stripe-input pl-8 font-black text-slate-900 bg-white border-slate-300 shadow-inner text-lg" required>
+                            </div>
                         </div>
                         <div>
-                            <label class="stripe-label">Referencia</label>
-                            <input type="text" name="referencia" x-model="referencia" class="stripe-input mt-1" placeholder="# Recibo" required>
+                            <label class="stripe-label">N° Referencia / Recibo</label>
+                            <input type="text" name="referencia" x-model="referencia" class="stripe-input font-bold" placeholder="#000000" required>
                         </div>
                     </div>
+                    
+                    <div class="text-[9px] font-bold text-slate-400 text-right mt-1" x-show="caja_origen === 'CAJA_BS_USD'">
+                        Tasa Implícita: <span class="text-slate-600" x-text="(abono_usd > 0 ? (total_debitar / abono_usd) : 0).toFixed(4)"></span> Bs/$
+                    </div>
 
-                    <button type="submit" class="w-full py-3 rounded-xl bg-slate-900 text-white text-sm font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2 mt-2">
-                        <i class="bi bi-wallet2 text-emerald-400"></i> Pagar y Registrar
+                    <button type="submit" class="w-full py-3.5 rounded-xl bg-slate-900 text-white text-sm font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2 mt-4 active:scale-[0.98]">
+                        <i class="bi bi-safe2 text-emerald-400"></i> Registrar Pago
                     </button>
                 </form>
             </div>

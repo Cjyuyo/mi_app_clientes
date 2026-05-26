@@ -4434,7 +4434,9 @@ def gestion_egresos():
     )
 
 
-# --- NUEVA RUTA DE EJECUCIÓN (MODAL) QUE CALCULA Y CONGELA EL SPREAD ---
+# =================================================================================
+# --- RUTA DE EJECUCIÓN (MODAL) QUE SOPORTA ABONOS FRACCIONADOS Y CONGELA EL SPREAD ---
+# =================================================================================
 @app.route('/gestion/egresos/ocurrencias/<int:occ_id>/procesar_pago', methods=['POST'])
 @admin_required
 def procesar_pago_egreso_modal(occ_id):
@@ -4443,12 +4445,19 @@ def procesar_pago_egreso_modal(occ_id):
         flash("Error de conexión a la base de datos.", "danger")
         return redirect(url_for('gestion_egresos'))
 
+    # Lo que el usuario abona a la deuda
+    abono_usd = Decimal(request.form.get('abono_usd', '0').replace(',', '.'))
+    # De dónde salió la plata
     caja_origen = request.form.get('caja_origen')
-    moneda_origen = request.form.get('moneda_origen')
+    # Cuánto salió exactamente (en la moneda de esa caja)
     monto_origen = Decimal(request.form.get('monto_origen', '0').replace(',', '.'))
-    tasa_aplicada_str = request.form.get('tasa_aplicada', '0').replace(',', '.')
-    tasa_aplicada = Decimal(tasa_aplicada_str) if tasa_aplicada_str and float(tasa_aplicada_str) > 0 else None
+    tasa_aplicada_str = request.form.get('tasa_aplicada', '1').replace(',', '.')
+    tasa_aplicada = Decimal(tasa_aplicada_str) if tasa_aplicada_str and float(tasa_aplicada_str) > 0 else Decimal('1.0')
     referencia = request.form.get('referencia', '')
+
+    if abono_usd <= 0 or monto_origen <= 0:
+        flash("Los montos deben ser mayores a cero.", "warning")
+        return redirect(url_for('gestion_egresos'))
 
     try:
         with conn.cursor() as cur:
@@ -4464,47 +4473,51 @@ def procesar_pago_egreso_modal(occ_id):
                 flash("Gasto no encontrado.", "danger")
                 return redirect(url_for('gestion_egresos'))
 
-            cur.execute("SELECT tasa, tasa_binance_p2p FROM historial_tasas_bcv ORDER BY fecha DESC LIMIT 1")
+            # Tasa BCV Oficial para valorar el "Costo Real" de los Bs que salieron
+            cur.execute("SELECT tasa FROM historial_tasas_bcv ORDER BY fecha DESC LIMIT 1")
             t_row = cur.fetchone()
-            tasa_bcv = Decimal(t_row['tasa']) if t_row and t_row['tasa'] else Decimal('1.0')
-            tasa_bin = Decimal(t_row['tasa_binance_p2p']) if t_row and t_row['tasa_binance_p2p'] else Decimal('1.0')
+            tasa_bcv_hoy = Decimal(t_row['tasa']) if t_row and t_row['tasa'] else Decimal('1.0')
 
-            # Si el administrador desactivó el toggle y usa la del sistema:
-            if not tasa_aplicada:
-                if moneda_origen in ['VES', 'BS', 'USDT']:
-                    tasa_aplicada = tasa_bin if caja_origen == 'BINANCE_USDT' else tasa_bcv
-                else:
-                    tasa_aplicada = Decimal('1.0')
-
-            # Cálculo Matemático del Spread Real (Slippage)
-            if moneda_origen in ['VES', 'BS', 'USDT']:
-                equivalente_usd = monto_origen / tasa_aplicada if tasa_aplicada > 0 else monto_origen
+            perdida_cambiaria = Decimal('0.0')
+            if caja_origen == 'CAJA_BS_USD':
+                moneda_origen = 'VES'
+                # Cuántos dólares reales me costaron esos Bolívares
+                real_usd_spent = monto_origen / tasa_bcv_hoy if tasa_bcv_hoy > 0 else monto_origen
+                perdida_cambiaria = real_usd_spent - abono_usd
+            elif caja_origen == 'BINANCE_USDT':
+                moneda_origen = 'USDT'
+                real_usd_spent = monto_origen
+                tasa_aplicada = Decimal('1.0')
+                perdida_cambiaria = monto_origen - abono_usd
             else:
-                equivalente_usd = monto_origen
+                moneda_origen = 'USD'
+                real_usd_spent = monto_origen
+                tasa_aplicada = Decimal('1.0')
+                perdida_cambiaria = monto_origen - abono_usd
 
-            nota = f"Pago de {row['titulo']} | Ref: {referencia}"
+            nota = f"Abono de ${abono_usd:.2f} a {row['titulo']} | Ref: {referencia}"
 
-            # 1. Descuento Real en Tesorería
+            # 1. Movimiento contable en Tesorería
             cur.execute("""
                 INSERT INTO operaciones_tesoreria 
                 (tipo_operacion, caja_origen, moneda_origen, monto_origen, caja_destino, moneda_destino, monto_destino, tasa_aplicada, nota, realizada_por, fecha_operacion, perdida_cambiaria)
-                VALUES ('PAGO_GASTO', %s, %s, %s, 'GASTO_OPERATIVO', 'USD', %s, %s, %s, %s, NOW(), 0)
+                VALUES ('PAGO_GASTO', %s, %s, %s, 'GASTO_OPERATIVO', 'USD', %s, %s, %s, %s, NOW(), %s)
                 RETURNING id
-            """, (caja_origen, moneda_origen, monto_origen, equivalente_usd, tasa_aplicada, nota, g.admin['id']))
+            """, (caja_origen, moneda_origen, monto_origen, abono_usd, tasa_aplicada, nota, g.admin['id'], perdida_cambiaria))
             operacion_id = cur.fetchone()['id']
 
-            # 2. Sello del pago al egreso (esto congela el número en la Auditoría)
+            # 2. Sello del pago vinculado a este recibo
             cur.execute("""
                 INSERT INTO egresos_pagos (egreso_ocurrencia_id, movimiento_tesoreria_id, monto_original, moneda, tasa_aplicada, monto_equivalente_usd, nota)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, (occ_id, operacion_id, monto_origen, moneda_origen, tasa_aplicada, equivalente_usd, referencia))
+            """, (occ_id, operacion_id, monto_origen, moneda_origen, tasa_aplicada, real_usd_spent, referencia))
 
-            # 3. Transición del Estatus a Pagado
+            # 3. Actualizar la Deuda (Esto baja la deuda progresivamente)
             cur.execute("""
                 UPDATE egresos_ocurrencias
                 SET monto_pagado_usd = COALESCE(monto_pagado_usd,0) + %s
                 WHERE id=%s RETURNING monto_programado_usd, monto_pagado_usd
-            """, (equivalente_usd, occ_id))
+            """, (abono_usd, occ_id))
             occ_upd = cur.fetchone()
 
             pendiente = float(occ_upd['monto_programado_usd']) - float(occ_upd['monto_pagado_usd'])
@@ -4513,11 +4526,19 @@ def procesar_pago_egreso_modal(occ_id):
             cur.execute("UPDATE operaciones_tesoreria SET referencia_tipo='EGRESO', referencia_id=%s WHERE id=%s", (occ_id, operacion_id))
 
             conn.commit()
-            flash(f"¡Pago ejecutado y auditado! El spread ha quedado sellado utilizando la tasa de {tasa_aplicada:,.2f}.", "success")
+            
+            estado_texto = "Saldado por completo" if nuevo_estado == 'pagado' else f"Queda un saldo de ${pendiente:.2f}"
+            
+            if perdida_cambiaria < -0.01:
+                flash(f"¡Abono de ${abono_usd:.2f} registrado! Ahorraste ${abs(perdida_cambiaria):.2f} a favor de la empresa. {estado_texto}.", "success")
+            elif perdida_cambiaria > 0.01:
+                flash(f"Abono de ${abono_usd:.2f} registrado. Fuga por spread documentada: ${perdida_cambiaria:.2f}. {estado_texto}.", "warning")
+            else:
+                flash(f"Abono de ${abono_usd:.2f} procesado correctamente (Sin spread). {estado_texto}.", "success")
 
     except Exception as e:
         conn.rollback()
-        flash(f"Error al registrar el pago: {e}", "danger")
+        flash(f"Error procesando pago: {e}", "danger")
 
     return redirect(url_for('gestion_egresos'))
 
@@ -5258,7 +5279,8 @@ def reporte_proyecciones():
                     try:
                         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur_occ:
                             cur_occ.execute("""
-                                SELECT ep.titulo, eo.estado, eo.monto_programado_usd, eo.monto_pagado_usd, eo.fecha_programada
+                                SELECT ep.titulo, eo.estado, eo.monto_programado_usd, eo.monto_pagado_usd, eo.fecha_programada,
+                                       (SELECT COALESCE(SUM(perdida_cambiaria), 0) FROM operaciones_tesoreria WHERE referencia_tipo='EGRESO' AND referencia_id=eo.id) as fuga_congelada
                                 FROM egresos_ocurrencias eo
                                 JOIN egresos_planificados ep ON ep.id = eo.egreso_id
                                 WHERE eo.fecha_programada BETWEEN %s AND %s
@@ -5266,7 +5288,7 @@ def reporte_proyecciones():
                             for occ in cur_occ.fetchall():
                                 ocurrencias_estado[occ['titulo']] = dict(occ)
                     except Exception as e:
-                        app.logger.error(f"Error cargando estados: {e}")
+                        app.logger.error(f"Error cargando estados de ocurrencias: {e}")
 
                     hoy_date = hoy.date() if hasattr(hoy, 'date') else hoy
                     nueva_fuga_live = 0.0
@@ -5280,31 +5302,37 @@ def reporte_proyecciones():
                         estado_pago = 'Pendiente'
                         clase_estado = 'bg-amber-50 text-amber-600 border-amber-200'
                         
+                        perdida_live = 0.0
+                        
                         if occ:
                             if occ['estado'] == 'pagado':
                                 estado_pago = 'Pagado'
                                 clase_estado = 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                perdida_live = float(occ['fuga_congelada'])
                             elif occ['estado'] == 'parcial':
                                 estado_pago = 'Parcial'
                                 clase_estado = 'bg-blue-50 text-blue-600 border-blue-200'
-                            elif occ['fecha_programada'] < hoy_date:
-                                estado_pago = 'Atrasado'
-                                clase_estado = 'bg-rose-50 text-rose-600 border-rose-200'
-                        
-                        eg['estado_pago'] = estado_pago
-                        eg['clase_estado'] = clase_estado
-                        
-                        perdida_live = 0.0
-                        if estado_pago == 'Pagado':
-                            # ¡Spread congelado! Se calcula base a lo que REALMENTE salió de caja
-                            monto_pagado_usd = float(occ['monto_pagado_usd'] or 0)
-                            perdida_live = monto_pagado_usd - monto
+                                pendiente_usd = float(occ['monto_programado_usd']) - float(occ['monto_pagado_usd'])
+                                fuga_congelada = float(occ['fuga_congelada'])
+                                perdida_live_pendiente = 0.0
+                                if 'Binance' in metodo_label or 'Cripto' in metodo_label:
+                                    if bcv_actual > 0:
+                                        perdida_live_pendiente = (pendiente_usd * binance_actual / bcv_actual) - pendiente_usd
+                                perdida_live = fuga_congelada + perdida_live_pendiente
+                            else:
+                                if occ['fecha_programada'] < hoy_date:
+                                    estado_pago = 'Atrasado'
+                                    clase_estado = 'bg-rose-50 text-rose-600 border-rose-200'
+                                if 'Binance' in metodo_label or 'Cripto' in metodo_label:
+                                    if bcv_actual > 0:
+                                        perdida_live = (monto * binance_actual / bcv_actual) - monto
                         else:
-                            # Sigue fluctuando con la tasa viva
                             if 'Binance' in metodo_label or 'Cripto' in metodo_label:
                                 if bcv_actual > 0:
                                     perdida_live = (monto * binance_actual / bcv_actual) - monto
                         
+                        eg['estado_pago'] = estado_pago
+                        eg['clase_estado'] = clase_estado
                         eg['perdida_live'] = perdida_live
                         eg['salida_real_live'] = monto + perdida_live
                         nueva_fuga_live += perdida_live
