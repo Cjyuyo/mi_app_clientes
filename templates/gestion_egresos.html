@@ -72,11 +72,12 @@
 
     get opcionesPermitidas() {
         let ops = [];
-        let m = this.metodo_esperado || '';
-        if (m.includes('Binance') || m.includes('Cripto') || m.includes('USDT')) {
+        let m = (this.metodo_esperado || '').toUpperCase();
+        
+        if (m.includes('BINANCE') || m.includes('CRIPTO') || m.includes('USDT')) {
             ops.push({ val: 'BANESCO_BINANCE', text: 'Caja Banesco Bs (Tasa Binance)' });
             ops.push({ val: 'BINANCE_DIRECTO', text: 'Binance Directo (Saldo USDT)' });
-        } else if (m.includes('BCV') || m.includes('EUR')) {
+        } else if (m.includes('BCV') || m.includes('EUR') || m.includes('BS')) {
             ops.push({ val: 'BANESCO_BCV', text: 'Caja Banesco Bs (Tasa BCV)' });
             ops.push({ val: 'BINANCE_DIRECTO', text: 'Binance Directo (Saldo USDT)' });
         } else {
@@ -94,9 +95,10 @@
         this.metodo_esperado = metodo;
         this.referencia = '';
         
-        if (metodo.includes('Binance') || metodo.includes('Cripto') || metodo.includes('USDT')) {
+        let m_upper = (metodo || '').toUpperCase();
+        if (m_upper.includes('BINANCE') || m_upper.includes('CRIPTO') || m_upper.includes('USDT')) {
             this.tipo_pago = 'BANESCO_BINANCE';
-        } else if (metodo.includes('BCV') || metodo.includes('EUR')) {
+        } else if (m_upper.includes('BCV') || m_upper.includes('EUR') || m_upper.includes('BS')) {
             this.tipo_pago = 'BANESCO_BCV';
         } else {
             this.tipo_pago = 'EFECTIVO_USD';
