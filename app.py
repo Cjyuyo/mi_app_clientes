@@ -4210,6 +4210,9 @@ def resumen_egresos_periodo(conn, periodo_tipo: str, clave: str):
     tot_programado = Decimal('0.00')
     tot_pagado     = Decimal('0.00')
     items = []
+    
+    hoy = get_venezuela_current_date()
+    hoy_date = hoy.date() if hasattr(hoy, 'date') else hoy
 
     with conn.cursor() as cur:
         # CORREGIDO: Sensibilidad de mayúsculas en el WHERE
@@ -4237,7 +4240,8 @@ def resumen_egresos_periodo(conn, periodo_tipo: str, clave: str):
                 SELECT id AS ocurrencia_id,
                        fecha_programada,
                        COALESCE(monto_programado_usd,0) AS programado,
-                       COALESCE(monto_pagado_usd,0)     AS pagado
+                       COALESCE(monto_pagado_usd,0)     AS pagado,
+                       estado
                 FROM egresos_ocurrencias
                 WHERE egreso_id=%s
                   AND fecha_programada BETWEEN %s AND %s
@@ -4246,12 +4250,29 @@ def resumen_egresos_periodo(conn, periodo_tipo: str, clave: str):
             occs = cur.fetchall()
             occ_list = []
             for o in occs:
+                prog_val = Decimal(o['programado'] or 0)
+                pag_val = Decimal(o['pagado'] or 0)
+                pend_val = max(Decimal('0.00'), prog_val - pag_val)
+                
+                # --- NUEVO: ESTADOS VISUALES ---
+                if o['estado'] == 'pagado' or pend_val <= Decimal('0.0001'):
+                    est_vis = 'Pagado'
+                    cls_vis = 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                elif o['fecha_programada'] < hoy_date:
+                    est_vis = 'Atrasado'
+                    cls_vis = 'bg-rose-50 text-rose-700 border-rose-200'
+                else:
+                    est_vis = 'Pendiente'
+                    cls_vis = 'bg-amber-50 text-amber-700 border-amber-200'
+
                 occ_list.append(SimpleNamespace(
                     ocurrencia_id=o['ocurrencia_id'],
                     fecha_programada=o['fecha_programada'],
-                    programado=Decimal(o['programado'] or 0),
-                    pagado=Decimal(o['pagado'] or 0),
-                    pendiente=max(Decimal('0.00'), Decimal(o['programado'] or 0) - Decimal(o['pagado'] or 0))
+                    programado=prog_val,
+                    pagado=pag_val,
+                    pendiente=pend_val,
+                    estado_visual=est_vis,
+                    clase_visual=cls_vis
                 ))
 
             items.append(SimpleNamespace(
@@ -5173,17 +5194,57 @@ def reporte_proyecciones():
                     t_bcv_proj = float(proyeccion.get('tasas_proyectadas', {}).get('bcv', bcv_actual))
                     t_bin_proj = float(proyeccion.get('tasas_proyectadas', {}).get('binance', binance_actual))
                     
-                    # Recalcular la fuga real por ítem mapeando los egresos a la tasa cambiante de HOY
+                    # --- NUEVO: Buscar estado real de ocurrencias en la DB para este mes ---
+                    ocurrencias_estado = {}
+                    try:
+                        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur_occ:
+                            cur_occ.execute("""
+                                SELECT ep.titulo, eo.estado, eo.monto_programado_usd, eo.monto_pagado_usd, eo.fecha_programada
+                                FROM egresos_ocurrencias eo
+                                JOIN egresos_planificados ep ON ep.id = eo.egreso_id
+                                WHERE eo.fecha_programada BETWEEN %s AND %s
+                            """, (fecha_inicio, fecha_fin))
+                            for occ in cur_occ.fetchall():
+                                ocurrencias_estado[occ['titulo']] = dict(occ)
+                    except Exception as e:
+                        app.logger.error(f"Error cargando estados de ocurrencias: {e}")
+
+                    hoy_date = hoy.date() if hasattr(hoy, 'date') else hoy
                     nueva_fuga_live = 0.0
+
                     for eg in proyeccion.get('lista_egresos', []):
                         monto = float(eg.get('monto', 0))
                         metodo_label = eg.get('metodo', '')
+                        titulo = eg.get('titulo', '')
+                        
+                        occ = ocurrencias_estado.get(titulo)
+                        estado_pago = 'Pendiente'
+                        clase_estado = 'bg-amber-50 text-amber-600 border-amber-200'
+                        
+                        if occ:
+                            if occ['estado'] == 'pagado':
+                                estado_pago = 'Pagado'
+                                clase_estado = 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                            elif occ['estado'] == 'parcial':
+                                estado_pago = 'Parcial'
+                                clase_estado = 'bg-blue-50 text-blue-600 border-blue-200'
+                            elif occ['fecha_programada'] < hoy_date:
+                                estado_pago = 'Atrasado'
+                                clase_estado = 'bg-rose-50 text-rose-600 border-rose-200'
+                        
+                        eg['estado_pago'] = estado_pago
+                        eg['clase_estado'] = clase_estado
                         
                         perdida_live = 0.0
-                        if 'Binance' in metodo_label or 'Cripto' in metodo_label:
-                            if bcv_actual > 0:
-                                # Impacto real del spread hoy
-                                perdida_live = (monto * binance_actual / bcv_actual) - monto
+                        if estado_pago == 'Pagado':
+                            # ¡Spread congelado! Se calcula base a lo que REALMENTE salió de caja en USD
+                            monto_pagado_usd = float(occ['monto_pagado_usd'] or 0)
+                            perdida_live = monto_pagado_usd - monto
+                        else:
+                            # Sigue fluctuando con la tasa viva del mercado
+                            if 'Binance' in metodo_label or 'Cripto' in metodo_label:
+                                if bcv_actual > 0:
+                                    perdida_live = (monto * binance_actual / bcv_actual) - monto
                         
                         eg['perdida_live'] = perdida_live
                         eg['salida_real_live'] = monto + perdida_live
