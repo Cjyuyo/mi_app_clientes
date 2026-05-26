@@ -5168,38 +5168,59 @@ def reporte_proyecciones():
                     simulacion_realizada = True
 
                     # ========================================================
-                    # MOTOR DE ANÁLISIS EN VIVO (Cálculo Fino del Spread y Bs Extra)
+                    # 🚀 MOTOR COMPARATIVO DINÁMICO: APERTURA VS TASAS DEL DÍA
                     # ========================================================
-                    t_bcv_proj = proyeccion.get('tasas_proyectadas', {}).get('bcv', bcv_actual)
-                    t_bin_proj = proyeccion.get('tasas_proyectadas', {}).get('binance', binance_actual)
+                    t_bcv_proj = float(proyeccion.get('tasas_proyectadas', {}).get('bcv', bcv_actual))
+                    t_bin_proj = float(proyeccion.get('tasas_proyectadas', {}).get('binance', binance_actual))
                     
-                    # 1. Ahorro o Pérdida por Movimiento de Brecha
-                    eg_expuestos = proyeccion.get('distribucion_egresos', {}).get('VES_BINANCE', 0) + proyeccion.get('distribucion_egresos', {}).get('USDT_BINANCE', 0)
-                    fuga_proyectada = proyeccion.get('perdida_spread_usd', 0)
-                    fuga_live = (eg_expuestos * binance_actual / bcv_actual) - eg_expuestos if bcv_actual > 0 else 0
-                    ahorro_brecha = fuga_proyectada - fuga_live 
+                    # Recalcular la fuga real por ítem mapeando los egresos a la tasa cambiante de HOY
+                    nueva_fuga_live = 0.0
+                    for eg in proyeccion.get('lista_egresos', []):
+                        monto = float(eg.get('monto', 0))
+                        metodo_label = eg.get('metodo', '')
+                        
+                        perdida_live = 0.0
+                        if 'Binance' in metodo_label or 'Cripto' in metodo_label:
+                            if bcv_actual > 0:
+                                # Impacto real del spread hoy
+                                perdida_live = (monto * binance_actual / bcv_actual) - monto
+                        
+                        eg['perdida_live'] = perdida_live
+                        eg['salida_real_live'] = monto + perdida_live
+                        nueva_fuga_live += perdida_live
 
-                    # El dato exacto de Carlos: ¿Cuántos Bs físicos extras nos costó esto?
-                    bs_usados_spread = fuga_live * bcv_actual
+                    # Cálculo exacto de los porcentajes de Brechas
+                    spread_apertura_pct = ((t_bin_proj - t_bcv_proj) / t_bcv_proj * 100) if t_bcv_proj > 0 else 0
+                    spread_live_pct = ((binance_actual - bcv_actual) / bcv_actual * 100) if bcv_actual > 0 else 0
 
-                    # 2. Riesgo por Exceso de Recaudación en Bolívares
-                    meta_bs = proyeccion.get('recaudo_desglose', {}).get('VES_BCV', 0)
+                    # Desviaciones monetarias y saldo en bolívares físicos
+                    fuga_proyectada = float(proyeccion.get('perdida_spread_usd', 0))
+                    ahorro_brecha = fuga_proyectada - nueva_fuga_live 
+                    bs_usados_spread = nueva_fuga_live * bcv_actual
+
+                    # Riesgo por Exceso de Recaudación en Bolívares
+                    meta_bs = float(proyeccion.get('recaudo_desglose', {}).get('VES_BCV', 0))
                     exceso_bs = max(0, real_ves_banco - meta_bs)
                     riesgo_bs = (exceso_bs * binance_actual / bcv_actual) - exceso_bs if bcv_actual > 0 else 0
                     
-                    # 3. Impacto Total en Caja Fuerte
+                    # Impacto consolidado en Tesorería
                     impacto_total = ahorro_brecha - riesgo_bs
-                    balance_ajustado = proyeccion.get('balance_neto_usd', 0) + impacto_total
+                    balance_ajustado = float(proyeccion.get('balance_neto_usd', 0)) + impacto_total
 
                     proyeccion['informe_vivo'] = {
-                        'fuga_live': fuga_live,
+                        'fuga_live': nueva_fuga_live,
                         'bs_usados_spread': bs_usados_spread,
                         'ahorro_brecha': ahorro_brecha,
                         'riesgo_bs': riesgo_bs,
                         'impacto_total': impacto_total,
                         'balance_ajustado': balance_ajustado,
                         't_bcv_proj': t_bcv_proj,
-                        't_bin_proj': t_bin_proj
+                        't_bin_proj': t_bin_proj,
+                        't_bcv_hoy': bcv_actual,
+                        't_bin_hoy': binance_actual,
+                        'spread_apertura_pct': spread_apertura_pct,
+                        'spread_live_pct': spread_live_pct,
+                        'impacto_positivo': ahorro_brecha >= 0
                     }
 
         except Exception as e:
