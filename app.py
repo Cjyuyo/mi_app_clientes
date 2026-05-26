@@ -5278,15 +5278,20 @@ def reporte_proyecciones():
                     ocurrencias_estado = {}
                     try:
                         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur_occ:
+                            # AMPLIAMOS LA VENTANA DE BÚSQUEDA 20 DÍAS PARA ATRAPAR LOS PAGOS DE PRINCIPIOS DE MES
                             cur_occ.execute("""
                                 SELECT ep.titulo, eo.estado, eo.monto_programado_usd, eo.monto_pagado_usd, eo.fecha_programada,
                                        (SELECT COALESCE(SUM(perdida_cambiaria), 0) FROM operaciones_tesoreria WHERE referencia_tipo='EGRESO' AND referencia_id=eo.id) as fuga_congelada
                                 FROM egresos_ocurrencias eo
                                 JOIN egresos_planificados ep ON ep.id = eo.egreso_id
-                                WHERE eo.fecha_programada BETWEEN %s AND %s
+                                WHERE eo.fecha_programada >= %s::date - INTERVAL '20 days'
+                                  AND eo.fecha_programada <= %s::date + INTERVAL '20 days'
+                                ORDER BY eo.fecha_programada DESC
                             """, (fecha_inicio, fecha_fin))
                             for occ in cur_occ.fetchall():
-                                ocurrencias_estado[occ['titulo']] = dict(occ)
+                                # Guarda la ocurrencia más reciente para cada gasto
+                                if occ['titulo'] not in ocurrencias_estado:
+                                    ocurrencias_estado[occ['titulo']] = dict(occ)
                     except Exception as e:
                         app.logger.error(f"Error cargando estados de ocurrencias: {e}")
 
@@ -5301,7 +5306,6 @@ def reporte_proyecciones():
                         occ = ocurrencias_estado.get(titulo)
                         estado_pago = 'Pendiente'
                         clase_estado = 'bg-amber-50 text-amber-600 border-amber-200'
-                        
                         perdida_live = 0.0
                         
                         if occ:
@@ -5327,6 +5331,7 @@ def reporte_proyecciones():
                                     if bcv_actual > 0:
                                         perdida_live = (monto * binance_actual / bcv_actual) - monto
                         else:
+                            # Si es un gasto extra manual o no tiene ocurrencia
                             if 'Binance' in metodo_label or 'Cripto' in metodo_label:
                                 if bcv_actual > 0:
                                     perdida_live = (monto * binance_actual / bcv_actual) - monto
