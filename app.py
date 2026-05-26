@@ -4215,7 +4215,6 @@ def resumen_egresos_periodo(conn, periodo_tipo: str, clave: str):
     hoy_date = hoy.date() if hasattr(hoy, 'date') else hoy
 
     with conn.cursor() as cur:
-        # CORREGIDO: Sensibilidad de mayúsculas en el WHERE
         cur.execute("""
             SELECT ep.id, ep.titulo, ep.frecuencia,
                    COALESCE(SUM(eo.monto_programado_usd),0) AS programado,
@@ -4235,7 +4234,6 @@ def resumen_egresos_periodo(conn, periodo_tipo: str, clave: str):
             pagado     = Decimal(r['pagado'] or 0)
             pendiente  = max(Decimal('0.00'), programado - pagado)
 
-            # Ocurrencias detalle
             cur.execute("""
                 SELECT id AS ocurrencia_id,
                        fecha_programada,
@@ -4254,7 +4252,7 @@ def resumen_egresos_periodo(conn, periodo_tipo: str, clave: str):
                 pag_val = Decimal(o['pagado'] or 0)
                 pend_val = max(Decimal('0.00'), prog_val - pag_val)
                 
-                # --- NUEVO: ESTADOS VISUALES ---
+                # --- ESTADOS VISUALES ---
                 if o['estado'] == 'pagado' or pend_val <= Decimal('0.0001'):
                     est_vis = 'Pagado'
                     cls_vis = 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -5189,12 +5187,11 @@ def reporte_proyecciones():
                     simulacion_realizada = True
 
                     # ========================================================
-                    # 🚀 MOTOR COMPARATIVO DINÁMICO: APERTURA VS TASAS DEL DÍA
+                    # 🚀 MOTOR COMPARATIVO DINÁMICO Y CONGELAMIENTO DE SPREAD
                     # ========================================================
                     t_bcv_proj = float(proyeccion.get('tasas_proyectadas', {}).get('bcv', bcv_actual))
                     t_bin_proj = float(proyeccion.get('tasas_proyectadas', {}).get('binance', binance_actual))
                     
-                    # --- NUEVO: Buscar estado real de ocurrencias en la DB para este mes ---
                     ocurrencias_estado = {}
                     try:
                         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur_occ:
@@ -5207,7 +5204,7 @@ def reporte_proyecciones():
                             for occ in cur_occ.fetchall():
                                 ocurrencias_estado[occ['titulo']] = dict(occ)
                     except Exception as e:
-                        app.logger.error(f"Error cargando estados de ocurrencias: {e}")
+                        app.logger.error(f"Error cargando estados: {e}")
 
                     hoy_date = hoy.date() if hasattr(hoy, 'date') else hoy
                     nueva_fuga_live = 0.0
@@ -5237,11 +5234,11 @@ def reporte_proyecciones():
                         
                         perdida_live = 0.0
                         if estado_pago == 'Pagado':
-                            # ¡Spread congelado! Se calcula base a lo que REALMENTE salió de caja en USD
+                            # ¡Spread congelado! Se calcula base a lo que REALMENTE salió de caja
                             monto_pagado_usd = float(occ['monto_pagado_usd'] or 0)
                             perdida_live = monto_pagado_usd - monto
                         else:
-                            # Sigue fluctuando con la tasa viva del mercado
+                            # Sigue fluctuando con la tasa viva
                             if 'Binance' in metodo_label or 'Cripto' in metodo_label:
                                 if bcv_actual > 0:
                                     perdida_live = (monto * binance_actual / bcv_actual) - monto
@@ -5250,21 +5247,18 @@ def reporte_proyecciones():
                         eg['salida_real_live'] = monto + perdida_live
                         nueva_fuga_live += perdida_live
 
-                    # Cálculo exacto de los porcentajes de Brechas
+                    # Recálculos
                     spread_apertura_pct = ((t_bin_proj - t_bcv_proj) / t_bcv_proj * 100) if t_bcv_proj > 0 else 0
                     spread_live_pct = ((binance_actual - bcv_actual) / bcv_actual * 100) if bcv_actual > 0 else 0
 
-                    # Desviaciones monetarias y saldo en bolívares físicos
                     fuga_proyectada = float(proyeccion.get('perdida_spread_usd', 0))
                     ahorro_brecha = fuga_proyectada - nueva_fuga_live 
                     bs_usados_spread = nueva_fuga_live * bcv_actual
 
-                    # Riesgo por Exceso de Recaudación en Bolívares
                     meta_bs = float(proyeccion.get('recaudo_desglose', {}).get('VES_BCV', 0))
                     exceso_bs = max(0, real_ves_banco - meta_bs)
                     riesgo_bs = (exceso_bs * binance_actual / bcv_actual) - exceso_bs if bcv_actual > 0 else 0
                     
-                    # Impacto consolidado en Tesorería
                     impacto_total = ahorro_brecha - riesgo_bs
                     balance_ajustado = float(proyeccion.get('balance_neto_usd', 0)) + impacto_total
 

@@ -564,7 +564,8 @@
                         <thead class="bg-white border-b border-slate-100">
                             <tr>
                                 <th class="py-3.5 px-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest w-1/4">Gasto (Planificado + Manual)</th>
-                                <th class="py-3.5 px-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest w-1/4">Moneda de Pago Requerida</th>
+                                <th class="py-3.5 px-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest w-1/5">Moneda Requerida</th>
+                                <th class="py-3.5 px-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Estatus</th>
                                 <th class="py-3.5 px-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Monto Base</th>
                                 <th class="py-3.5 px-6 text-[9px] font-bold text-rose-500 uppercase tracking-widest text-right">Fuga Real (Spread Live)</th>
                                 <th class="py-3.5 px-6 text-[9px] font-bold text-slate-900 uppercase tracking-widest text-right bg-slate-50">Costo Final (Eq. USD)</th>
@@ -579,6 +580,12 @@
                                 <td class="px-6 py-3.5 font-semibold text-slate-900">{{ e.titulo }}</td>
                                 <td class="px-4 py-3.5 text-xs font-bold text-slate-500">{{ e.metodo }}</td>
                                 
+                                <td class="px-4 py-3.5 text-center">
+                                    <span class="px-2 py-1 text-[8px] font-bold uppercase tracking-widest rounded-md border {{ e.clase_estado|default('bg-slate-50 text-slate-500 border-slate-200') }}">
+                                        {{ e.estado_pago|default('Planificado') }}
+                                    </span>
+                                </td>
+                                
                                 <td class="px-6 py-3.5 whitespace-nowrap">
                                     <div class="flex items-center justify-end gap-2">
                                         <span class="text-[10px] text-slate-400 font-medium">$</span>
@@ -590,9 +597,15 @@
                                     <div class="flex items-center justify-end gap-2">
                                         {% if p_actual|float > 0 %}
                                             <span class="text-[10px] text-rose-400 font-bold">$</span>
-                                            <span class="font-bold text-rose-500 tabular-nums text-right w-20 tracking-tight">+ {{ "{:,.2f}".format(p_actual|float) }}</span>
+                                            <span class="font-bold text-rose-500 tabular-nums text-right w-20 tracking-tight">
+                                                + {{ "{:,.2f}".format(p_actual|float) }}
+                                                {% if e.estado_pago == 'Pagado' %}<i class="bi bi-lock-fill text-[8px] text-rose-300 ml-0.5" title="Spread Congelado (Pagado)"></i>{% endif %}
+                                            </span>
                                         {% else %}
-                                            <span class="text-slate-300 tabular-nums text-right w-20 font-medium">—</span>
+                                            <span class="text-slate-300 tabular-nums text-right w-20 font-medium">
+                                                —
+                                                {% if e.estado_pago == 'Pagado' %}<i class="bi bi-lock-fill text-[8px] text-slate-300 ml-0.5" title="Spread Congelado (Pagado)"></i>{% endif %}
+                                            </span>
                                         {% endif %}
                                     </div>
                                 </td>
