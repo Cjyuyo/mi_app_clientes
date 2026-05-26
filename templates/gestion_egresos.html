@@ -70,6 +70,21 @@
     usar_tasa_custom: false,
     mostrar_tasa: false,
 
+    get opcionesPermitidas() {
+        let ops = [];
+        let m = this.metodo_esperado || '';
+        if (m.includes('Binance') || m.includes('Cripto') || m.includes('USDT')) {
+            ops.push({ val: 'BANESCO_BINANCE', text: 'Caja Banesco Bs (Tasa Binance)' });
+            ops.push({ val: 'BINANCE_DIRECTO', text: 'Binance Directo (Saldo USDT)' });
+        } else if (m.includes('BCV') || m.includes('EUR')) {
+            ops.push({ val: 'BANESCO_BCV', text: 'Caja Banesco Bs (Tasa BCV)' });
+            ops.push({ val: 'BINANCE_DIRECTO', text: 'Binance Directo (Saldo USDT)' });
+        } else {
+            ops.push({ val: 'EFECTIVO_USD', text: 'Caja Efectivo USD' });
+        }
+        return ops;
+    },
+
     abrirModal(id, tit, monto, metodo) {
         this.occ_id = id;
         this.titulo = tit;
@@ -79,7 +94,6 @@
         this.metodo_esperado = metodo;
         this.referencia = '';
         
-        // Autoselección estricta y lógica según el origen de la deuda
         if (metodo.includes('Binance') || metodo.includes('Cripto') || metodo.includes('USDT')) {
             this.tipo_pago = 'BANESCO_BINANCE';
         } else if (metodo.includes('BCV') || metodo.includes('EUR')) {
@@ -564,13 +578,9 @@
                     <div>
                         <label class="stripe-label">Caja y Tasa a Aplicar</label>
                         <select x-model="tipo_pago" @change="cambioCaja()" required class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300">
-                            <option value="BANESCO_BCV" x-show="metodo_esperado.includes('BCV') || metodo_esperado.includes('EUR')">Caja Banesco Bs (Tasa BCV)</option>
-                            
-                            <option value="BANESCO_BINANCE" x-show="metodo_esperado.includes('Binance') || metodo_esperado.includes('Cripto') || metodo_esperado.includes('USDT')">Caja Banesco Bs (Tasa Binance)</option>
-                            
-                            <option value="EFECTIVO_USD" x-show="metodo_esperado === 'USD_EFECTIVO'">Caja Efectivo USD</option>
-                            
-                            <option value="BINANCE_DIRECTO">Binance Directo (Saldo USDT)</option>
+                            <template x-for="op in opcionesPermitidas" :key="op.val">
+                                <option :value="op.val" x-text="op.text"></option>
+                            </template>
                         </select>
                     </div>
 
