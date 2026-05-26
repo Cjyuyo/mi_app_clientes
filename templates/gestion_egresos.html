@@ -60,7 +60,7 @@
     titulo: '',
     monto_deuda_original: 0,
     abono_usd: 0,
-    metodo_esperado: '',
+    grupo_cajas: 'EFECTIVO',
     tipo_pago: '',
     moneda_simbolo: '',
     total_debitar: 0,
@@ -69,7 +69,6 @@
     tasa_custom: 1,
     usar_tasa_custom: false,
     mostrar_tasa: false,
-    opciones_caja: [],
     referencia: '',
 
     abrirModal(id, tit, monto, metodoRaw) {
@@ -80,44 +79,22 @@
         this.usar_tasa_custom = false;
         this.referencia = '';
         
-        // Convertimos el método a mayúsculas y quitamos espacios para evitar fallos
         let m = String(metodoRaw || '').toUpperCase().trim();
-        this.metodo_esperado = m;
         
-        let ops = [];
-        let defaultPago = '';
-        
-        // Logica implacable: Si dice BINANCE, CRIPTO o USDT en cualquier lado del string...
-        if (m.indexOf('BINANCE') !== -1 || m.indexOf('CRIPTO') !== -1 || m.indexOf('USDT') !== -1) {
-            ops = [
-                { val: 'BANESCO_BINANCE', text: 'Caja Banesco Bs (Tasa Binance)' },
-                { val: 'BINANCE_DIRECTO', text: 'Binance Directo (Saldo USDT)' }
-            ];
-            defaultPago = 'BANESCO_BINANCE';
-        } 
-        // Si dice BCV, EUR, BS o VES...
-        else if (m.indexOf('BCV') !== -1 || m.indexOf('EUR') !== -1 || m.indexOf('BS') !== -1 || m.indexOf('VES') !== -1) {
-            ops = [
-                { val: 'BANESCO_BCV', text: 'Caja Banesco Bs (Tasa BCV)' },
-                { val: 'BINANCE_DIRECTO', text: 'Binance Directo (Saldo USDT)' }
-            ];
-            defaultPago = 'BANESCO_BCV';
-        } 
-        // Si es efectivo (o cualquier otra cosa)...
-        else {
-            ops = [
-                { val: 'EFECTIVO_USD', text: 'Caja Efectivo USD' }
-            ];
-            defaultPago = 'EFECTIVO_USD';
+        // Asignación directa y a prueba de errores
+        if (m.includes('BINANCE') || m.includes('CRIPTO') || m.includes('USDT')) {
+            this.grupo_cajas = 'BINANCE';
+            this.tipo_pago = 'BANESCO_BINANCE';
+        } else if (m.includes('BCV') || m.includes('EUR') || m.includes('BS') || m.includes('VES')) {
+            this.grupo_cajas = 'BCV';
+            this.tipo_pago = 'BANESCO_BCV';
+        } else {
+            this.grupo_cajas = 'EFECTIVO';
+            this.tipo_pago = 'EFECTIVO_USD';
         }
         
-        this.opciones_caja = ops;
-        
-        this.$nextTick(() => {
-            this.tipo_pago = defaultPago;
-            this.cambioCaja();
-            this.isModalOpen = true;
-        });
+        this.cambioCaja();
+        this.isModalOpen = true;
     },
     
     cambioCaja() {
@@ -442,11 +419,9 @@
                                     <td class="px-6 py-4 text-right align-middle">
                                         {% if o.pendiente > 0.0001 %}
                                             <button type="button" 
-                                                    data-titulo="{{ item.titulo|escape }}"
-                                                    data-metodo="{{ item.metodo_referencia|default('USD_EFECTIVO') }}"
-                                                    @click.prevent="abrirModal('{{ o.ocurrencia_id }}', $el.dataset.titulo, {{ o.pendiente }}, $el.dataset.metodo)" 
+                                                    @click.prevent="abrirModal('{{ o.ocurrencia_id }}', '{{ item.titulo|replace('\'', '')|replace('\"', '') }}', {{ o.pendiente }}, '{{ item.metodo_referencia or "USD_EFECTIVO" }}')" 
                                                     class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white border border-slate-800 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700 transition-all shadow-sm active:scale-95">
-                                                <i class="bi bi-wallet2"></i> Pagar
+                                                <i class="bi bi-wallet2 pointer-events-none"></i> Pagar
                                             </button>
                                         {% else %}
                                             <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 text-[10px] font-bold uppercase tracking-widest">
@@ -592,11 +567,26 @@
 
                     <div>
                         <label class="stripe-label">Caja y Tasa a Aplicar</label>
-                        <select x-model="tipo_pago" @change="cambioCaja()" required class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300">
-                            <template x-for="op in opciones_caja" :key="op.val">
-                                <option :value="op.val" x-text="op.text"></option>
-                            </template>
-                        </select>
+                        
+                        <div x-show="grupo_cajas === 'BINANCE'">
+                            <select x-model="tipo_pago" @change="cambioCaja()" class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300 w-full">
+                                <option value="BANESCO_BINANCE">Caja Banesco Bs (Tasa Binance)</option>
+                                <option value="BINANCE_DIRECTO">Binance Directo (Saldo USDT)</option>
+                            </select>
+                        </div>
+                        
+                        <div x-show="grupo_cajas === 'BCV'">
+                            <select x-model="tipo_pago" @change="cambioCaja()" class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300 w-full">
+                                <option value="BANESCO_BCV">Caja Banesco Bs (Tasa BCV)</option>
+                                <option value="BINANCE_DIRECTO">Binance Directo (Saldo USDT)</option>
+                            </select>
+                        </div>
+
+                        <div x-show="grupo_cajas === 'EFECTIVO'">
+                            <select x-model="tipo_pago" @change="cambioCaja()" class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300 w-full">
+                                <option value="EFECTIVO_USD">Caja Efectivo USD</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div x-show="mostrar_tasa" x-collapse>
