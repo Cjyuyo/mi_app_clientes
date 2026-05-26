@@ -109,9 +109,9 @@
                 </div>
 
                 <div x-show="activeTab === 'gastos'" x-cloak class="p-6">
-                    <form action="{{ url_for('gestion_egresos') }}" method="POST" class="space-y-4" x-data="{ tipoEgreso: '' }">
+                    <form action="{{ url_for('gestion_egresos') }}" method="POST" class="space-y-4" x-data="{ tipoEgreso: '', freq: 'Mensual' }">
                         
-                        <input type="hidden" name="frecuencia" :value="tipoEgreso === 'Fijo' ? 'Mensual' : 'Unico'">
+                        <input type="hidden" name="frecuencia" value="Unico" :disabled="tipoEgreso !== 'Variable'">
 
                         <div>
                             <label class="stripe-label">Clasificación*</label>
@@ -145,8 +145,51 @@
                         </div>
 
                         <div>
-                            <label class="stripe-label">Fecha de Inicio / Ejecución*</label>
+                            <label class="stripe-label">Fecha de Inicio de Pago*</label>
                             <input type="date" name="fecha_inicio_recurrencia" required class="stripe-input">
+                        </div>
+
+                        <div x-show="tipoEgreso === 'Fijo'" x-cloak x-transition class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-4 shadow-inner">
+                            <h4 class="text-[10px] font-bold text-slate-800 uppercase tracking-widest"><i class="bi bi-arrow-repeat text-blue-500 me-1"></i> Frecuencia de Cobro</h4>
+                            
+                            <div>
+                                <label class="stripe-label">Frecuencia*</label>
+                                <select name="frecuencia" x-model="freq" :disabled="tipoEgreso !== 'Fijo'" required class="stripe-input stripe-select bg-white">
+                                    <option value="Mensual">Mensual</option>
+                                    <option value="Quincenal">Quincenal</option>
+                                    <option value="Semanal">Semanal</option>
+                                </select>
+                            </div>
+
+                            <div x-show="freq === 'Mensual'" x-cloak>
+                                <label class="stripe-label">Día exacto del mes*</label>
+                                <select name="dia_mes" :disabled="tipoEgreso !== 'Fijo' || freq !== 'Mensual'" class="stripe-input stripe-select bg-white w-full">
+                                    <option value="" disabled selected>-- Elige un día --</option>
+                                    {% for i in range(1, 32) %}
+                                    <option value="{{ i }}">Día {{ i }} de cada mes</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div x-show="freq === 'Quincenal'" x-cloak>
+                                <label class="stripe-label">Días de pago (Separados por coma)*</label>
+                                <input type="text" name="dias_quincena" value="1,16" :disabled="tipoEgreso !== 'Fijo' || freq !== 'Quincenal'" class="stripe-input bg-white" placeholder="Ej: 1,16">
+                            </div>
+
+                            <div x-show="freq === 'Semanal'" x-cloak>
+                                <label class="stripe-label">Días de la semana*</label>
+                                <div class="flex flex-wrap gap-2">
+                                    {% set labels = {'MO':'Lu','TU':'Ma','WE':'Mi','TH':'Ju','FR':'Vi','SA':'Sa','SU':'Do'} %}
+                                    {% for d in ['MO','TU','WE','TH','FR','SA','SU'] %}
+                                    <label class="relative cursor-pointer">
+                                        <input type="checkbox" name="byday" value="{{ d }}" :disabled="tipoEgreso !== 'Fijo' || freq !== 'Semanal'" class="peer sr-only">
+                                        <div class="w-8 h-8 rounded-lg border border-slate-300 bg-white flex items-center justify-center text-[10px] font-bold text-slate-500 transition-colors peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 hover:bg-slate-100 shadow-sm">
+                                            {{ labels[d] }}
+                                        </div>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
                         </div>
 
                         <div>
@@ -256,7 +299,7 @@
                         <thead class="bg-slate-50 border-b border-slate-100">
                             <tr>
                                 <th class="py-3 px-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left">Concepto</th>
-                                <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Frecuencia</th>
+                                <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left">Fecha del Mes</th>
                                 <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Monto</th>
                                 <th class="py-3 px-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Acción</th>
                             </tr>
@@ -293,7 +336,14 @@
                                         </div>
                                     </details>
                                 </td>
-                                <td class="px-4 py-4 text-center text-xs font-semibold text-slate-500 align-top">{{ item.frecuencia }}</td>
+                                <td class="px-4 py-4 align-top">
+                                    <div class="text-xs font-semibold text-slate-600 mb-1">{{ item.frecuencia }}</div>
+                                    <div class="flex flex-wrap gap-1">
+                                        {% for o in item.ocurrencias %}
+                                            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100">Día {{ o.fecha_programada.strftime('%d') }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </td>
                                 <td class="px-4 py-4 text-right font-medium text-slate-500 tabular-nums align-top">${{ '%.2f'|format(item.programado) }}</td>
                                 <td class="px-6 py-4 text-right align-top">
                                     {% if item.pendiente <= 0.0001 %}
@@ -332,7 +382,7 @@
                     <li class="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
                         <div class="flex-1">
                             <div class="flex items-center gap-2 mb-1">
-                                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-200">Fijo</span>
+                                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-200">Fijo ({{ g.frecuencia }})</span>
                                 <span class="font-bold text-slate-900 text-sm">{{ g.titulo }}</span>
                             </div>
                             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
