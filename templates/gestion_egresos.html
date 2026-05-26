@@ -60,6 +60,7 @@
     titulo: '',
     monto_deuda_original: 0,
     abono_usd: 0,
+    metodo_esperado: '',
     tipo_pago: '',
     moneda_simbolo: '',
     total_debitar: 0,
@@ -71,7 +72,7 @@
     opciones_caja: [],
     referencia: '',
 
-    abrirModal(id, tit, monto, metodo) {
+    abrirModal(id, tit, monto, metodoRaw) {
         this.occ_id = id;
         this.titulo = tit;
         this.monto_deuda_original = parseFloat(monto);
@@ -79,25 +80,31 @@
         this.usar_tasa_custom = false;
         this.referencia = '';
         
-        let m = String(metodo || '').toUpperCase();
+        // Convertimos el método a mayúsculas y quitamos espacios para evitar fallos
+        let m = String(metodoRaw || '').toUpperCase().trim();
+        this.metodo_esperado = m;
+        
         let ops = [];
         let defaultPago = '';
         
-        // Destruimos y construimos la lista dinámicamente usando un Array.
-        // Safari no puede fallar porque las otras opciones literalmente no existen en el HTML.
-        if (m.includes('BINANCE') || m.includes('CRIPTO') || m.includes('USDT')) {
+        // Logica implacable: Si dice BINANCE, CRIPTO o USDT en cualquier lado del string...
+        if (m.indexOf('BINANCE') !== -1 || m.indexOf('CRIPTO') !== -1 || m.indexOf('USDT') !== -1) {
             ops = [
                 { val: 'BANESCO_BINANCE', text: 'Caja Banesco Bs (Tasa Binance)' },
                 { val: 'BINANCE_DIRECTO', text: 'Binance Directo (Saldo USDT)' }
             ];
             defaultPago = 'BANESCO_BINANCE';
-        } else if (m.includes('BCV') || m.includes('EUR') || m.includes('BS') || m.includes('VES')) {
+        } 
+        // Si dice BCV, EUR, BS o VES...
+        else if (m.indexOf('BCV') !== -1 || m.indexOf('EUR') !== -1 || m.indexOf('BS') !== -1 || m.indexOf('VES') !== -1) {
             ops = [
                 { val: 'BANESCO_BCV', text: 'Caja Banesco Bs (Tasa BCV)' },
                 { val: 'BINANCE_DIRECTO', text: 'Binance Directo (Saldo USDT)' }
             ];
             defaultPago = 'BANESCO_BCV';
-        } else {
+        } 
+        // Si es efectivo (o cualquier otra cosa)...
+        else {
             ops = [
                 { val: 'EFECTIVO_USD', text: 'Caja Efectivo USD' }
             ];
@@ -106,7 +113,6 @@
         
         this.opciones_caja = ops;
         
-        // Refrescamos la memoria antes de abrir el modal
         this.$nextTick(() => {
             this.tipo_pago = defaultPago;
             this.cambioCaja();
@@ -437,7 +443,7 @@
                                         {% if o.pendiente > 0.0001 %}
                                             <button type="button" 
                                                     data-titulo="{{ item.titulo|escape }}"
-                                                    data-metodo="{{ item.metodo_referencia or 'USD_EFECTIVO' }}"
+                                                    data-metodo="{{ item.metodo_referencia|default('USD_EFECTIVO') }}"
                                                     @click.prevent="abrirModal('{{ o.ocurrencia_id }}', $el.dataset.titulo, {{ o.pendiente }}, $el.dataset.metodo)" 
                                                     class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white border border-slate-800 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700 transition-all shadow-sm active:scale-95">
                                                 <i class="bi bi-wallet2"></i> Pagar
