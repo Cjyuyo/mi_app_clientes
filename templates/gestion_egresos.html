@@ -391,7 +391,10 @@
                                     </td>
                                     <td class="px-6 py-4 text-right align-middle">
                                         {% if o.pendiente > 0.0001 %}
-                                            <button type="button" @click.prevent="abrirModal('{{ o.ocurrencia_id }}', '{{ item.titulo|replace(\"'\", \"\\\\'\") }}', {{ o.pendiente }}, '{{ item.metodo_referencia|default('USD_EFECTIVO') }}')" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white border border-slate-800 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700 transition-all shadow-sm active:scale-95">
+                                            <button type="button" 
+                                                    data-titulo="{{ item.titulo }}"
+                                                    @click.prevent="abrirModal('{{ o.ocurrencia_id }}', $el.dataset.titulo, {{ o.pendiente }}, '{{ item.metodo_referencia|default('USD_EFECTIVO') }}')" 
+                                                    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white border border-slate-800 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700 transition-all shadow-sm active:scale-95">
                                                 <i class="bi bi-wallet2"></i> Pagar
                                             </button>
                                         {% else %}
