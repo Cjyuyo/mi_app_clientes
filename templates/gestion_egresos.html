@@ -60,7 +60,6 @@
     titulo: '',
     monto_deuda_original: 0,
     abono_usd: 0,
-    metodo_esperado: '',
     tipo_pago: '',
     moneda_simbolo: '',
     total_debitar: 0,
@@ -69,22 +68,8 @@
     tasa_custom: 1,
     usar_tasa_custom: false,
     mostrar_tasa: false,
-
-    get opcionesPermitidas() {
-        let ops = [];
-        let m = (this.metodo_esperado || '').toUpperCase();
-        
-        if (m.includes('BINANCE') || m.includes('CRIPTO') || m.includes('USDT')) {
-            ops.push({ val: 'BANESCO_BINANCE', text: 'Caja Banesco Bs (Tasa Binance)' });
-            ops.push({ val: 'BINANCE_DIRECTO', text: 'Binance Directo (Saldo USDT)' });
-        } else if (m.includes('BCV') || m.includes('EUR') || m.includes('BS')) {
-            ops.push({ val: 'BANESCO_BCV', text: 'Caja Banesco Bs (Tasa BCV)' });
-            ops.push({ val: 'BINANCE_DIRECTO', text: 'Binance Directo (Saldo USDT)' });
-        } else {
-            ops.push({ val: 'EFECTIVO_USD', text: 'Caja Efectivo USD' });
-        }
-        return ops;
-    },
+    opciones_caja: [],
+    referencia: '',
 
     abrirModal(id, tit, monto, metodo) {
         this.occ_id = id;
@@ -92,20 +77,41 @@
         this.monto_deuda_original = parseFloat(monto);
         this.abono_usd = this.monto_deuda_original.toFixed(2);
         this.usar_tasa_custom = false;
-        this.metodo_esperado = metodo;
         this.referencia = '';
         
-        let m_upper = (metodo || '').toUpperCase();
-        if (m_upper.includes('BINANCE') || m_upper.includes('CRIPTO') || m_upper.includes('USDT')) {
-            this.tipo_pago = 'BANESCO_BINANCE';
-        } else if (m_upper.includes('BCV') || m_upper.includes('EUR') || m_upper.includes('BS')) {
-            this.tipo_pago = 'BANESCO_BCV';
+        let m = String(metodo || '').toUpperCase();
+        let ops = [];
+        let defaultPago = '';
+        
+        // Destruimos y construimos la lista dinámicamente usando un Array.
+        // Safari no puede fallar porque las otras opciones literalmente no existen en el HTML.
+        if (m.includes('BINANCE') || m.includes('CRIPTO') || m.includes('USDT')) {
+            ops = [
+                { val: 'BANESCO_BINANCE', text: 'Caja Banesco Bs (Tasa Binance)' },
+                { val: 'BINANCE_DIRECTO', text: 'Binance Directo (Saldo USDT)' }
+            ];
+            defaultPago = 'BANESCO_BINANCE';
+        } else if (m.includes('BCV') || m.includes('EUR') || m.includes('BS') || m.includes('VES')) {
+            ops = [
+                { val: 'BANESCO_BCV', text: 'Caja Banesco Bs (Tasa BCV)' },
+                { val: 'BINANCE_DIRECTO', text: 'Binance Directo (Saldo USDT)' }
+            ];
+            defaultPago = 'BANESCO_BCV';
         } else {
-            this.tipo_pago = 'EFECTIVO_USD';
+            ops = [
+                { val: 'EFECTIVO_USD', text: 'Caja Efectivo USD' }
+            ];
+            defaultPago = 'EFECTIVO_USD';
         }
         
-        this.cambioCaja();
-        this.isModalOpen = true;
+        this.opciones_caja = ops;
+        
+        // Refrescamos la memoria antes de abrir el modal
+        this.$nextTick(() => {
+            this.tipo_pago = defaultPago;
+            this.cambioCaja();
+            this.isModalOpen = true;
+        });
     },
     
     cambioCaja() {
@@ -430,8 +436,9 @@
                                     <td class="px-6 py-4 text-right align-middle">
                                         {% if o.pendiente > 0.0001 %}
                                             <button type="button" 
-                                                    data-titulo="{{ item.titulo }}"
-                                                    @click.prevent="abrirModal('{{ o.ocurrencia_id }}', $el.dataset.titulo, {{ o.pendiente }}, '{{ item.metodo_referencia|default('USD_EFECTIVO') }}')" 
+                                                    data-titulo="{{ item.titulo|escape }}"
+                                                    data-metodo="{{ item.metodo_referencia or 'USD_EFECTIVO' }}"
+                                                    @click.prevent="abrirModal('{{ o.ocurrencia_id }}', $el.dataset.titulo, {{ o.pendiente }}, $el.dataset.metodo)" 
                                                     class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white border border-slate-800 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700 transition-all shadow-sm active:scale-95">
                                                 <i class="bi bi-wallet2"></i> Pagar
                                             </button>
@@ -580,7 +587,7 @@
                     <div>
                         <label class="stripe-label">Caja y Tasa a Aplicar</label>
                         <select x-model="tipo_pago" @change="cambioCaja()" required class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300">
-                            <template x-for="op in opcionesPermitidas" :key="op.val">
+                            <template x-for="op in opciones_caja" :key="op.val">
                                 <option :value="op.val" x-text="op.text"></option>
                             </template>
                         </select>
