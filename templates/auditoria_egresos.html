@@ -69,6 +69,7 @@
                             <option value="">Cualquier Estado</option>
                             <option value="pagado" {{ 'selected' if filtros.estado == 'pagado' else '' }}>Saldado (Pagado)</option>
                             <option value="parcial" {{ 'selected' if filtros.estado == 'parcial' else '' }}>Abono Parcial</option>
+                            <option value="pendiente" {{ 'selected' if filtros.estado == 'pendiente' else '' }}>Pendiente</option>
                         </select>
                     </div>
                     <div>
@@ -114,7 +115,7 @@
                     <i class="bi bi-journal-text text-slate-400"></i> Historial de Movimientos Reales
                 </h3>
                 <span class="px-2.5 py-1 bg-slate-50 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-md shadow-sm">
-                    {{ datos.historial|length }} Pagos Realizados
+                    {{ datos.historial|length }} Pagos Planificados
                 </span>
             </div>
             
@@ -178,17 +179,21 @@
                                     {% endif %}
                                 </td>
                                 <td class="py-4 px-6 text-center align-middle">
+                                    {% if row.operacion_id %}
                                     <form method="POST" action="{{ url_for('revertir_pago_egreso', op_id=row.operacion_id) }}" onsubmit="return confirm('ALERTA: ¿Deseas ANULAR este pago?\n\nEl monto abonado se descontará y la deuda volverá a su estado anterior. Esta acción es irreversible.');">
                                         <button type="submit" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-all shadow-sm active:scale-95" title="Anular este pago">
                                             <i class="bi bi-trash3-fill"></i>
                                         </button>
                                     </form>
+                                    {% else %}
+                                    <span class="text-slate-300">—</span>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
                         {% else %}
                             <tr>
-                                <td class="py-16 text-center text-slate-500" colspan="7">
+                                <td class="py-16 text-center text-slate-500" colspan="6">
                                     <div class="flex flex-col items-center justify-center space-y-3">
                                         <div class="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center border border-slate-100"><i class="bi bi-inbox text-xl text-slate-400"></i></div>
                                         <p class="font-medium text-sm text-slate-400">No hay movimientos registrados bajo estos parámetros.</p>
