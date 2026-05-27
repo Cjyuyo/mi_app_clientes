@@ -4430,6 +4430,9 @@ def gestion_egresos():
         total_pendiente = Decimal('0.0')
         items_dict = {}
 
+        # --- CORRECCIÓN: Blindaje del formato de fecha ---
+        hoy_date = hoy.date() if hasattr(hoy, 'date') else hoy
+
         # Mapeo y formateo para el HTML
         for row in raw_ocurrencias:
             prog = Decimal(str(row['programado'] or 0))
@@ -4441,7 +4444,7 @@ def gestion_egresos():
                 estado_visual = 'Pagado'
             elif est == 'parcial':
                 estado_visual = 'Parcial'
-            elif row['fecha_programada'] < hoy.date():
+            elif row['fecha_programada'] < hoy_date:  # <-- Comparación corregida
                 estado_visual = 'Atrasado'
             else:
                 estado_visual = 'Pendiente'
