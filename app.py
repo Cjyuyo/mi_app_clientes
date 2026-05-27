@@ -9568,16 +9568,23 @@ def get_pagos_ocurrencia(occ_id):
     if not conn: return jsonify({'error': 'DB Error'}), 500
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            # Buscamos directamente en tesorería usando la referencia_id
             cur.execute("""
                 SELECT 
-                    id as operacion_id, fecha_operacion, caja_origen,
-                    moneda_origen, monto_origen, monto_destino as abono_usd,
-                    tasa_aplicada, perdida_cambiaria, nota as referencia
-                FROM operaciones_tesoreria 
-                WHERE referencia_tipo = 'EGRESO' AND referencia_id = %s
-                ORDER BY fecha_operacion DESC
-            """, (occ_id,))
+                    ot.id as operacion_id, 
+                    ot.fecha_operacion, 
+                    ot.caja_origen,
+                    ot.moneda_origen, 
+                    ot.monto_origen, 
+                    ot.monto_destino as abono_usd,
+                    ot.tasa_aplicada, 
+                    ot.perdida_cambiaria as spread, 
+                    COALESCE(ep.nota, ot.nota) as referencia
+                FROM operaciones_tesoreria ot
+                LEFT JOIN egresos_pagos ep ON ep.movimiento_tesoreria_id = ot.id
+                WHERE (ot.referencia_tipo = 'EGRESO' AND ot.referencia_id = %(occ)s)
+                   OR ep.egreso_ocurrencia_id = %(occ)s
+                ORDER BY ot.fecha_operacion DESC
+            """, {'occ': occ_id})
             pagos = cur.fetchall()
             
             res = []
@@ -9590,7 +9597,7 @@ def get_pagos_ocurrencia(occ_id):
                     'monto_origen': float(p['monto_origen'] or 0),
                     'abono_usd': float(p['abono_usd'] or 0),
                     'tasa': float(p['tasa_aplicada'] or 0),
-                    'spread': float(p['perdida_cambiaria'] or 0),
+                    'spread': float(p['spread'] or 0),
                     'referencia': p['referencia'] or 'N/A'
                 })
             return jsonify(res)
