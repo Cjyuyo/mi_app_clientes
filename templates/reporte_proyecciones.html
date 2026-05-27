@@ -83,7 +83,7 @@
             {% if messages %}
                 {% for category, message in messages %}
                     <div class="bg-{{ 'rose' if category in ['error', 'danger'] else 'emerald' }}-50 border border-{{ 'rose' if category in ['error', 'danger'] else 'emerald' }}-200 text-{{ 'rose' if category in ['error', 'danger'] else 'emerald' }}-700 p-4 rounded-xl text-sm font-semibold flex items-center gap-3 mb-6 shadow-sm">
-                        <i class="bi {{ 'exclamation-triangle-fill' if category in ['error', 'danger'] else 'check-circle-fill' }}"></i> {{ message }}
+                        <i class="bi {{ 'bi-exclamation-triangle-fill' if category in ['error', 'danger'] else 'bi-check-circle-fill' }}"></i> {{ message }}
                     </div>
                 {% endfor %}
             {% endif %}
@@ -148,9 +148,9 @@
                     <span class="text-2xl font-black text-amber-500 tabular-nums tracking-tight mt-1">${{ "{:,.2f}".format((proyeccion.get('egresos_total_usd', 0)|float) + (proyeccion.get('perdida_spread_usd', 0)|float)) }}</span>
                 </div>
 
-                <div class="bg-[#0f172a]/60 backdrop-blur-2xl rounded-2xl shadow-xl border border-white/10 p-6 flex flex-col justify-center relative overflow-hidden">
-                    <div class="absolute -right-8 -bottom-8 w-32 h-32 bg-emerald-500/20 rounded-full blur-2xl pointer-events-none"></div>
-                    <p class="stripe-label !text-emerald-400 relative z-10"><i class="bi bi-safe2-fill"></i> Caja Líquida Real</p>
+                <div class="bg-[#0f172a]/95 backdrop-blur-2xl rounded-2xl shadow-xl border border-slate-800 p-6 flex flex-col justify-center relative overflow-hidden">
+                    <div class="absolute -right-8 -bottom-8 w-32 h-32 bg-emerald-500/15 rounded-full blur-2xl pointer-events-none"></div>
+                    <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-1 relative z-10"><i class="bi bi-safe2-fill"></i> Caja Líquida Real</p>
                     <span class="text-3xl font-black text-white tabular-nums tracking-tight mt-1 relative z-10">${{ "{:,.2f}".format(proyeccion.get('informe_vivo', {}).get('balance_ajustado', proyeccion.get('balance_neto_usd', 0))|float) }}</span>
                 </div>
             </div>
@@ -226,35 +226,35 @@
 
             {% set inf = proyeccion.get('informe_vivo', {}) %}
             {% if inf %}
-            <div class="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-lg flex flex-col md:flex-row overflow-hidden relative z-10">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col md:flex-row">
                 
-                <div class="p-4 md:w-3/5 flex flex-col gap-3">
-                    <p class="text-[9px] font-bold text-white uppercase tracking-widest flex items-center gap-1.5">
-                        <i class="bi bi-robot text-blue-400"></i> Análisis Estocástico y Spread Cambiario
-                    </p>
+                <div class="p-6 md:w-3/5 flex flex-col gap-5">
+                    <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                        <i class="bi bi-robot text-blue-500"></i> Análisis Estocástico y Spread Cambiario
+                    </h3>
                     
-                    <div class="flex gap-2">
-                        <div class="flex-1 bg-black/20 rounded-lg p-2 border border-white/5 text-center">
-                            <span class="block text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Tasa BCV (Inicio <i class="bi bi-arrow-right mx-0.5"></i> Actual)</span>
-                            <span class="text-[10px] font-bold text-slate-400 tabular-nums">{{ "%.2f"|format(inf.get('t_bcv_proj', 0.0)|float) }} <i class="bi bi-caret-right-fill text-slate-600 mx-0.5"></i> <span class="text-white">{{ "%.2f"|format(inf.get('t_bcv_hoy', 0.0)|float) }}</span></span>
+                    <div class="flex gap-4">
+                        <div class="flex-1 bg-slate-50 rounded-xl p-3 border border-slate-100 text-center">
+                            <span class="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tasa BCV (Inicio <i class="bi bi-arrow-right mx-0.5"></i> Actual)</span>
+                            <span class="text-sm font-bold text-slate-500 tabular-nums">{{ "%.2f"|format(inf.get('t_bcv_proj', 0.0)|float) }} <i class="bi bi-caret-right-fill text-slate-300 mx-1"></i> <span class="text-slate-900">{{ "%.2f"|format(inf.get('t_bcv_hoy', 0.0)|float) }}</span></span>
                         </div>
-                        <div class="flex-1 bg-black/20 rounded-lg p-2 border border-white/5 text-center">
-                            <span class="block text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Tasa P2P (Inicio <i class="bi bi-arrow-right mx-0.5"></i> Actual)</span>
-                            <span class="text-[10px] font-bold text-slate-400 tabular-nums">{{ "%.2f"|format(inf.get('t_bin_proj', 0.0)|float) }} <i class="bi bi-caret-right-fill text-slate-600 mx-0.5"></i> <span class="text-white">{{ "%.2f"|format(inf.get('t_bin_hoy', 0.0)|float) }}</span></span>
+                        <div class="flex-1 bg-slate-50 rounded-xl p-3 border border-slate-100 text-center">
+                            <span class="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Tasa P2P (Inicio <i class="bi bi-arrow-right mx-0.5"></i> Actual)</span>
+                            <span class="text-sm font-bold text-slate-500 tabular-nums">{{ "%.2f"|format(inf.get('t_bin_proj', 0.0)|float) }} <i class="bi bi-caret-right-fill text-slate-300 mx-1"></i> <span class="text-slate-900">{{ "%.2f"|format(inf.get('t_bin_hoy', 0.0)|float) }}</span></span>
                         </div>
                     </div>
 
-                    <div class="space-y-1.5 text-[10px] text-slate-300 leading-relaxed mt-1">
-                        <p>- <strong class="text-white font-semibold">Costo Friccional:</strong> Fuga base para conversión estimada en <b class="text-rose-400">${{ "{:,.2f}".format(inf.get('fuga_live', 0)|float) }}</b>.</p>
+                    <div class="space-y-2 text-xs text-slate-600 leading-relaxed">
+                        <p><span class="text-amber-500 font-bold">- Costo Friccional:</span> Fuga base para conversión estimada en <b class="text-slate-900">${{ "{:,.2f}".format(inf.get('fuga_live', 0)|float) }}</b>.</p>
                         
                         {% if inf.get('ahorro_brecha', 0)|float > 0 %}
-                            <p>- <strong class="text-white font-semibold">Variación:</strong> Compresión de brecha genera ahorro de <b class="text-emerald-400">+${{ "{:,.2f}".format(inf.get('ahorro_brecha')|float) }}</b>.</p>
+                            <p><span class="text-emerald-500 font-bold">- Variación:</span> Compresión de brecha genera ahorro de <b class="text-slate-900">+${{ "{:,.2f}".format(inf.get('ahorro_brecha')|float) }}</b>.</p>
                         {% elif inf.get('ahorro_brecha', 0)|float < 0 %}
-                            <p>- <strong class="text-white font-semibold">Variación:</strong> Alza de P2P genera sobrecosto de <b class="text-rose-400">-${{ "{:,.2f}".format((inf.get('ahorro_brecha')|float) * -1) }}</b>.</p>
+                            <p><span class="text-rose-500 font-bold">- Variación:</span> Alza de P2P genera sobrecosto de <b class="text-slate-900">-${{ "{:,.2f}".format((inf.get('ahorro_brecha')|float) * -1) }}</b>.</p>
                         {% endif %}
                         
                         {% if inf.get('riesgo_bs', 0)|float > 0 %}
-                            <p>- <strong class="text-white font-semibold">Riesgo Monetario:</strong> Exceso de liquidez en Bs genera fuga extra de <b class="text-amber-400">-${{ "{:,.2f}".format(inf.get('riesgo_bs')|float) }}</b>.</p>
+                            <p><span class="text-amber-500 font-bold">- Riesgo Monetario:</span> Exceso de liquidez en Bs genera fuga extra de <b class="text-slate-900">-${{ "{:,.2f}".format(inf.get('riesgo_bs')|float) }}</b>.</p>
                         {% endif %}
                     </div>
                 </div>
@@ -270,34 +270,27 @@
                     {% set tasa_ponderada = (t_bcv + t_bin) / 2 %}
                 {% endif %}
 
-                <div class="p-4 md:w-2/5 border-t md:border-t-0 md:border-l border-white/10 bg-black/20 flex flex-col justify-center gap-4">
+                <div class="p-6 md:w-2/5 border-t md:border-t-0 md:border-l border-slate-100 bg-slate-50/50 flex flex-col justify-center gap-6">
                     <div>
-                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 flex justify-between items-end">
+                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 flex justify-between items-end">
                             <span>Volatilidad (Spread)</span>
-                            <span class="text-base font-black text-amber-400 tabular-nums leading-none">{{ "%.2f"|format(inf.get('spread_live_pct', 0)|float) }}%</span>
+                            <span class="text-lg font-black text-amber-500 tabular-nums leading-none">{{ "%.2f"|format(inf.get('spread_live_pct', 0)|float) }}%</span>
                         </p>
-                        <div class="h-1.5 w-full bg-black/40 rounded-full overflow-hidden border border-white/5">
+                        <div class="h-2 w-full bg-slate-200 rounded-full overflow-hidden shadow-inner border border-slate-100">
                             <div class="h-full bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-500 rounded-full" style="width: {{ [inf.get('spread_live_pct', 0)|float * 4, 100]|min }}%;"></div>
                         </div>
                     </div>
                     
-                    <div class="pt-3 border-t border-white/10 flex justify-between items-center">
-                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight" title="Calculada mediante promedio ponderado según tu volumen de cobranza digital en Bs y USDT.">Tasa Implícita<br>Operativa</p>
+                    <div class="pt-4 border-t border-slate-200">
+                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1" title="Calculada mediante promedio ponderado según tu volumen de cobranza digital en Bs y USDT.">Tasa Implícita Operativa</p>
                         <div class="flex items-baseline gap-1">
-                            <span class="text-2xl font-black text-white tabular-nums drop-shadow-md">{{ "%.2f"|format(tasa_ponderada) }}</span>
-                            <span class="text-[9px] text-slate-500 font-bold">Bs/$</span>
+                            <span class="text-3xl font-black text-slate-900 tabular-nums">{{ "%.2f"|format(tasa_ponderada) }}</span>
+                            <span class="text-[10px] text-slate-500 font-bold">Bs/$</span>
                         </div>
                     </div>
                 </div>
             </div>
             {% endif %}
-
-            <div class="flex justify-end mt-4 relative z-10">
-                <div class="bg-white/10 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] px-5 py-3 rounded-2xl w-full sm:w-auto text-right flex items-center gap-5 justify-between sm:justify-end">
-                    <span class="text-[9px] font-bold text-emerald-400 uppercase tracking-widest text-left">Caja Líquida Real<br><span class="text-[8px] text-slate-400">(Ajustada al Segundo)</span></span>
-                    <span class="text-3xl font-black text-white tabular-nums drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">${{ "{:,.2f}".format(proyeccion.get('informe_vivo', {}).get('balance_ajustado', proyeccion.get('balance_neto_usd', 0))|float) }}</span>
-                </div>
-            </div>
 
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mt-6">
                 <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
@@ -329,14 +322,15 @@
                                 <td class="px-5 py-3 font-semibold text-slate-900">{{ e.titulo }}</td>
                                 
                                 <td class="px-4 py-3 text-xs font-semibold text-slate-500 whitespace-nowrap">
-                                    {% if e.fecha_programada %}
-                                        {% if e.fecha_programada is string %}
-                                            {{ e.fecha_programada }}
+                                    {% set f_val = e.get('fecha_programada') or e.get('fecha') or e.get('fecha_inicio_recurrencia') if e is mapping else (e.fecha_programada|default(e.fecha|default('—', true), true)) %}
+                                    {% if f_val and f_val != '—' %}
+                                        {% if f_val is string %}
+                                            {{ f_val }}
                                         {% else %}
-                                            {{ e.fecha_programada.strftime('%d %b %Y') }}
+                                            {{ f_val.strftime('%d %b %Y') }}
                                         {% endif %}
                                     {% else %}
-                                        —
+                                        <span class="text-slate-300">—</span>
                                     {% endif %}
                                 </td>
 
@@ -360,7 +354,7 @@
                                         {% if e.estado_pago == 'Pagado' %}
                                             <span class="text-slate-300 font-medium text-right tabular-nums tracking-tight">—</span>
                                         {% else %}
-                                            {% set pendiente_calc = e.get('pendiente', e.monto|float) %}
+                                            {% set pendiente_calc = e.get('pendiente', e.monto|float) if e is mapping else e.pendiente|default(e.monto|float) %}
                                             <span class="text-[10px] text-slate-400 font-medium">$</span>
                                             <span class="font-bold text-slate-600 tabular-nums text-right tracking-tight">{{ "{:,.2f}".format(pendiente_calc|float) }}</span>
                                         {% endif %}
