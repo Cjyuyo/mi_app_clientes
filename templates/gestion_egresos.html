@@ -53,6 +53,19 @@
 {% endblock %}
 
 {% block body %}
+<script>
+    window.mapaMetodosEgresos = {};
+    {% for g in egresos.fijos|default([]) %}
+        window.mapaMetodosEgresos[{{ g.titulo|lower|trim|tojson|safe }}] = {{ (g.metodo_referencia or '')|tojson|safe }};
+    {% endfor %}
+    {% for g in egresos.variables|default([]) %}
+        window.mapaMetodosEgresos[{{ g.titulo|lower|trim|tojson|safe }}] = {{ (g.metodo_referencia or '')|tojson|safe }};
+    {% endfor %}
+    {% for g in egresos.devoluciones|default([]) %}
+        window.mapaMetodosEgresos[{{ g.titulo|lower|trim|tojson|safe }}] = {{ (g.metodo_referencia or '')|tojson|safe }};
+    {% endfor %}
+</script>
+
 <div class="min-h-screen bg-[#f8fafc] -m-6 p-6 sm:p-10 font-sans" x-data="{
     activeTab: 'gastos',
     isModalOpen: false,
@@ -60,8 +73,8 @@
     titulo: '',
     monto_deuda_original: 0,
     abono_usd: 0,
-    grupo_cajas: 'EFECTIVO',
-    tipo_pago: 'EFECTIVO_USD',
+    grupo_cajas: 'TODAS',
+    tipo_pago: '',
     moneda_simbolo: 'USD',
     total_debitar: 0,
     tasa_bcv: parseFloat('{{ tasas_hoy.usd if tasas_hoy else 1 }}') || 1,
@@ -70,6 +83,7 @@
     usar_tasa_custom: false,
     mostrar_tasa: false,
     referencia: '',
+    metodoRaw_recibido: '',
 
     get opcionesCaja() {
         if (this.grupo_cajas === 'BINANCE') {
@@ -87,6 +101,7 @@
                 { value: 'EFECTIVO_USD', label: 'Caja Efectivo USD' }
             ];
         }
+        
         return [
             { value: '', label: '-- Seleccione una Caja --' },
             { value: 'BANESCO_BINANCE', label: 'Caja Banesco Bs (Tasa Binance)' },
@@ -106,23 +121,31 @@
         
         let m = String(metodoRaw || '').toUpperCase().trim();
         
+        // MAGIA DE RESCATE: Si llega vacío, buscamos la Vía de Pago usando el título del gasto
         if (!m || m === 'NONE' || m === 'NULL') {
-            this.grupo_cajas = 'TODAS';
-            this.tipo_pago = '';
-        } else if (m.indexOf('BINANCE') !== -1 || m.indexOf('CRIPTO') !== -1 || m.indexOf('USDT') !== -1) {
+            let titLower = String(tit || '').toLowerCase().trim();
+            m = String(window.mapaMetodosEgresos[titLower] || '').toUpperCase().trim();
+        }
+
+        this.metodoRaw_recibido = m;
+        
+        // Blindaje estricto de opciones según la vía
+        if (m.indexOf('BINANCE') !== -1 || m.indexOf('CRIPTO') !== -1 || m.indexOf('USDT') !== -1) {
             this.grupo_cajas = 'BINANCE';
             this.tipo_pago = 'BANESCO_BINANCE';
         } else if (m.indexOf('BCV') !== -1 || m.indexOf('EUR') !== -1 || m.indexOf('BS') !== -1 || m.indexOf('VES') !== -1) {
             this.grupo_cajas = 'BCV';
             this.tipo_pago = 'BANESCO_BCV';
-        } else {
+        } else if (m.indexOf('EFECTIVO') !== -1 || m === 'USD' || m === 'USD_EFECTIVO') {
             this.grupo_cajas = 'EFECTIVO';
             this.tipo_pago = 'EFECTIVO_USD';
+        } else {
+            this.grupo_cajas = 'TODAS';
+            this.tipo_pago = '';
         }
         
         this.isModalOpen = true;
 
-        // Esperamos a que Alpine arme las opciones del select y luego calculamos todo
         this.$nextTick(() => {
             this.cambioCaja();
         });
@@ -432,7 +455,15 @@
                                 <tr class="hover:bg-slate-50 transition-colors">
                                     <td class="px-6 py-4 align-middle">
                                         <div class="font-bold text-slate-900">{{ item.titulo }}</div>
-                                        <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Frecuencia: {{ item.frecuencia }}</div>
+                                        <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5"
+                                             x-data="{ 
+                                                metodo: '{{ item.metodo_referencia or o.metodo_referencia or '' }}', 
+                                                init() { 
+                                                    if (!this.metodo) this.metodo = window.mapaMetodosEgresos['{{ item.titulo|lower|trim|escape }}'] || 'NO DEFINIDA'; 
+                                                } 
+                                             }">
+                                            Frec: {{ item.frecuencia }} <span class="text-slate-300 mx-1">|</span> <span class="text-indigo-500"><i class="bi bi-bank"></i> VÍA: <span x-text="metodo.replace(/_/g, ' ')"></span></span>
+                                        </div>
                                     </td>
                                     <td class="px-4 py-4 align-middle">
                                         <div class="flex items-center gap-1.5 text-slate-600">
@@ -606,6 +637,7 @@
 
                     <div>
                         <label class="stripe-label">Caja y Tasa a Aplicar</label>
+                        
                         <select name="tipo_pago" x-model="tipo_pago" @change="cambioCaja()" class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300 w-full" required>
                             <template x-for="op in opcionesCaja" :key="op.value">
                                 <option :value="op.value" x-text="op.label"></option>
@@ -644,7 +676,7 @@
                         </div>
                     </div>
                     
-                    <div class="text-[9px] font-bold text-slate-400 text-right mt-1" x-show="tipo_pago.startsWith('BANESCO')">
+                    <div class="text-[9px] font-bold text-slate-400 text-right mt-1" x-show="tipo_pago && tipo_pago.startsWith('BANESCO')">
                         Tasa Implícita: <span class="text-slate-600" x-text="(parseFloat(abono_usd) > 0 ? (parseFloat(total_debitar) / parseFloat(abono_usd)) : 0).toFixed(4)"></span> Bs/$
                     </div>
 
