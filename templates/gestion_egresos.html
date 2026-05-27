@@ -482,8 +482,8 @@
                                             {% else %}
                                                 <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border bg-amber-50 text-amber-700 border-amber-200">Pendiente</span>
                                             {% endif %}
-                                            
-                                            {% if o.pagado > 0.0001 %}
+
+                                            {% if (o.programado - o.pendiente) > 0.001 %}
                                             <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ o.ocurrencia_id }}', titulo: '{{ item.titulo|escape }}' })" 
                                                     class="ml-2 w-6 h-6 rounded-md bg-white border border-slate-200 text-blue-500 hover:text-white hover:bg-blue-500 hover:border-blue-500 transition-colors shadow-sm inline-flex items-center justify-center" 
                                                     title="Ver historial de abonos">
