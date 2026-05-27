@@ -4325,7 +4325,7 @@ def gestion_egresos():
     conn = get_db()
     hoy = get_venezuela_current_date()
 
-    # --- NUEVO: Extraer tasas vivas para alimentar el Modal en tiempo real ---
+    # --- Extraer tasas vivas para alimentar el Modal en tiempo real ---
     tasas_hoy = {'usd': 1.0, 'binance': 1.0}
     try:
         with conn.cursor() as cur:
@@ -4384,11 +4384,11 @@ def gestion_egresos():
             conn.commit()
             flash('Egreso planificado registrado exitosamente.', 'success')
         except Exception as e:
-            conn.rollback()
+            if conn: conn.rollback()
             flash(f'Error al registrar el egreso: {e}', 'danger')
         return redirect(url_for('gestion_egresos'))
 
-    # --- LÓGICA GET: RENDERIZAR VISTA ---
+    # --- LÓGICA GET: RENDERIZAR VISTA (Con Arrastre de Mora + 5 Próximos) ---
     periodo_tipo = (request.args.get('periodo_tipo') or 'mensual').lower()
     periodo = request.args.get('periodo')
     if not periodo:
@@ -4399,10 +4399,86 @@ def gestion_egresos():
             periodo = f"{y}-W{wk:02d}"
 
     periodo_tipo, clave, start, end = _parse_periodo(periodo_tipo, periodo)
+    
+    # 1. Ejecutar esto asegura que se creen los gastos del mes, si no existen
     generar_ocurrencias_periodo(conn, periodo_tipo, clave, start, end)
-    resumen = resumen_egresos_periodo(conn, periodo_tipo, clave)
-
+    
+    # 2. Reconstrucción del Resumen: Arrastre de deuda + 5 futuros
     with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        hoy_str = hoy.strftime('%Y-%m-%d')
+        
+        # Esta consulta busca TODOS los pendientes de la historia y le anexa los siguientes 5 pagos
+        cur.execute("""
+            SELECT eo.id as ocurrencia_id, eo.egreso_id, eo.fecha_programada, 
+                   eo.monto_programado_usd as programado, eo.monto_pagado_usd as pagado, 
+                   eo.estado, ep.titulo, ep.frecuencia, ep.metodo_referencia
+            FROM egresos_ocurrencias eo
+            JOIN egresos_planificados ep ON ep.id = eo.egreso_id
+            WHERE eo.estado IN ('pendiente', 'parcial')
+               OR eo.id IN (
+                   SELECT id FROM egresos_ocurrencias 
+                   WHERE fecha_programada >= %s 
+                   ORDER BY fecha_programada ASC 
+                   LIMIT 5
+               )
+            ORDER BY eo.fecha_programada ASC
+        """, (hoy_str,))
+        raw_ocurrencias = cur.fetchall()
+
+        total_programado = Decimal('0.0')
+        total_pagado = Decimal('0.0')
+        total_pendiente = Decimal('0.0')
+        items_dict = {}
+
+        # Mapeo y formateo para el HTML
+        for row in raw_ocurrencias:
+            prog = Decimal(str(row['programado'] or 0))
+            pag = Decimal(str(row['pagado'] or 0))
+            pend = prog - pag
+            
+            est = (row['estado'] or '').lower()
+            if est == 'pagado':
+                estado_visual = 'Pagado'
+            elif est == 'parcial':
+                estado_visual = 'Parcial'
+            elif row['fecha_programada'] < hoy.date():
+                estado_visual = 'Atrasado'
+            else:
+                estado_visual = 'Pendiente'
+                
+            occ_obj = {
+                'ocurrencia_id': row['ocurrencia_id'],
+                'fecha_programada': row['fecha_programada'],
+                'programado': float(prog),
+                'pendiente': float(pend),
+                'estado_visual': estado_visual,
+                'metodo_referencia': row['metodo_referencia']
+            }
+            
+            egreso_id = row['egreso_id']
+            if egreso_id not in items_dict:
+                items_dict[egreso_id] = {
+                    'titulo': row['titulo'],
+                    'frecuencia': row['frecuencia'],
+                    'metodo_referencia': row['metodo_referencia'],
+                    'ocurrencias': []
+                }
+            items_dict[egreso_id]['ocurrencias'].append(occ_obj)
+            
+            total_programado += prog
+            total_pagado += pag
+            total_pendiente += pend
+
+        resumen_custom = {
+            'totales': {
+                'programado': float(total_programado),
+                'pagado': float(total_pagado),
+                'pendiente': float(total_pendiente)
+            },
+            'items': list(items_dict.values())
+        }
+
+        # Extraer Historial de Egresos Fijos, Variables y Devoluciones para la tabla inferior
         cur.execute("""
             SELECT id, titulo, tipo, frecuencia, intervalo_semana, byday, dia_mes, dias_quincena,
                    monto_base_usd, metodo_referencia, estado, fecha_inicio_recurrencia, fecha_fin_recurrencia,
@@ -4426,10 +4502,12 @@ def gestion_egresos():
         'devoluciones': _f('devolucion')
     }
 
+    if conn: conn.close()
+
     return render_template(
         'gestion_egresos.html',
         periodo_tipo=periodo_tipo, periodo=clave, start=start, end=end,
-        resumen=resumen, egresos=egresos, clientes_retiro=clientes_retiro,
+        resumen=resumen_custom, egresos=egresos, clientes_retiro=clientes_retiro,
         tasas_hoy=tasas_hoy
     )
 
@@ -4549,7 +4627,7 @@ def procesar_pago_egreso_modal(occ_id):
     return redirect(url_for('gestion_egresos'))
 
 # =================================================================================
-# --- BUSCADOR HISTÓRICO DE EGRESOS Y AUDITORÍA DE SPREAD ---
+# --- GESTIÓN DE EGRESOS GLOBAL (Buscador Histórico y Spread) ---
 # =================================================================================
 @app.route('/gestion/egresos/auditoria', methods=['GET'])
 @admin_required
@@ -4569,8 +4647,8 @@ def auditoria_egresos():
 
     fecha_desde = request.args.get('fecha_desde', primer_dia_mes)
     fecha_hasta = request.args.get('fecha_hasta', ultimo_dia_mes)
-    estado_filtro = request.args.get('estado', '') # 'pagado', 'pendiente', 'parcial'
-    tipo_filtro = request.args.get('tipo', '') # 'Fijo', 'Variable', 'Devolucion'
+    estado_filtro = request.args.get('estado', '') 
+    tipo_filtro = request.args.get('tipo', '') 
 
     datos_auditoria = {
         'total_abonado_usd': Decimal('0.00'),
@@ -4581,9 +4659,9 @@ def auditoria_egresos():
 
     try:
         with conn.cursor() as cur:
-            # Construcción dinámica de la consulta SQL
             query = """
                 SELECT 
+                    ot.id as operacion_id,
                     eo.id as ocurrencia_id, 
                     ep.titulo, 
                     ep.tipo as tipo_egreso,
@@ -4596,7 +4674,7 @@ def auditoria_egresos():
                     ot.perdida_cambiaria as spread
                 FROM egresos_ocurrencias eo
                 JOIN egresos_planificados ep ON ep.id = eo.egreso_id
-                LEFT JOIN operaciones_tesoreria ot ON ot.referencia_tipo = 'EGRESO' AND ot.referencia_id = eo.id
+                JOIN operaciones_tesoreria ot ON ot.referencia_tipo = 'EGRESO' AND ot.referencia_id = eo.id
                 WHERE eo.fecha_programada >= %s AND eo.fecha_programada <= %s
             """
             params = [fecha_desde, fecha_hasta]
@@ -4608,13 +4686,12 @@ def auditoria_egresos():
                 query += " AND ep.tipo = %s"
                 params.append(tipo_filtro)
                 
-            query += " ORDER BY ot.fecha_operacion DESC NULLS LAST, eo.fecha_programada DESC"
+            query += " ORDER BY ot.fecha_operacion DESC"
 
             cur.execute(query, tuple(params))
             registros = cur.fetchall()
 
             for reg in registros:
-                # Sumatorias en vivo para los KPIs
                 abono = reg['abono_usd']
                 spread = reg['spread']
 
@@ -4639,6 +4716,63 @@ def auditoria_egresos():
         datos=datos_auditoria,
         filtros={'desde': fecha_desde, 'hasta': fecha_hasta, 'estado': estado_filtro, 'tipo': tipo_filtro}
     )
+
+# =================================================================================
+# --- REVERTIR Y ELIMINAR PAGO DE EGRESO (Desde Gestión Global) ---
+# =================================================================================
+@app.route('/gestion/egresos/pago/<int:op_id>/eliminar', methods=['POST'])
+@admin_required
+def revertir_pago_egreso(op_id):
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión.", "danger")
+        return redirect(url_for('auditoria_egresos'))
+        
+    try:
+        with conn.cursor() as cur:
+            # 1. Buscar la operación y la ocurrencia asociada
+            cur.execute("""
+                SELECT ep.egreso_ocurrencia_id, ot.monto_destino as abono_usd
+                FROM operaciones_tesoreria ot
+                JOIN egresos_pagos ep ON ep.movimiento_tesoreria_id = ot.id
+                WHERE ot.id = %s
+            """, (op_id,))
+            row = cur.fetchone()
+            
+            if not row:
+                flash("No se encontró el registro del pago.", "danger")
+                return redirect(url_for('auditoria_egresos'))
+                
+            occ_id = row['egreso_ocurrencia_id']
+            abono_usd = row['abono_usd']
+
+            # 2. Restar el abono a la deuda (revertir el saldo pagado)
+            cur.execute("""
+                UPDATE egresos_ocurrencias
+                SET monto_pagado_usd = GREATEST(0, COALESCE(monto_pagado_usd, 0) - %s)
+                WHERE id = %s
+                RETURNING monto_programado_usd, monto_pagado_usd
+            """, (abono_usd, occ_id))
+            occ = cur.fetchone()
+
+            # 3. Recalcular el estado ('pendiente' o 'parcial')
+            nuevo_estado = 'pendiente' if float(occ['monto_pagado_usd']) <= 0.001 else 'parcial'
+            cur.execute("UPDATE egresos_ocurrencias SET estado=%s WHERE id=%s", (nuevo_estado, occ_id))
+
+            # 4. Eliminar los registros financieros
+            cur.execute("DELETE FROM egresos_pagos WHERE movimiento_tesoreria_id = %s", (op_id,))
+            cur.execute("DELETE FROM operaciones_tesoreria WHERE id = %s", (op_id,))
+
+            conn.commit()
+            flash(f"El pago por ${abono_usd} ha sido anulado. La deuda ha retornado al estado: {nuevo_estado.upper()}.", "success")
+            
+    except Exception as e:
+        if conn: conn.rollback()
+        flash(f"Error al anular el pago: {e}", "danger")
+    finally:
+        if conn: conn.close()
+        
+    return redirect(url_for('auditoria_egresos'))
 
 # ====== FIN: REEMPLAZO ======
 
