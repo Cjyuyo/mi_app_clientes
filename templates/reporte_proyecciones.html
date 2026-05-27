@@ -451,7 +451,7 @@
                                 <td class="px-3 py-2 text-[10px] text-slate-500">{{ e.metodo|replace('_', ' ') }}</td>
                                 <td class="px-3 py-2 text-center">
                                     <span class="px-1.5 py-0.5 text-[9px] font-bold rounded border {{ 'bg-emerald-50 text-emerald-700 border-emerald-200' if e.estado_pago == 'Pagado' else 'bg-slate-50 text-slate-500 border-slate-200' }}">
-                                        {{ e.estado_pago|default('Plan')[:4] }}
+                                        {{ e.estado_pago|default('Planificado') }}
                                     </span>
                                 </td>
                                 <td class="px-3 py-2 text-right font-medium text-slate-600 tabular-nums">${{ "{:,.2f}".format(e.monto|float) }}</td>
