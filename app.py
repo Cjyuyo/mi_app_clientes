@@ -4437,6 +4437,8 @@ def gestion_egresos():
 # =================================================================================
 # --- RUTA DE EJECUCIÓN (MODAL) QUE SOPORTA ABONOS FRACCIONADOS Y CONGELA EL SPREAD ---
 # =================================================================================
+from decimal import Decimal, ROUND_HALF_EVEN
+
 @app.route('/gestion/egresos/ocurrencias/<int:occ_id>/procesar_pago', methods=['POST'])
 @admin_required
 def procesar_pago_egreso_modal(occ_id):
@@ -4445,15 +4447,14 @@ def procesar_pago_egreso_modal(occ_id):
         flash("Error de conexión a la base de datos.", "danger")
         return redirect(url_for('gestion_egresos'))
 
-    # Lo que el usuario abona a la deuda
-    abono_usd = Decimal(request.form.get('abono_usd', '0').replace(',', '.'))
-    # De dónde salió la plata
+    # Extracción y limpieza segura de datos
+    abono_usd = Decimal(request.form.get('abono_usd', '0').replace(',', '.')).quantize(Decimal('0.01'), rounding=ROUND_HALF_EVEN)
     caja_origen = request.form.get('caja_origen')
-    # Cuánto salió exactamente (en la moneda de esa caja)
-    monto_origen = Decimal(request.form.get('monto_origen', '0').replace(',', '.'))
+    monto_origen = Decimal(request.form.get('monto_origen', '0').replace(',', '.')).quantize(Decimal('0.01'), rounding=ROUND_HALF_EVEN)
+    
     tasa_aplicada_str = request.form.get('tasa_aplicada', '1').replace(',', '.')
     tasa_aplicada = Decimal(tasa_aplicada_str) if tasa_aplicada_str and float(tasa_aplicada_str) > 0 else Decimal('1.0')
-    referencia = request.form.get('referencia', '')
+    referencia = request.form.get('referencia', '').strip()
 
     if abono_usd <= 0 or monto_origen <= 0:
         flash("Los montos deben ser mayores a cero.", "warning")
@@ -4473,22 +4474,25 @@ def procesar_pago_egreso_modal(occ_id):
                 flash("Gasto no encontrado.", "danger")
                 return redirect(url_for('gestion_egresos'))
 
-            # Tasa BCV Oficial para valorar el "Costo Real" de los Bs que salieron
+            # Tasa BCV Oficial para valorar el "Costo Real"
             cur.execute("SELECT tasa FROM historial_tasas_bcv ORDER BY fecha DESC LIMIT 1")
             t_row = cur.fetchone()
             tasa_bcv_hoy = Decimal(t_row['tasa']) if t_row and t_row['tasa'] else Decimal('1.0')
 
-            perdida_cambiaria = Decimal('0.0')
+            perdida_cambiaria = Decimal('0.00')
+            
             if caja_origen == 'CAJA_BS_USD':
                 moneda_origen = 'VES'
-                # Cuántos dólares reales me costaron esos Bolívares
-                real_usd_spent = monto_origen / tasa_bcv_hoy if tasa_bcv_hoy > 0 else monto_origen
+                # Cálculo de Spread blindado a 2 decimales (Si se usó tasa Binance B.P2P u otra)
+                real_usd_spent = (monto_origen / tasa_bcv_hoy).quantize(Decimal('0.01'), rounding=ROUND_HALF_EVEN) if tasa_bcv_hoy > 0 else monto_origen
                 perdida_cambiaria = real_usd_spent - abono_usd
+                
             elif caja_origen == 'BINANCE_USDT':
                 moneda_origen = 'USDT'
                 real_usd_spent = monto_origen
                 tasa_aplicada = Decimal('1.0')
                 perdida_cambiaria = monto_origen - abono_usd
+                
             else:
                 moneda_origen = 'USD'
                 real_usd_spent = monto_origen
@@ -4532,15 +4536,109 @@ def procesar_pago_egreso_modal(occ_id):
             if perdida_cambiaria < -0.01:
                 flash(f"¡Abono de ${abono_usd:.2f} registrado! Ahorraste ${abs(perdida_cambiaria):.2f} a favor de la empresa. {estado_texto}.", "success")
             elif perdida_cambiaria > 0.01:
-                flash(f"Abono de ${abono_usd:.2f} registrado. Fuga por spread documentada: ${perdida_cambiaria:.2f}. {estado_texto}.", "warning")
+                flash(f"Abono de ${abono_usd:.2f} registrado. Costo cambiario por spread: ${perdida_cambiaria:.2f}. {estado_texto}.", "warning")
             else:
                 flash(f"Abono de ${abono_usd:.2f} procesado correctamente (Sin spread). {estado_texto}.", "success")
 
     except Exception as e:
-        conn.rollback()
+        if conn: conn.rollback()
         flash(f"Error procesando pago: {e}", "danger")
+    finally:
+        if conn: conn.close()
 
     return redirect(url_for('gestion_egresos'))
+
+# =================================================================================
+# --- BUSCADOR HISTÓRICO DE EGRESOS Y AUDITORÍA DE SPREAD ---
+# =================================================================================
+@app.route('/gestion/egresos/auditoria', methods=['GET'])
+@admin_required
+def auditoria_egresos():
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", "danger")
+        return redirect(url_for('hub'))
+
+    from datetime import datetime
+    import calendar
+    from decimal import Decimal
+    
+    hoy = datetime.now()
+    primer_dia_mes = hoy.replace(day=1).strftime('%Y-%m-%d')
+    ultimo_dia_mes = hoy.replace(day=calendar.monthrange(hoy.year, hoy.month)[1]).strftime('%Y-%m-%d')
+
+    fecha_desde = request.args.get('fecha_desde', primer_dia_mes)
+    fecha_hasta = request.args.get('fecha_hasta', ultimo_dia_mes)
+    estado_filtro = request.args.get('estado', '') # 'pagado', 'pendiente', 'parcial'
+    tipo_filtro = request.args.get('tipo', '') # 'Fijo', 'Variable', 'Devolucion'
+
+    datos_auditoria = {
+        'total_abonado_usd': Decimal('0.00'),
+        'total_fuga_spread_usd': Decimal('0.00'),
+        'total_ahorro_spread_usd': Decimal('0.00'),
+        'historial': []
+    }
+
+    try:
+        with conn.cursor() as cur:
+            # Construcción dinámica de la consulta SQL
+            query = """
+                SELECT 
+                    eo.id as ocurrencia_id, 
+                    ep.titulo, 
+                    ep.tipo as tipo_egreso,
+                    eo.estado as estado_pago,
+                    eo.fecha_programada,
+                    ot.fecha_operacion,
+                    ot.monto_destino as abono_usd,
+                    ot.monto_origen as debitado_real,
+                    ot.moneda_origen,
+                    ot.perdida_cambiaria as spread
+                FROM egresos_ocurrencias eo
+                JOIN egresos_planificados ep ON ep.id = eo.egreso_id
+                LEFT JOIN operaciones_tesoreria ot ON ot.referencia_tipo = 'EGRESO' AND ot.referencia_id = eo.id
+                WHERE eo.fecha_programada >= %s AND eo.fecha_programada <= %s
+            """
+            params = [fecha_desde, fecha_hasta]
+
+            if estado_filtro:
+                query += " AND eo.estado = %s"
+                params.append(estado_filtro)
+            if tipo_filtro:
+                query += " AND ep.tipo = %s"
+                params.append(tipo_filtro)
+                
+            query += " ORDER BY ot.fecha_operacion DESC NULLS LAST, eo.fecha_programada DESC"
+
+            cur.execute(query, tuple(params))
+            registros = cur.fetchall()
+
+            for reg in registros:
+                # Sumatorias en vivo para los KPIs
+                abono = reg['abono_usd']
+                spread = reg['spread']
+
+                if abono:
+                    datos_auditoria['total_abonado_usd'] += Decimal(str(abono))
+                if spread:
+                    spread_val = Decimal(str(spread))
+                    if spread_val > 0:
+                        datos_auditoria['total_fuga_spread_usd'] += spread_val
+                    elif spread_val < 0:
+                        datos_auditoria['total_ahorro_spread_usd'] += abs(spread_val)
+
+                datos_auditoria['historial'].append(reg)
+
+    except Exception as e:
+        flash(f"Error cargando auditoría: {e}", "danger")
+    finally:
+        if conn: conn.close()
+
+    return render_template(
+        'auditoria_egresos.html', 
+        datos=datos_auditoria,
+        filtros={'desde': fecha_desde, 'hasta': fecha_hasta, 'estado': estado_filtro, 'tipo': tipo_filtro}
+    )
 
 # ====== FIN: REEMPLAZO ======
 

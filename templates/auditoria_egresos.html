@@ -1,0 +1,189 @@
+{% extends 'base_sidebar.html' %}
+
+{% block title %}Auditoría de Egresos y Spread | Moto Plan Motors{% endblock %}
+{% block page_title %}Auditoría de Egresos y Control de Spread{% endblock %}
+
+{% block head_extra %}
+<style>
+    [x-cloak] { display: none !important; }
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="max-w-[1400px] mx-auto space-y-8 mb-12" x-data="{ exportMenuOpen: false }">
+
+    <div class="bg-[#0B1121] rounded-3xl shadow-lg border border-slate-800 p-8 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+        
+        <div class="flex items-center gap-5 relative z-10 w-full">
+            <div class="w-14 h-14 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center backdrop-blur-md shadow-inner">
+                <i class="bi bi-calculator text-2xl text-indigo-400"></i>
+            </div>
+            <div>
+                <h2 class="text-3xl font-extrabold text-white tracking-tight">Auditoría de Costo Cambiario</h2>
+                <p class="text-slate-400 text-sm mt-1 font-medium">Análisis detallado de desviaciones financieras, devaluación flotante e impacto de tasas corporativas.</p>
+            </div>
+        </div>
+        
+        <div class="relative z-10 shrink-0">
+            <a href="{{ url_for('gestion_egresos') }}" class="px-5 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white text-sm font-bold rounded-xl transition-all shadow-sm flex items-center gap-2">
+                <i class="bi bi-arrow-left"></i> Volver a Egresos
+            </a>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-4">
+        <form method="GET" action="{{ url_for('auditoria_egresos') }}" class="flex flex-col lg:flex-row items-end gap-4">
+            <div class="flex-grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+                <div>
+                    <label class="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Rango Desde</label>
+                    <input type="date" name="fecha_desde" value="{{ filtros.desde }}" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-semibold rounded-xl p-2.5 focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 outline-none transition-colors" />
+                </div>
+                <div>
+                    <label class="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Rango Hasta</label>
+                    <input type="date" name="fecha_hasta" value="{{ filtros.hasta }}" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-semibold rounded-xl p-2.5 focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 outline-none transition-colors" />
+                </div>
+                <div>
+                    <label class="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Estado Operativo</label>
+                    <select name="estado" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-semibold rounded-xl p-2.5 focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 outline-none transition-colors cursor-pointer">
+                        <option value="">Cualquier Estado</option>
+                        <option value="pagado" {{ 'selected' if filtros.estado == 'pagado' else '' }}>Saldado (Pagado)</option>
+                        <option value="parcial" {{ 'selected' if filtros.estado == 'parcial' else '' }}>Abono Parcial</option>
+                        <option value="pendiente" {{ 'selected' if filtros.estado == 'pendiente' else '' }}>Pendiente</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Clasificación de Gasto</label>
+                    <select name="tipo" class="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs font-semibold rounded-xl p-2.5 focus:ring-2 focus:ring-slate-500/20 focus:border-slate-500 outline-none transition-colors cursor-pointer">
+                        <option value="">Todos los Tipos</option>
+                        <option value="Fijo" {{ 'selected' if filtros.tipo == 'Fijo' else '' }}>Gasto Fijo</option>
+                        <option value="Variable" {{ 'selected' if filtros.tipo == 'Variable' else '' }}>Gasto Variable</option>
+                        <option value="Devolucion" {{ 'selected' if filtros.tipo == 'Devolucion' else '' }}>Devoluciones</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex gap-2 w-full lg:w-auto shrink-0">
+                <a href="{{ url_for('auditoria_egresos') }}" class="flex-1 lg:flex-none flex justify-center items-center px-4 py-2.5 rounded-xl bg-white border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-colors" title="Limpiar Rango"><i class="bi bi-eraser-fill"></i></a>
+                <button type="submit" class="flex-1 lg:flex-none px-6 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold shadow-md hover:bg-slate-800 transition-colors">
+                    Auditar Período
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Total Liquidado en USD</p>
+            <div class="flex items-baseline gap-1">
+                <span class="text-sm font-semibold text-slate-400">$</span>
+                <h3 class="text-3xl font-black text-slate-900 tracking-tight tabular-nums">{{ "{:,.2f}".format(datos.total_abonado_usd) }}</h3>
+            </div>
+            <p class="text-[10px] text-slate-400 font-medium mt-1">Suma neta del capital amortizado a la deuda en este rango.</p>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-[0_1px_2px_rgba(0,0,0,0.02)] border-l-4 border-l-rose-500">
+            <p class="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-2">Fuga acumulada por Spread</p>
+            <div class="flex items-baseline gap-1">
+                <span class="text-sm font-semibold text-rose-400">$</span>
+                <h3 class="text-3xl font-black text-rose-600 tracking-tight tabular-nums">{{ "{:,.2f}".format(datos.total_fuga_spread_usd) }}</h3>
+            </div>
+            <p class="text-[10px] text-slate-400 font-medium mt-1">Pérdida por compras o pagos indexados sobre la tasa BCV oficial.</p>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-[0_1px_2px_rgba(0,0,0,0.02)] border-l-4 border-l-emerald-500">
+            <p class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-2">Eficiencia / Ahorro Cambiario</p>
+            <div class="flex items-baseline gap-1">
+                <span class="text-sm font-semibold text-emerald-400">$</span>
+                <h3 class="text-3xl font-black text-emerald-600 tracking-tight tabular-nums">{{ "{:,.2f}".format(datos.total_ahorro_spread_usd) }}</h3>
+            </div>
+            <p class="text-[10px] text-slate-400 font-medium mt-1">Margen optimizado por debajo de la valoración base BCV.</p>
+        </div>
+    </div>
+
+    <div class="bg-white border border-slate-200/80 rounded-3xl shadow-sm overflow-hidden">
+        <div class="overflow-x-auto hide-scrollbar">
+            <table class="w-full text-sm text-left">
+                <thead class="bg-slate-50/50 border-b border-slate-100">
+                    <tr>
+                        <th class="py-4 px-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Concepto / Clasificación</th>
+                        <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">F. Programada</th>
+                        <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">F. Ejecución</th>
+                        <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Estatus</th>
+                        <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Amortizado Deuda</th>
+                        <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Debitado Caja</th>
+                        <th class="py-4 px-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Spread / Costo</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {% if datos.historial %}
+                        {% for row in datos.historial %}
+                        <tr class="hover:bg-slate-50/50 transition-colors group">
+                            <td class="py-4 px-6">
+                                <div class="flex flex-col">
+                                    <span class="font-bold text-slate-900 tracking-tight">{{ row.titulo }}</span>
+                                    <span class="inline-flex items-center mt-1 text-[9px] font-black uppercase tracking-wider text-slate-400">
+                                        {{ row.tipo_egreso }}
+                                    </span>
+                                </div>
+                            </td>
+                            <td class="py-4 px-4 text-center align-middle text-xs font-semibold text-slate-500 tabular-nums">
+                                {{ row.fecha_programada.strftime('%d/%m/%Y') if row.fecha_programada else '—' }}
+                            </td>
+                            <td class="py-4 px-4 text-center align-middle text-xs font-semibold text-slate-700 tabular-nums">
+                                {{ row.fecha_operacion.strftime('%d/%m/%Y %I:%M %p') if row.fecha_operacion else 'Pendiente' }}
+                            </td>
+                            <td class="py-4 px-4 text-center align-middle">
+                                {% set est = row.estado_pago|lower %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-widest border {{ 'bg-emerald-50 text-emerald-700 border-emerald-200' if est == 'pagado' else ('bg-blue-50 text-blue-700 border-blue-200' if est == 'parcial' else 'bg-amber-50 text-amber-700 border-amber-200') }}">
+                                    {{ 'Saldado' if est == 'pagado' else ('Abono Parc.' if est == 'parcial' else 'Pendiente') }}
+                                </span>
+                            </td>
+                            <td class="py-4 px-4 text-right align-middle font-bold text-slate-900 tabular-nums">
+                                {% if row.abono_usd %}
+                                    ${{ "{:,.2f}".format(row.abono_usd|float) }}
+                                {% else %}
+                                    $0.00
+                                {% endif %}
+                            </td>
+                            <td class="py-4 px-4 text-right align-middle font-medium text-slate-600 tabular-nums">
+                                {% if row.debitado_real %}
+                                    {{ "{:,.2f}".format(row.debitado_real|float) }} <span class="text-[9px] text-slate-400 font-bold">{{ row.moneda_origen }}</span>
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td class="py-4 px-6 text-right align-middle font-black tabular-nums text-xs">
+                                {% if row.spread %}
+                                    {% set sp_val = row.spread|float %}
+                                    {% if sp_val > 0.001 %}
+                                        <span class="text-rose-600" title="Pérdida por spread">+${{ "{:,.2f}".format(sp_val) }}</span>
+                                    {% elif sp_val < -0.001 %}
+                                        <span class="text-emerald-600" title="Ahorro cambiario">-${{ "{:,.2f}".format(sp_val|abs) }}</span>
+                                    {% else %}
+                                        <span class="text-slate-400">$0.00</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-slate-400">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td class="py-16 text-center text-slate-500" colspan="7">
+                                <div class="flex flex-col items-center justify-center space-y-3">
+                                    <div class="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center border border-slate-100"><i class="bi bi-inbox text-xl text-slate-400"></i></div>
+                                    <p class="font-medium text-sm text-slate-400">No hay movimientos registrados bajo estos parámetros de auditoría.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
