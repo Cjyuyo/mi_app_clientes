@@ -4664,6 +4664,7 @@ def auditoria_egresos():
 
     try:
         with conn.cursor() as cur:
+            # CORRECCIÓN CRÍTICA: Cambiado a LEFT JOIN para que liste TODO lo planificado
             query = """
                 SELECT 
                     ot.id as operacion_id,
@@ -4679,7 +4680,7 @@ def auditoria_egresos():
                     ot.perdida_cambiaria as spread
                 FROM egresos_ocurrencias eo
                 JOIN egresos_planificados ep ON ep.id = eo.egreso_id
-                JOIN operaciones_tesoreria ot ON ot.referencia_tipo = 'EGRESO' AND ot.referencia_id = eo.id
+                LEFT JOIN operaciones_tesoreria ot ON ot.referencia_tipo = 'EGRESO' AND ot.referencia_id = eo.id
                 WHERE eo.fecha_programada >= %s AND eo.fecha_programada <= %s
             """
             params = [fecha_desde, fecha_hasta]
@@ -4691,7 +4692,7 @@ def auditoria_egresos():
                 query += " AND ep.tipo = %s"
                 params.append(tipo_filtro)
                 
-            query += " ORDER BY ot.fecha_operacion DESC"
+            query += " ORDER BY eo.fecha_programada ASC, ot.fecha_operacion DESC NULLS LAST"
 
             cur.execute(query, tuple(params))
             registros = cur.fetchall()
