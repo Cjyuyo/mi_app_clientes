@@ -60,7 +60,7 @@
     {% endfor %}
 </script>
 
-<div class="min-h-screen bg-slate-50 -m-6 p-6 sm:p-10 font-sans" x-data="{
+<div class="min-h-screen bg-slate-50 -m-4 sm:-m-6 p-4 sm:p-6 lg:p-10 font-sans" x-data="{
     activeTab: 'gastos',
     isModalOpen: false,
     occ_id: null,
@@ -194,29 +194,31 @@
     }
 }">
 
-    <div class="max-w-[1400px] mx-auto space-y-8 mb-12">
-        <div class="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6">
+    <div class="max-w-[1400px] mx-auto space-y-6 sm:space-y-8 mb-12">
+        <div class="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 sm:gap-6">
             <div>
-                <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Gestión de Egresos</h1>
+                <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Gestión de Egresos</h1>
                 <p class="text-slate-500 text-sm mt-1 font-medium">Control operativo y devoluciones a clientes.</p>
             </div>
 
-            <div class="flex flex-wrap items-center gap-3">
-                <a href="{{ url_for('auditoria_egresos') }}" class="px-5 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-md flex items-center gap-2 active:scale-[0.98]">
-                    <i class="bi bi-globe"></i> Gestión de Egresos Global
+            <div class="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full xl:w-auto">
+                <a href="{{ url_for('auditoria_egresos') }}" class="px-5 py-3 sm:py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-md flex items-center justify-center gap-2 active:scale-[0.98] w-full sm:w-auto">
+                    <i class="bi bi-globe"></i> Gestión Global
                 </a>
-                <form method="get" class="flex items-center gap-3 bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
-                    <div class="flex items-center gap-2 px-2 border-r border-slate-100">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Periodo:</span>
-                        <select name="periodo_tipo" class="bg-transparent border-none text-slate-900 text-xs font-bold focus:ring-0 outline-none cursor-pointer">
+                <form method="get" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm w-full sm:w-auto">
+                    <div class="flex items-center gap-2 px-2 sm:border-r border-slate-100 pb-2 sm:pb-0 border-b sm:border-b-0">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0">Periodo:</span>
+                        <select name="periodo_tipo" class="bg-transparent border-none text-slate-900 text-xs sm:text-sm font-bold focus:ring-0 outline-none cursor-pointer w-full">
                             <option value="mensual" {{ 'selected' if periodo_tipo=='mensual' else '' }}>Mensual</option>
                             <option value="semanal" {{ 'selected' if periodo_tipo=='semanal' else '' }}>Semanal</option>
                         </select>
                     </div>
-                    <input name="periodo" type="text" value="{{ periodo }}" class="border-none text-slate-900 text-sm font-semibold focus:ring-0 outline-none w-24 text-center placeholder:text-slate-300" placeholder="2025-09">
-                    <button class="px-4 py-1.5 rounded-md bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all active:scale-[0.98]">
-                        Filtrar
-                    </button>
+                    <div class="flex items-center gap-2 px-2 w-full sm:w-auto">
+                        <input name="periodo" type="text" value="{{ periodo }}" class="border-none text-slate-900 text-sm font-semibold focus:ring-0 outline-none w-full sm:w-24 text-center sm:text-left placeholder:text-slate-300" placeholder="2025-09">
+                        <button class="px-4 py-2 sm:py-1.5 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all active:scale-[0.98] shrink-0">
+                            Filtrar
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -224,28 +226,28 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="bg-{{ 'rose' if category in ['error', 'danger'] else 'emerald' }}-50 border border-{{ 'rose' if category in ['error', 'danger'] else 'emerald' }}-200 text-{{ 'rose' if category in ['error', 'danger'] else 'emerald' }}-700 p-4 rounded-xl font-medium flex items-center gap-3 shadow-sm mb-6">
-                        <i class="bi {{ 'bi-exclamation-triangle-fill' if category in ['error', 'danger'] else 'bi-check-circle-fill' }}"></i> {{ message }}
+                    <div class="bg-{{ 'rose' if category in ['error', 'danger'] else 'emerald' }}-50 border border-{{ 'rose' if category in ['error', 'danger'] else 'emerald' }}-200 text-{{ 'rose' if category in ['error', 'danger'] else 'emerald' }}-700 p-4 rounded-xl font-medium flex items-center gap-3 shadow-sm mb-6 text-sm">
+                        <i class="bi {{ 'bi-exclamation-triangle-fill' if category in ['error', 'danger'] else 'bi-check-circle-fill' }} shrink-0"></i> {{ message }}
                     </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
             <div class="lg:col-span-1">
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="p-2 bg-slate-50 border-b border-slate-200">
                         <div class="flex p-1 bg-slate-200/60 rounded-lg">
-                            <button type="button" @click="activeTab = 'gastos'" :class="activeTab === 'gastos' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'" class="flex-1 py-1.5 text-xs font-bold rounded-md transition-all">
+                            <button type="button" @click="activeTab = 'gastos'" :class="activeTab === 'gastos' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'" class="flex-1 py-2 sm:py-1.5 text-xs font-bold rounded-md transition-all">
                                 Gasto Regular
                             </button>
-                            <button type="button" @click="activeTab = 'devoluciones'" :class="activeTab === 'devoluciones' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'" class="flex-1 py-1.5 text-xs font-bold rounded-md transition-all">
+                            <button type="button" @click="activeTab = 'devoluciones'" :class="activeTab === 'devoluciones' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'" class="flex-1 py-2 sm:py-1.5 text-xs font-bold rounded-md transition-all">
                                 Devolución
                             </button>
                         </div>
                     </div>
 
-                    <div x-show="activeTab === 'gastos'" x-cloak class="p-6">
+                    <div x-show="activeTab === 'gastos'" x-cloak class="p-4 sm:p-6">
                         <form action="{{ url_for('gestion_egresos') }}" method="POST" class="space-y-4" x-data="{ tipoEgreso: '', freq: 'Mensual' }">
                             <input type="hidden" name="frecuencia" value="Unico" :disabled="tipoEgreso !== 'Variable'">
 
@@ -263,10 +265,10 @@
                                 <input type="text" name="titulo" required class="stripe-input" placeholder="Ej: Pago de Internet">
                             </div>
 
-                            <div class="grid grid-cols-2 gap-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div class="min-w-0">
                                     <label class="stripe-label">Monto (USD)*</label>
-                                    <input type="number" step="0.01" name="monto_base_usd" required class="stripe-input text-right tabular-nums" placeholder="0.00">
+                                    <input type="number" step="0.01" name="monto_base_usd" required class="stripe-input sm:text-right tabular-nums" placeholder="0.00">
                                 </div>
                                 <div class="min-w-0">
                                     <label class="stripe-label">Moneda / Tasa*</label>
@@ -335,14 +337,14 @@
                             </div>
 
                             <div class="pt-2">
-                                <button type="submit" class="w-full py-2.5 rounded-lg bg-slate-900 text-white text-sm font-bold shadow-md hover:bg-slate-800 transition-all active:scale-[0.98]">
+                                <button type="submit" class="w-full py-3.5 sm:py-2.5 rounded-lg bg-slate-900 text-white text-sm font-bold shadow-md hover:bg-slate-800 transition-all active:scale-[0.98]">
                                     Guardar Gasto
                                 </button>
                             </div>
                         </form>
                     </div>
 
-                    <div x-show="activeTab === 'devoluciones'" x-cloak class="p-6">
+                    <div x-show="activeTab === 'devoluciones'" x-cloak class="p-4 sm:p-6">
                         <form action="{{ url_for('gestion_egresos') }}" method="POST" class="space-y-4">
                             <input type="hidden" name="tipo" value="Devolucion">
                             <input type="hidden" name="frecuencia" value="Unico">
@@ -357,10 +359,10 @@
                                 </select>
                             </div>
                             
-                            <div class="grid grid-cols-2 gap-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div class="min-w-0">
                                     <label class="stripe-label">Monto a devolver*</label>
-                                    <input type="number" step="0.01" name="monto_base_usd" required class="stripe-input text-right tabular-nums" placeholder="0.00">
+                                    <input type="number" step="0.01" name="monto_base_usd" required class="stripe-input sm:text-right tabular-nums" placeholder="0.00">
                                 </div>
                                 <div class="min-w-0">
                                     <label class="stripe-label">Moneda / Tasa*</label>
@@ -373,7 +375,7 @@
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-2 gap-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div class="min-w-0">
                                     <label class="stripe-label">Cuotas de pago*</label>
                                     <input type="number" name="numero_de_cuotas" value="1" min="1" required class="stripe-input text-center">
@@ -390,7 +392,7 @@
                             </div>
 
                             <div class="pt-2">
-                                <button type="submit" class="w-full py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-bold shadow-md hover:bg-indigo-700 transition-all active:scale-[0.98]">
+                                <button type="submit" class="w-full py-3.5 sm:py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-bold shadow-md hover:bg-indigo-700 transition-all active:scale-[0.98]">
                                     Procesar Devolución
                                 </button>
                             </div>
@@ -402,52 +404,52 @@
 
             <div class="lg:col-span-2 space-y-6">
 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                    <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm">
                         <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Carga Programada</p>
                         <div class="flex items-baseline gap-1">
                             <span class="text-sm font-semibold text-slate-400">$</span>
-                            <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums">{{ '%.2f'|format(resumen.totales.programado) }}</h3>
+                            <h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight tabular-nums">{{ '%.2f'|format(resumen.totales.programado) }}</h3>
                         </div>
                     </div>
-                    <div class="bg-emerald-50 p-5 rounded-2xl border border-emerald-200 shadow-sm">
+                    <div class="bg-emerald-50 p-4 sm:p-5 rounded-2xl border border-emerald-200 shadow-sm">
                         <p class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1">Pagado a la fecha</p>
                         <div class="flex items-baseline gap-1">
                             <span class="text-sm font-semibold text-emerald-600">$</span>
-                            <h3 class="text-2xl font-black text-emerald-700 tracking-tight tabular-nums">{{ '%.2f'|format(resumen.totales.pagado) }}</h3>
+                            <h3 class="text-xl sm:text-2xl font-black text-emerald-700 tracking-tight tabular-nums">{{ '%.2f'|format(resumen.totales.pagado) }}</h3>
                         </div>
                     </div>
-                    <div class="bg-rose-50 p-5 rounded-2xl border border-rose-200 shadow-sm">
+                    <div class="bg-rose-50 p-4 sm:p-5 rounded-2xl border border-rose-200 shadow-sm">
                         <p class="text-[10px] font-bold text-rose-700 uppercase tracking-widest mb-1">Balance Pendiente</p>
                         <div class="flex items-baseline gap-1">
                             <span class="text-sm font-semibold text-rose-600">$</span>
-                            <h3 class="text-2xl font-black text-rose-700 tracking-tight tabular-nums">{{ '%.2f'|format(resumen.totales.pendiente) }}</h3>
+                            <h3 class="text-xl sm:text-2xl font-black text-rose-700 tracking-tight tabular-nums">{{ '%.2f'|format(resumen.totales.pendiente) }}</h3>
                         </div>
                     </div>
                 </div>
 
                 <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                    <div class="px-6 py-4 border-b border-slate-100 bg-white flex justify-between items-center">
+                    <div class="px-4 sm:px-6 py-4 border-b border-slate-100 bg-white flex justify-between items-center">
                         <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-calendar2-check text-slate-400"></i> Próximos Pagos</h3>
                     </div>
                     <div class="overflow-x-auto hide-scrollbar">
                         <table class="w-full text-sm text-left">
                             <thead class="bg-white border-b border-slate-100">
                                 <tr>
-                                    <th class="py-3 px-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left">Concepto</th>
-                                    <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Fecha</th>
-                                    <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Deuda Base</th>
-                                    <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Estatus</th>
-                                    <th class="py-3 px-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Acción</th>
+                                    <th class="py-3 px-4 sm:px-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left whitespace-nowrap">Concepto</th>
+                                    <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center whitespace-nowrap">Fecha</th>
+                                    <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right whitespace-nowrap">Deuda Base</th>
+                                    <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center whitespace-nowrap">Estatus</th>
+                                    <th class="py-3 px-4 sm:px-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right whitespace-nowrap">Acción</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
                                 {% for item in resumen.items %}
                                     {% for o in item.ocurrencias %}
                                     <tr class="hover:bg-slate-50 transition-colors duration-200">
-                                        <td class="px-6 py-4 align-middle">
-                                            <div class="font-bold text-slate-900">{{ item.titulo }}</div>
-                                            <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5"
+                                        <td class="px-4 sm:px-6 py-4 align-middle">
+                                            <div class="font-bold text-slate-900 whitespace-nowrap">{{ item.titulo }}</div>
+                                            <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5 whitespace-nowrap"
                                                  x-data="{ 
                                                     metodo: '{{ item.metodo_referencia or o.metodo_referencia or '' }}', 
                                                     init() { 
@@ -458,37 +460,37 @@
                                             </div>
                                         </td>
                                         
-                                        <td class="px-4 py-4 align-middle text-center">
-                                            <div class="flex justify-center items-center gap-1.5 text-slate-600">
+                                        <td class="px-3 sm:px-4 py-4 align-middle text-center">
+                                            <div class="flex justify-center items-center gap-1.5 text-slate-600 whitespace-nowrap">
                                                 <i class="bi bi-calendar-event text-slate-400"></i>
-                                                <span class="text-xs font-semibold tabular-nums">{{ o.fecha_programada.strftime('%d %b %Y') }}</span>
+                                                <span class="text-xs font-semibold tabular-nums">{{ o.fecha_programada.strftime('%d %b %y') }}</span>
                                             </div>
                                         </td>
                                         
-                                        <td class="px-4 py-4 text-right align-middle">
+                                        <td class="px-3 sm:px-4 py-4 text-right align-middle">
                                             <span class="font-bold text-slate-900 tabular-nums">${{ '%.2f'|format(o.programado) }}</span>
                                         </td>
                                         
-                                        <td class="px-4 py-4 text-center align-middle">
+                                        <td class="px-3 sm:px-4 py-4 text-center align-middle">
                                             {% set ev = (o.estado_visual|default('Pendiente'))|lower %}
                                             {% if ev == 'pagado' %}
-                                                <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border bg-emerald-50 text-emerald-700 border-emerald-200">Saldado</span>
+                                                <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border bg-emerald-50 text-emerald-700 border-emerald-200 whitespace-nowrap">Saldado</span>
                                             {% elif ev == 'parcial' %}
-                                                <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border bg-blue-50 text-blue-700 border-blue-200">Parcial</span>
+                                                <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border bg-blue-50 text-blue-700 border-blue-200 whitespace-nowrap">Parcial</span>
                                             {% elif ev == 'atrasado' %}
-                                                <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border bg-rose-50 text-rose-700 border-rose-200">Atrasado</span>
+                                                <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border bg-rose-50 text-rose-700 border-rose-200 whitespace-nowrap">Atrasado</span>
                                             {% else %}
-                                                <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border bg-amber-50 text-amber-700 border-amber-200">Pendiente</span>
+                                                <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border bg-amber-50 text-amber-700 border-amber-200 whitespace-nowrap">Pendiente</span>
                                             {% endif %}
                                         </td>
 
-                                        <td class="px-6 py-4 text-center align-middle">
-                                            <div class="flex items-center justify-center gap-2 w-full">
+                                        <td class="px-4 sm:px-6 py-4 text-right align-middle">
+                                            <div class="flex items-center justify-end gap-2 w-full">
                                                 {% if (o.programado - o.pendiente) > 0.001 %}
                                                     <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ o.ocurrencia_id }}', titulo: '{{ item.titulo|escape }}' })" 
-                                                            class="h-8 inline-flex items-center justify-center gap-1.5 px-3 bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all shadow-sm text-[10px] font-bold uppercase tracking-widest rounded-lg active:scale-95 whitespace-nowrap" 
+                                                            class="h-8 inline-flex items-center justify-center gap-1.5 px-3 bg-indigo-50/80 text-indigo-600 hover:bg-indigo-100 transition-colors shadow-none text-[10px] font-bold uppercase tracking-widest rounded-lg active:scale-95 whitespace-nowrap" 
                                                             title="Ver historial de abonos">
-                                                        <i class="bi bi-eye-fill text-sm leading-none"></i> <span class="hidden sm:inline">Ver Abonos</span>
+                                                        <i class="bi bi-eye-fill text-sm leading-none"></i> Ver Abonos
                                                     </button>
                                                 {% endif %}
 
@@ -497,11 +499,11 @@
                                                             data-titulo="{{ item.titulo|escape }}"
                                                             data-metodo="{{ item.metodo_referencia or o.metodo_referencia or '' }}"
                                                             @click.prevent="abrirModal('{{ o.ocurrencia_id }}', $event.currentTarget.dataset.titulo, {{ o.pendiente }}, $event.currentTarget.dataset.metodo)" 
-                                                            class="h-8 inline-flex items-center justify-center gap-1.5 px-4 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm rounded-lg active:scale-95 whitespace-nowrap">
+                                                            class="h-8 inline-flex items-center justify-center gap-1.5 px-4 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-colors shadow-sm rounded-lg active:scale-95 whitespace-nowrap min-w-[90px]">
                                                         <i class="bi bi-wallet2 text-sm leading-none pointer-events-none"></i> Pagar
                                                     </button>
                                                 {% else %}
-                                                    <span class="h-8 inline-flex items-center justify-center gap-1.5 px-4 bg-slate-50 text-slate-400 border border-slate-200 text-[10px] font-bold uppercase tracking-widest rounded-lg cursor-not-allowed whitespace-nowrap">
+                                                    <span class="h-8 inline-flex items-center justify-center gap-1.5 px-4 bg-slate-50 text-slate-400 border border-slate-200 text-[10px] font-bold uppercase tracking-widest rounded-lg cursor-not-allowed whitespace-nowrap min-w-[90px]">
                                                         <i class="bi bi-check2-all text-sm leading-none"></i> Completo
                                                     </span>
                                                 {% endif %}
@@ -523,7 +525,7 @@
             </div>
 
             <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                <div class="px-6 py-4 border-b border-slate-100 bg-slate-50">
+                <div class="px-4 sm:px-6 py-4 border-b border-slate-100 bg-slate-50">
                     <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center justify-between">
                         <span><i class="bi bi-archive text-slate-400 mr-2"></i> Historial de Gastos Registrados</span>
                         <span class="bg-slate-200 text-slate-600 px-2 py-0.5 rounded text-[9px]">Últimos 5</span>
@@ -537,19 +539,19 @@
                 {% if _fijos or _vars or _devs %}
                 <ul class="divide-y divide-slate-100">
                     {% for g in _fijos[:5] %}
-                    <li class="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
+                    <li class="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:bg-slate-50 transition-colors">
                         <div class="flex-1">
                             <div class="flex items-center gap-2 mb-1">
-                                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-700 border border-blue-200">Fijo ({{ g.frecuencia }})</span>
-                                <span class="font-bold text-slate-900 text-sm">{{ g.titulo }}</span>
+                                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-700 border border-blue-200 shrink-0">Fijo ({{ g.frecuencia }})</span>
+                                <span class="font-bold text-slate-900 text-sm truncate">{{ g.titulo }}</span>
                             </div>
                             <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
                                 Inicia: {{ g.fecha_inicio_recurrencia or '?' }} · Vía: {{ (g.metodo_referencia or '—')|replace('_', ' ') }}
                             </p>
                         </div>
-                        <div class="flex items-center gap-4">
+                        <div class="flex items-center justify-end gap-4 w-full sm:w-auto mt-2 sm:mt-0">
                             <div class="text-right">
-                                <span class="text-lg font-black text-slate-900 tabular-nums">${{ "%.2f"|format(g.monto_base_usd or 0) }}</span>
+                                <span class="text-base sm:text-lg font-black text-slate-900 tabular-nums">${{ "%.2f"|format(g.monto_base_usd or 0) }}</span>
                             </div>
                             <form method="POST" action="{{ url_for('eliminar_egreso', egreso_id=g.id) }}" onsubmit="return confirm('¿Seguro que deseas ELIMINAR este gasto fijo?');">
                                 <button type="submit" class="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-all flex items-center justify-center shadow-sm">
@@ -561,19 +563,19 @@
                     {% endfor %}
 
                     {% for g in _vars[:5] %}
-                    <li class="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
+                    <li class="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:bg-slate-50 transition-colors">
                         <div class="flex-1">
                             <div class="flex items-center gap-2 mb-1">
-                                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-amber-50 text-amber-700 border border-amber-200">Variable</span>
-                                <span class="font-bold text-slate-900 text-sm">{{ g.titulo }}</span>
+                                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-amber-50 text-amber-700 border border-amber-200 shrink-0">Variable</span>
+                                <span class="font-bold text-slate-900 text-sm truncate">{{ g.titulo }}</span>
                             </div>
                             <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">
                                 Pago Único: {{ g.fecha_inicio_recurrencia or '—' }} · Vía: {{ (g.metodo_referencia or '—')|replace('_', ' ') }}
                             </p>
                         </div>
-                        <div class="flex items-center gap-4">
+                        <div class="flex items-center justify-end gap-4 w-full sm:w-auto mt-2 sm:mt-0">
                             <div class="text-right">
-                                <span class="text-lg font-black text-slate-900 tabular-nums">${{ "%.2f"|format(g.monto_base_usd or 0) }}</span>
+                                <span class="text-base sm:text-lg font-black text-slate-900 tabular-nums">${{ "%.2f"|format(g.monto_base_usd or 0) }}</span>
                             </div>
                             <form method="POST" action="{{ url_for('eliminar_egreso', egreso_id=g.id) }}" onsubmit="return confirm('¿Seguro que deseas ELIMINAR este gasto variable?');">
                                 <button type="submit" class="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-all flex items-center justify-center shadow-sm">
@@ -585,17 +587,17 @@
                     {% endfor %}
 
                     {% for d in _devs[:5] %}
-                    <li class="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
+                    <li class="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:bg-slate-50 transition-colors">
                         <div class="flex-1">
                             <div class="flex items-center gap-2 mb-1">
-                                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-700 border border-slate-200">Devolución</span>
-                                <span class="font-bold text-slate-900 text-sm">{{ d.titulo }}</span>
+                                <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-700 border border-slate-200 shrink-0">Devolución</span>
+                                <span class="font-bold text-slate-900 text-sm truncate">{{ d.titulo }}</span>
                             </div>
-                            <p class="text-xs text-slate-500 mt-1">{{ d.descripcion }}</p>
+                            <p class="text-[10px] sm:text-xs text-slate-500 mt-1 line-clamp-2">{{ d.descripcion }}</p>
                         </div>
-                        <div class="flex items-center gap-4">
+                        <div class="flex items-center justify-end gap-4 w-full sm:w-auto mt-2 sm:mt-0">
                             <div class="text-right">
-                                <span class="text-lg font-black text-slate-900 tabular-nums">${{ "%.2f"|format(d.monto_base_usd or 0) }}</span>
+                                <span class="text-base sm:text-lg font-black text-slate-900 tabular-nums">${{ "%.2f"|format(d.monto_base_usd or 0) }}</span>
                             </div>
                             <form method="POST" action="{{ url_for('eliminar_egreso', egreso_id=d.id) }}" onsubmit="return confirm('¿Seguro que deseas CANCELAR esta devolución?');">
                                 <button type="submit" class="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-all flex items-center justify-center shadow-sm">
@@ -615,20 +617,29 @@
         </div>
     </div>
 
-    <div x-show="isModalOpen" style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" x-transition.opacity>
-        <div @click.away="isModalOpen = false" class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden" x-transition.scale.origin.bottom>
-            <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+    <div x-show="isModalOpen" style="display: none;" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm" x-transition.opacity>
+        <div @click.away="isModalOpen = false" 
+             class="bg-white rounded-t-[1.5rem] sm:rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh] pb-6 sm:pb-0"
+             x-transition:enter="transition ease-out duration-300 transform"
+             x-transition:enter-start="translate-y-full sm:translate-y-10 sm:opacity-0"
+             x-transition:enter-end="translate-y-0 sm:translate-y-0 sm:opacity-100"
+             x-transition:leave="transition ease-in duration-200 transform"
+             x-transition:leave-start="translate-y-0 sm:translate-y-0 sm:opacity-100"
+             x-transition:leave-end="translate-y-full sm:translate-y-10 sm:opacity-0">
+             
+            <div class="px-5 sm:px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
                 <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-shield-check text-slate-400"></i> Ejecución de Pago</h3>
-                <button @click="isModalOpen = false" type="button" class="text-slate-400 hover:text-slate-700"><i class="bi bi-x-lg"></i></button>
+                <button @click="isModalOpen = false" type="button" class="text-slate-400 hover:text-slate-700 bg-slate-200/50 hover:bg-slate-200 rounded-full w-8 h-8 flex items-center justify-center transition-colors"><i class="bi bi-x-lg"></i></button>
             </div>
-            <div class="p-6 bg-white">
-                <p class="text-lg font-black text-slate-900 mb-1 leading-tight" x-text="titulo"></p>
-                <div class="flex items-center gap-2 mb-6">
+            
+            <div class="p-5 sm:p-6 bg-white overflow-y-auto hide-scrollbar">
+                <p class="text-base sm:text-lg font-black text-slate-900 mb-1 leading-tight" x-text="titulo"></p>
+                <div class="flex items-center gap-2 mb-5 sm:mb-6">
                     <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Saldo Pendiente:</p>
-                    <span class="text-sm font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200 tabular-nums">$<span x-text="monto_deuda_original.toFixed(2)"></span></span>
+                    <span class="text-xs sm:text-sm font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200 tabular-nums">$<span x-text="monto_deuda_original.toFixed(2)"></span></span>
                 </div>
 
-                <form :action="'/gestion/egresos/ocurrencias/' + occ_id + '/procesar_pago'" method="POST" class="space-y-5">
+                <form :action="'/gestion/egresos/ocurrencias/' + occ_id + '/procesar_pago'" method="POST" class="space-y-4 sm:space-y-5">
                     <input type="hidden" name="caja_origen" :value="tipo_pago.startsWith('BANESCO') ? 'CAJA_BS_USD' : (tipo_pago === 'BINANCE_DIRECTO' ? 'BINANCE_USDT' : 'EFECTIVO_USD')">
                     <input type="hidden" name="moneda_origen" :value="tipo_pago.startsWith('BANESCO') ? 'VES' : (tipo_pago === 'BINANCE_DIRECTO' ? 'USDT' : 'USD')">
                     <input type="hidden" name="tasa_aplicada" :value="tasa_custom">
@@ -654,9 +665,9 @@
                     <div x-show="mostrar_tasa" x-collapse x-cloak>
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm mt-2">
                             <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-200">
-                                <label class="stripe-label !mb-0 text-slate-700"><i class="bi bi-arrow-left-right text-slate-400"></i> Tasa de Cambio Operativa</label>
+                                <label class="stripe-label !mb-0 text-slate-700"><i class="bi bi-arrow-left-right text-slate-400"></i> Tasa Operativa</label>
                                 <label class="flex items-center gap-2 cursor-pointer">
-                                    <span class="text-[9px] font-bold text-slate-500 uppercase">Editar Tasa Real</span>
+                                    <span class="text-[9px] font-bold text-slate-500 uppercase">Editar Real</span>
                                     <input type="checkbox" x-model="usar_tasa_custom" @change="calcTotal()" class="sr-only peer">
                                     <div class="w-7 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-slate-900 relative"></div>
                                 </label>
@@ -668,12 +679,12 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
                         <div class="space-y-2">
-                            <label class="stripe-label">Total Exacto a Debitar</label>
+                            <label class="stripe-label">Exacto a Debitar</label>
                             <div class="relative">
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-black" x-text="moneda_simbolo"></span>
-                                <input type="number" step="0.01" name="monto_origen" x-model="total_debitar" @input="calcAbono()" class="stripe-input pl-14 pr-2 font-black text-slate-900 bg-white border-slate-300 shadow-inner text-lg w-full tabular-nums" required>
+                                <input type="number" step="0.01" name="monto_origen" x-model="total_debitar" @input="calcAbono()" class="stripe-input pl-10 pr-2 font-black text-slate-900 bg-white border-slate-300 shadow-inner text-base sm:text-lg w-full tabular-nums" required>
                             </div>
                             <div x-show="tipo_pago && tipo_pago.startsWith('BANESCO')" x-collapse>
                                 <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 shadow-sm mt-1">
@@ -683,40 +694,48 @@
                             </div>
                         </div>
                         <div>
-                            <label class="stripe-label">N° Referencia / Recibo</label>
+                            <label class="stripe-label">N° Ref / Recibo</label>
                             <input type="text" name="referencia" x-model="referencia" class="stripe-input font-bold text-slate-900" placeholder="#000000" required>
                             <div class="text-[9px] font-bold text-slate-400 text-right mt-3" x-show="tipo_pago && tipo_pago.startsWith('BANESCO')">
-                                Tasa Implícita: <span class="text-slate-600" x-text="(parseFloat(abono_usd) > 0 ? (parseFloat(total_debitar) / parseFloat(abono_usd)) : 0).toFixed(4)"></span> Bs/$
+                                Implícita: <span class="text-slate-600" x-text="(parseFloat(abono_usd) > 0 ? (parseFloat(total_debitar) / parseFloat(abono_usd)) : 0).toFixed(4)"></span> Bs/$
                             </div>
                         </div>
                     </div>
-                    <button type="submit" class="w-full py-3.5 rounded-xl bg-slate-900 text-white text-sm font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2 mt-4 active:scale-[0.98]">
+                    <button type="submit" class="w-full py-3.5 rounded-xl bg-slate-900 text-white text-sm font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2 mt-2 sm:mt-4 active:scale-[0.98] mb-4 sm:mb-0">
                         <i class="bi bi-shield-lock-fill text-slate-400"></i> Procesar Pago
                     </button>
                 </form>
             </div>
         </div>
     </div>
+
 </div>
 
 <div x-data="historialAbonosModal()" 
      @open-historial-abonos.window="openModal($event.detail.occId, $event.detail.titulo)"
      x-show="isOpen" 
      x-cloak
-     class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+     class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm"
      x-transition.opacity>
     
-    <div @click.away="isOpen = false" class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]" x-transition.scale.origin.bottom>
+    <div @click.away="isOpen = false" 
+         class="bg-white rounded-t-[1.5rem] sm:rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[90vh] pb-6 sm:pb-0"
+         x-transition:enter="transition ease-out duration-300 transform"
+         x-transition:enter-start="translate-y-full sm:translate-y-10 sm:opacity-0"
+         x-transition:enter-end="translate-y-0 sm:translate-y-0 sm:opacity-100"
+         x-transition:leave="transition ease-in duration-200 transform"
+         x-transition:leave-start="translate-y-0 sm:translate-y-0 sm:opacity-100"
+         x-transition:leave-end="translate-y-full sm:translate-y-10 sm:opacity-0">
         
-        <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
+        <div class="px-5 sm:px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
             <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                <i class="bi bi-receipt text-indigo-500"></i> Detalles y Análisis de Pago
+                <i class="bi bi-receipt text-indigo-500"></i> Análisis de Pago
             </h3>
-            <button @click="isOpen = false" class="text-slate-400 hover:text-slate-700"><i class="bi bi-x-lg"></i></button>
+            <button @click="isOpen = false" class="text-slate-400 hover:text-slate-700 bg-slate-200/50 hover:bg-slate-200 rounded-full w-8 h-8 flex items-center justify-center transition-colors"><i class="bi bi-x-lg"></i></button>
         </div>
         
-        <div class="p-6 bg-white overflow-y-auto hide-scrollbar">
-            <h4 class="text-lg font-black text-slate-900 mb-5" x-text="titulo"></h4>
+        <div class="p-5 sm:p-6 bg-white overflow-y-auto hide-scrollbar">
+            <h4 class="text-base sm:text-lg font-black text-slate-900 mb-5 leading-tight" x-text="titulo"></h4>
             
             <div x-show="loading" class="text-center py-8">
                 <i class="bi bi-arrow-repeat animate-spin text-3xl text-slate-300"></i>
@@ -739,8 +758,8 @@
                                 <strong class="text-slate-800">Costo Real:</strong> Para lograr abonar <strong class="text-emerald-600">$<span x-text="total_abono.toFixed(2)"></span></strong> a esta deuda, la empresa consumió fondos equivalentes a <strong class="text-rose-600">$<span x-text="(total_abono + total_spread).toFixed(2)"></span></strong> según la tasa BCV oficial.
                             </p>
                         </div>
-                        <div class="text-right shrink-0 bg-white px-4 py-2 rounded-lg border border-rose-100 shadow-sm w-full sm:w-auto">
-                            <span class="block text-[9px] font-black text-rose-400 uppercase tracking-widest mb-0.5">Fuga por Spread</span>
+                        <div class="text-left sm:text-right shrink-0 bg-white px-4 py-2 rounded-lg border border-rose-100 shadow-sm w-full sm:w-auto flex flex-row sm:flex-col justify-between sm:justify-center items-center sm:items-end">
+                            <span class="block text-[9px] font-black text-rose-400 uppercase tracking-widest sm:mb-0.5">Fuga por Spread</span>
                             <span class="text-base font-black text-rose-600 tabular-nums">+$<span x-text="total_spread.toFixed(2)"></span></span>
                         </div>
                     </div>
@@ -755,8 +774,8 @@
                                 <strong class="text-slate-800">Costo Real:</strong> Para lograr abonar <strong class="text-emerald-600">$<span x-text="total_abono.toFixed(2)"></span></strong> a esta deuda, la empresa consumió fondos equivalentes a solo <strong class="text-emerald-600">$<span x-text="(total_abono + total_spread).toFixed(2)"></span></strong> según la tasa BCV oficial.
                             </p>
                         </div>
-                        <div class="text-right shrink-0 bg-white px-4 py-2 rounded-lg border border-emerald-100 shadow-sm w-full sm:w-auto">
-                            <span class="block text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-0.5">Ahorro Cambiario</span>
+                        <div class="text-left sm:text-right shrink-0 bg-white px-4 py-2 rounded-lg border border-emerald-100 shadow-sm w-full sm:w-auto flex flex-row sm:flex-col justify-between sm:justify-center items-center sm:items-end">
+                            <span class="block text-[9px] font-black text-emerald-400 uppercase tracking-widest sm:mb-0.5">Ahorro Cambiario</span>
                             <span class="text-base font-black text-emerald-600 tabular-nums">-$<span x-text="Math.abs(total_spread).toFixed(2)"></span></span>
                         </div>
                     </div>
@@ -776,35 +795,35 @@
                 <table class="w-full text-sm text-left">
                     <thead class="bg-slate-50 border-b border-slate-100">
                         <tr>
-                            <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Fecha</th>
-                            <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Caja Origen</th>
-                            <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Tasa FX</th>
-                            <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Debitó</th>
-                            <th class="py-3 px-4 text-[10px] font-bold text-slate-900 uppercase tracking-widest text-right bg-emerald-50">Abonó (USD)</th>
-                            <th class="py-3 px-4 text-[10px] font-bold text-rose-500 uppercase tracking-widest text-center">Acción</th>
+                            <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Fecha</th>
+                            <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Caja Origen</th>
+                            <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center whitespace-nowrap">Tasa FX</th>
+                            <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right whitespace-nowrap">Debitó</th>
+                            <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-slate-900 uppercase tracking-widest text-right bg-emerald-50 whitespace-nowrap">Abonó (USD)</th>
+                            <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-rose-500 uppercase tracking-widest text-center whitespace-nowrap">Acción</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         <template x-for="p in pagos" :key="p.id">
                             <tr class="hover:bg-slate-50/50">
-                                <td class="py-3 px-4 whitespace-nowrap text-xs font-semibold text-slate-600" x-text="p.fecha"></td>
-                                <td class="py-3 px-4">
-                                    <div class="flex flex-col">
+                                <td class="py-3 px-3 sm:px-4 whitespace-nowrap text-xs font-semibold text-slate-600 align-middle" x-text="p.fecha"></td>
+                                <td class="py-3 px-3 sm:px-4 align-middle">
+                                    <div class="flex flex-col whitespace-nowrap">
                                         <span class="text-xs font-bold text-slate-800" x-text="p.caja_origen.replace(/_/g, ' ')"></span>
                                         <span class="text-[9px] font-semibold text-slate-400 mt-0.5" x-text="'REF: ' + p.referencia"></span>
                                     </div>
                                 </td>
-                                <td class="py-3 px-4 text-center text-xs font-medium text-slate-500 tabular-nums" x-text="p.tasa > 0 ? p.tasa.toFixed(2) : '—'"></td>
-                                <td class="py-3 px-4 text-right text-xs font-semibold text-slate-700 tabular-nums">
+                                <td class="py-3 px-3 sm:px-4 text-center align-middle text-xs font-medium text-slate-500 tabular-nums" x-text="p.tasa > 0 ? p.tasa.toFixed(2) : '—'"></td>
+                                <td class="py-3 px-3 sm:px-4 text-right align-middle text-xs font-semibold text-slate-700 tabular-nums whitespace-nowrap">
                                     <span x-text="p.monto_origen.toFixed(2)"></span> <span class="text-[9px] text-slate-400" x-text="p.moneda_origen"></span>
                                 </td>
-                                <td class="py-3 px-4 text-right bg-emerald-50/30">
+                                <td class="py-3 px-3 sm:px-4 text-right align-middle bg-emerald-50/30 whitespace-nowrap">
                                     <span class="font-black text-emerald-600 tabular-nums tracking-tight" x-text="'$' + p.abono_usd.toFixed(2)"></span>
                                 </td>
-                                <td class="py-3 px-4 text-center">
+                                <td class="py-3 px-3 sm:px-4 text-center align-middle">
                                     <form method="POST" :action="'/gestion/egresos/pago/' + p.id + '/eliminar'" onsubmit="return confirm('ALERTA: ¿Deseas ANULAR este pago específico?\nEl monto abonado se descontará de la deuda.');">
-                                        <button type="submit" class="w-6 h-6 rounded bg-white border border-slate-200 text-slate-400 hover:text-rose-500 hover:bg-rose-50 hover:border-rose-200 transition-colors flex items-center justify-center mx-auto shadow-sm" title="Borrar este abono">
-                                            <i class="bi bi-trash3-fill text-[10px]"></i>
+                                        <button type="submit" class="w-7 h-7 sm:w-6 sm:h-6 rounded bg-white border border-slate-200 text-slate-400 hover:text-rose-500 hover:bg-rose-50 hover:border-rose-200 transition-colors flex items-center justify-center mx-auto shadow-sm" title="Borrar este abono">
+                                            <i class="bi bi-trash3-fill text-xs sm:text-[10px]"></i>
                                         </button>
                                     </form>
                                 </td>
@@ -813,6 +832,7 @@
                     </tbody>
                 </table>
             </div>
+            <div class="h-6 sm:h-0"></div>
         </div>
     </div>
 </div>
