@@ -4472,14 +4472,16 @@ def gestion_egresos():
             total_pagado += pag
             total_pendiente += pend
 
-        resumen_custom = {
-            'totales': {
-                'programado': float(total_programado),
-                'pagado': float(total_pagado),
-                'pendiente': float(total_pendiente)
-            },
-            'items': list(items_dict.values())
-        }
+        from types import SimpleNamespace
+        
+        resumen_custom = SimpleNamespace(
+            totales=SimpleNamespace(
+                programado=float(total_programado),
+                pagado=float(total_pagado),
+                pendiente=float(total_pendiente)
+            ),
+            items=list(items_dict.values())
+        )
 
         # Extraer Historial de Egresos Fijos, Variables y Devoluciones para la tabla inferior
         cur.execute("""
