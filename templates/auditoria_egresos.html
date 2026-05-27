@@ -162,7 +162,7 @@
             </div>
         </div>
 
-        <div class="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden">
+        <div class="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl shadow-sm overflow-hidden w-full">
             <div class="px-4 sm:px-6 py-4 border-b border-slate-100 bg-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
                     <i class="bi bi-journal-text text-slate-400"></i> Mapa de Obligaciones
@@ -172,31 +172,31 @@
                 </span>
             </div>
             
-            <div class="overflow-x-auto hide-scrollbar">
+            <div class="overflow-x-auto hide-scrollbar w-full">
                 <table class="w-full text-sm text-left">
                     <thead class="bg-slate-50/50 border-b border-slate-100">
                         <tr>
                             <th class="py-3 sm:py-4 px-4 sm:px-6 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Deuda / Concepto</th>
-                            <th class="py-3 sm:py-4 px-3 sm:px-4 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">F. Programada</th>
+                            <th class="py-3 sm:py-4 px-3 sm:px-4 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">Fecha Programada</th>
                             <th class="py-3 sm:py-4 px-3 sm:px-4 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">Estatus</th>
                             <th class="py-3 sm:py-4 px-3 sm:px-4 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Base USD</th>
                             <th class="py-3 sm:py-4 px-3 sm:px-4 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Abonado</th>
-                            <th class="py-3 sm:py-4 px-4 sm:px-6 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Acción</th>
+                            <th class="py-3 sm:py-4 px-4 sm:px-6 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">Soportes y Acción</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         {% if datos.historial %}
                             {% for row in datos.historial %}
                             <tr class="hover:bg-slate-50/50 transition-colors group">
-                                <td class="py-3 sm:py-4 px-4 sm:px-6 align-middle">
-                                    <div class="font-bold text-slate-900 tracking-tight whitespace-nowrap">{{ row.titulo }}</div>
-                                    <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 whitespace-nowrap">
+                                <td class="py-3 sm:py-4 px-4 sm:px-6 align-middle min-w-[140px]">
+                                    <div class="font-bold text-slate-900 tracking-tight leading-tight">{{ row.titulo }}</div>
+                                    <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
                                         {{ row.tipo_egreso }} <span class="text-slate-300 mx-1">|</span> <span class="text-blue-500"><i class="bi bi-bank"></i> VÍA: {{ row.metodo_referencia|replace('_', ' ') }}</span>
                                     </div>
                                 </td>
                                 
                                 <td class="py-3 sm:py-4 px-3 sm:px-4 text-center align-middle text-xs font-semibold text-slate-600 tabular-nums whitespace-nowrap">
-                                    <i class="bi bi-calendar-event text-slate-400 mr-1"></i> {{ row.fecha_programada.strftime('%d/%m/%y') }}
+                                    <i class="bi bi-calendar-event text-slate-400 mr-1"></i> {{ row.fecha_programada.strftime('%d/%m/%Y') }}
                                 </td>
                                 
                                 <td class="py-3 sm:py-4 px-3 sm:px-4 text-center align-middle">
@@ -213,23 +213,36 @@
                                     <div class="font-bold text-emerald-600 tabular-nums">${{ "{:,.2f}".format(row.pagado|float) }}</div>
                                 </td>
 
-                                <td class="py-3 sm:py-4 px-4 sm:px-6 text-right align-middle">
-                                    <div class="flex items-center justify-end gap-2 w-full">
+                                <td class="py-3 sm:py-4 px-4 sm:px-6 align-middle text-center">
+                                    <div class="flex flex-col xl:flex-row items-center justify-center gap-1.5 sm:gap-2 w-full">
+                                        
                                         {% if row.pagado|float > 0.001 %}
-                                            <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ row.ocurrencia_id }}', titulo: '{{ row.titulo|escape }}' })" 
-                                                    class="h-8 inline-flex items-center justify-center gap-1.5 px-3 bg-indigo-50/80 text-indigo-600 hover:bg-indigo-100 transition-colors shadow-none text-[10px] font-bold uppercase tracking-widest rounded-lg active:scale-95 whitespace-nowrap" 
-                                                    title="Ver análisis de spread y abonos">
-                                                <i class="bi bi-eye-fill text-sm leading-none"></i> Ver Abonos
-                                            </button>
+                                            {% if row.pendiente|float <= 0.001 %}
+                                                <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ row.ocurrencia_id }}', titulo: '{{ row.titulo|escape }}' })" 
+                                                        class="h-8 inline-flex items-center justify-center gap-1.5 px-3 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all shadow-sm text-[9px] sm:text-[10px] font-bold uppercase tracking-widest rounded-lg active:scale-95 whitespace-nowrap w-full xl:w-auto" 
+                                                        title="Ver Soportes y Análisis">
+                                                    <i class="bi bi-folder-check text-sm leading-none"></i> <span class="hidden sm:inline">Ver Pago</span><span class="sm:hidden">Soporte</span>
+                                                </button>
+                                            {% else %}
+                                                <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ row.ocurrencia_id }}', titulo: '{{ row.titulo|escape }}' })" 
+                                                        class="h-8 inline-flex items-center justify-center gap-1.5 px-3 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-600 hover:text-white transition-all shadow-sm text-[9px] sm:text-[10px] font-bold uppercase tracking-widest rounded-lg active:scale-95 whitespace-nowrap w-full xl:w-auto" 
+                                                        title="Ver Soportes y Análisis">
+                                                    <i class="bi bi-folder2-open text-sm leading-none"></i> <span class="hidden sm:inline">Ver Abonos</span><span class="sm:hidden">Soportes</span>
+                                                </button>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="h-8 inline-flex items-center justify-center gap-1.5 px-3 bg-slate-50 text-slate-400 border border-slate-200 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest rounded-lg whitespace-nowrap w-full xl:w-auto cursor-not-allowed">
+                                                Sin registro
+                                            </span>
                                         {% endif %}
                                         
                                         {% if row.pendiente|float > 0.0001 %}
                                             <button @click.prevent="abrirModal('{{ row.ocurrencia_id }}', '{{ row.titulo|escape }}', {{ row.pendiente|float }}, '{{ row.metodo_referencia }}')" 
-                                                    class="h-8 inline-flex items-center justify-center gap-1.5 px-4 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-colors shadow-sm rounded-lg active:scale-95 whitespace-nowrap min-w-[100px]">
+                                                    class="h-8 inline-flex items-center justify-center gap-1.5 px-4 bg-slate-900 text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm rounded-lg active:scale-95 whitespace-nowrap w-full xl:w-auto min-w-[90px]">
                                                 <i class="bi bi-wallet2 text-sm leading-none pointer-events-none"></i> Pagar
                                             </button>
                                         {% else %}
-                                            <span class="h-8 inline-flex items-center justify-center gap-1.5 px-4 bg-slate-50 text-slate-400 border border-slate-200 text-[10px] font-bold uppercase tracking-widest rounded-lg cursor-not-allowed whitespace-nowrap min-w-[100px]">
+                                            <span class="h-8 inline-flex items-center justify-center gap-1.5 px-4 bg-slate-50 text-slate-400 border border-slate-200 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest rounded-lg cursor-not-allowed whitespace-nowrap w-full xl:w-auto min-w-[90px]">
                                                 <i class="bi bi-check2-all text-sm leading-none"></i> Completo
                                             </span>
                                         {% endif %}
@@ -338,13 +351,14 @@
                             </div>
                         </div>
                     </div>
-                    <button type="submit" class="w-full py-3.5 rounded-xl bg-slate-900 text-white text-sm font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2 mt-2 sm:mt-4 active:scale-[0.98] mb-2">
+                    <button type="submit" class="w-full py-3.5 rounded-xl bg-slate-900 text-white text-sm font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2 mt-2 sm:mt-4 active:scale-[0.98] mb-4 sm:mb-0">
                         <i class="bi bi-shield-lock-fill text-slate-400"></i> Procesar Pago
                     </button>
                 </form>
             </div>
         </div>
     </div>
+
 </div>
 
 <div x-data="historialAbonosModal()" 
@@ -365,7 +379,7 @@
         
         <div class="px-5 sm:px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
             <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                <i class="bi bi-receipt text-indigo-500"></i> Análisis de Pago
+                <i class="bi bi-folder2-open text-indigo-500"></i> Soportes y Análisis
             </h3>
             <button @click="isOpen = false" class="text-slate-400 hover:text-slate-700 bg-slate-200/50 hover:bg-slate-200 rounded-full w-8 h-8 flex items-center justify-center transition-colors"><i class="bi bi-x-lg"></i></button>
         </div>
@@ -380,7 +394,7 @@
 
             <div x-show="!loading && pagos.length === 0" class="text-center py-8 bg-slate-50 rounded-xl border border-slate-200 border-dashed">
                 <i class="bi bi-inbox text-3xl text-slate-300"></i>
-                <p class="text-sm font-medium text-slate-500 mt-2">No hay abonos registrados.</p>
+                <p class="text-sm font-medium text-slate-500 mt-2">No hay soportes registrados.</p>
             </div>
 
             <div x-show="!loading && pagos.length > 0 && Math.abs(total_spread) > 0.001" class="mb-6 animate-fade-in" x-cloak>
@@ -468,9 +482,11 @@
                     </tbody>
                 </table>
             </div>
+            <div class="h-6 sm:h-0"></div>
         </div>
     </div>
 </div>
+
 {% endblock %}
 
 {% block scripts_extra %}
