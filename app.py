@@ -9558,19 +9558,45 @@ def _get_estado_cuenta_data(cliente_id):
         flash('Ocurrió un error al generar el estado de cuenta.', 'error')
         return None
 
-@app.route('/arreglar_base_datos')
+# =================================================================================
+# API PARA HISTORIAL DE ABONOS EN MODAL DE EGRESOS
+# =================================================================================
+@app.route('/api/egresos/ocurrencia/<int:occ_id>/pagos')
 @admin_required
-def arreglar_base_datos():
+def get_pagos_ocurrencia(occ_id):
     conn = get_db()
+    if not conn: return jsonify({'error': 'DB Error'}), 500
     try:
-        with conn.cursor() as cur:
-            # Agregamos la columna faltante a la tabla caja_inscripciones
-            cur.execute("ALTER TABLE public.caja_inscripciones ADD COLUMN IF NOT EXISTS numero_contrato VARCHAR(100);")
-        conn.commit()
-        return "<h3>¡Éxito! La columna 'numero_contrato' ha sido agregada a la caja. Ya puedes registrar clientes.</h3>"
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            # Buscamos directamente en tesorería usando la referencia_id
+            cur.execute("""
+                SELECT 
+                    id as operacion_id, fecha_operacion, caja_origen,
+                    moneda_origen, monto_origen, monto_destino as abono_usd,
+                    tasa_aplicada, perdida_cambiaria, nota as referencia
+                FROM operaciones_tesoreria 
+                WHERE referencia_tipo = 'EGRESO' AND referencia_id = %s
+                ORDER BY fecha_operacion DESC
+            """, (occ_id,))
+            pagos = cur.fetchall()
+            
+            res = []
+            for p in pagos:
+                res.append({
+                    'id': p['operacion_id'],
+                    'fecha': p['fecha_operacion'].strftime('%d/%m/%Y %I:%M %p') if p['fecha_operacion'] else '',
+                    'caja_origen': p['caja_origen'] or 'N/A',
+                    'moneda_origen': p['moneda_origen'] or 'USD',
+                    'monto_origen': float(p['monto_origen'] or 0),
+                    'abono_usd': float(p['abono_usd'] or 0),
+                    'tasa': float(p['tasa_aplicada'] or 0),
+                    'spread': float(p['perdida_cambiaria'] or 0),
+                    'referencia': p['referencia'] or 'N/A'
+                })
+            return jsonify(res)
     except Exception as e:
-        if conn: conn.rollback()
-        return f"<h3>Error intentando agregar la columna:</h3> <p>{str(e)}</p>"
+        app.logger.error(f"API Error Abonos: {e}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
