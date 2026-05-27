@@ -6,10 +6,7 @@
 {% block head_extra %}
 <style>
     [x-cloak] { display: none !important; }
-    
-    /* El Corazón Fintech: Números siempre alineados */
     .tabular-nums { font-variant-numeric: tabular-nums; }
-    
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -17,7 +14,6 @@
     input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     input[type="number"] { -moz-appearance: textfield; }
 
-    /* Efecto Stripe en Inputs */
     .stripe-input {
         width: 100%;
         min-width: 0;
@@ -44,8 +40,6 @@
         background-size: 1.5em 1.5em;
         padding-right: 2.5rem;
     }
-    
-    /* Micro-Caps */
     .stripe-label {
         display: block;
         font-size: 0.65rem;
@@ -215,8 +209,8 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
-                <a href="{{ url_for('auditoria_egresos') }}" class="px-5 py-2.5 bg-slate-900 text-white text-sm font-bold rounded-lg hover:bg-slate-800 transition-all shadow-sm flex items-center gap-2 active:scale-[0.98]">
-                    <i class="bi bi-calculator"></i> Auditoría de Spread
+                <a href="{{ url_for('auditoria_egresos') }}" class="px-5 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-md flex items-center gap-2 active:scale-[0.98]">
+                    <i class="bi bi-globe"></i> Gestión de Egresos Global
                 </a>
                 <form method="get" class="flex items-center gap-3 bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
                     <div class="flex items-center gap-2 px-2 border-r border-slate-100">
@@ -403,7 +397,7 @@
                             </div>
 
                             <div class="pt-2">
-                                <button type="submit" class="w-full py-2.5 rounded-lg bg-slate-900 text-white text-sm font-bold shadow-md hover:bg-slate-800 transition-all active:scale-[0.98]">
+                                <button type="submit" class="w-full py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-bold shadow-md hover:bg-indigo-700 transition-all active:scale-[0.98]">
                                     Procesar Devolución
                                 </button>
                             </div>
@@ -441,7 +435,7 @@
 
                 <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                     <div class="px-6 py-4 border-b border-slate-100 bg-white flex justify-between items-center">
-                        <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-calendar2-check text-slate-400"></i> Pagos a Ejecutar (Mes Activo)</h3>
+                        <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-calendar2-check text-slate-400"></i> Próximos Pagos</h3>
                     </div>
                     <div class="overflow-x-auto hide-scrollbar">
                         <table class="w-full text-sm text-left">
@@ -525,7 +519,10 @@
 
             <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                 <div class="px-6 py-4 border-b border-slate-100 bg-slate-50">
-                    <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-archive text-slate-400"></i> Historial de Gastos Registrados</h3>
+                    <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center justify-between">
+                        <span><i class="bi bi-archive text-slate-400 mr-2"></i> Historial de Gastos Registrados</span>
+                        <span class="bg-slate-200 text-slate-600 px-2 py-0.5 rounded text-[9px]">Últimos 5</span>
+                    </h3>
                 </div>
 
                 {% set _fijos = egresos.fijos|default([]) %}
@@ -534,7 +531,7 @@
                 
                 {% if _fijos or _vars or _devs %}
                 <ul class="divide-y divide-slate-100">
-                    {% for g in _fijos %}
+                    {% for g in _fijos[:5] %}
                     <li class="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
                         <div class="flex-1">
                             <div class="flex items-center gap-2 mb-1">
@@ -558,7 +555,7 @@
                     </li>
                     {% endfor %}
 
-                    {% for g in _vars %}
+                    {% for g in _vars[:5] %}
                     <li class="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
                         <div class="flex-1">
                             <div class="flex items-center gap-2 mb-1">
@@ -582,7 +579,7 @@
                     </li>
                     {% endfor %}
 
-                    {% for d in _devs %}
+                    {% for d in _devs[:5] %}
                     <li class="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
                         <div class="flex-1">
                             <div class="flex items-center gap-2 mb-1">
