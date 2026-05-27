@@ -5550,6 +5550,26 @@ def reporte_proyecciones():
     except Exception:
         pass
 
+    # --- EXTRACCIÓN UNIFICADA DE OCURRENCIAS Y PAGOS REALES DE TESORERÍA ---
+    ocurrencias_estado = {}
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur_occ:
+            cur_occ.execute("""
+                SELECT ep.titulo, eo.estado, eo.monto_programado_usd, eo.monto_pagado_usd, eo.fecha_programada,
+                       (SELECT COALESCE(SUM(perdida_cambiaria), 0) FROM operaciones_tesoreria WHERE referencia_tipo='EGRESO' AND referencia_id=eo.id) as fuga_congelada,
+                       (SELECT MAX(fecha_operacion) FROM operaciones_tesoreria WHERE referencia_tipo='EGRESO' AND referencia_id=eo.id) as fecha_pago_real
+                FROM egresos_ocurrencias eo
+                JOIN egresos_planificados ep ON ep.id = eo.egreso_id
+                WHERE eo.fecha_programada >= %s::date - INTERVAL '20 days'
+                  AND eo.fecha_programada <= %s::date + INTERVAL '20 days'
+                ORDER BY eo.fecha_programada DESC
+            """, (fecha_inicio, fecha_fin))
+            for occ in cur_occ.fetchall():
+                if occ['titulo'] not in ocurrencias_estado:
+                    ocurrencias_estado[occ['titulo']] = dict(occ)
+    except Exception as e:
+        app.logger.error(f"Error cargando estados de ocurrencias: {e}")
+
     simulacion_realizada = False
     
     proyeccion = {
@@ -5581,32 +5601,9 @@ def reporte_proyecciones():
                     proyeccion['progreso_recaudo_pct'] = min((recaudo_real_usd / proyeccion.get('recaudo_total_usd', 1)) * 100, 100) if proyeccion.get('recaudo_total_usd', 0) > 0 else 0
                     simulacion_realizada = True
 
-                    # ========================================================
-                    # 🚀 MOTOR COMPARATIVO DINÁMICO Y CONGELAMIENTO DE SPREAD
-                    # ========================================================
                     t_bcv_proj = float(proyeccion.get('tasas_proyectadas', {}).get('bcv', bcv_actual))
                     t_bin_proj = float(proyeccion.get('tasas_proyectadas', {}).get('binance', binance_actual))
                     
-                    ocurrencias_estado = {}
-                    try:
-                        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur_occ:
-                            # AMPLIAMOS LA VENTANA DE BÚSQUEDA 20 DÍAS PARA ATRAPAR LOS PAGOS DE PRINCIPIOS DE MES
-                            cur_occ.execute("""
-                                SELECT ep.titulo, eo.estado, eo.monto_programado_usd, eo.monto_pagado_usd, eo.fecha_programada,
-                                       (SELECT COALESCE(SUM(perdida_cambiaria), 0) FROM operaciones_tesoreria WHERE referencia_tipo='EGRESO' AND referencia_id=eo.id) as fuga_congelada
-                                FROM egresos_ocurrencias eo
-                                JOIN egresos_planificados ep ON ep.id = eo.egreso_id
-                                WHERE eo.fecha_programada >= %s::date - INTERVAL '20 days'
-                                  AND eo.fecha_programada <= %s::date + INTERVAL '20 days'
-                                ORDER BY eo.fecha_programada DESC
-                            """, (fecha_inicio, fecha_fin))
-                            for occ in cur_occ.fetchall():
-                                # Guarda la ocurrencia más reciente para cada gasto
-                                if occ['titulo'] not in ocurrencias_estado:
-                                    ocurrencias_estado[occ['titulo']] = dict(occ)
-                    except Exception as e:
-                        app.logger.error(f"Error cargando estados de ocurrencias: {e}")
-
                     hoy_date = hoy.date() if hasattr(hoy, 'date') else hoy
                     nueva_fuga_live = 0.0
 
@@ -5619,15 +5616,20 @@ def reporte_proyecciones():
                         estado_pago = 'Pendiente'
                         clase_estado = 'bg-amber-50 text-amber-600 border-amber-200'
                         perdida_live = 0.0
+                        fecha_prog = None
+                        fecha_real = None
                         
                         if occ:
+                            fecha_prog = occ.get('fecha_programada')
+                            fecha_real = occ.get('fecha_pago_real')
+
                             if occ['estado'] == 'pagado':
                                 estado_pago = 'Pagado'
                                 clase_estado = 'bg-emerald-50 text-emerald-600 border-emerald-200'
                                 perdida_live = float(occ['fuga_congelada'])
                             elif occ['estado'] == 'parcial':
                                 estado_pago = 'Parcial'
-                                clase_estado = 'bg-blue-50 text-blue-600 border-blue-200'
+                                clase_estado = 'bg-blue-50 text-blue-700 border-blue-200'
                                 pendiente_usd = float(occ['monto_programado_usd']) - float(occ['monto_pagado_usd'])
                                 fuga_congelada = float(occ['fuga_congelada'])
                                 perdida_live_pendiente = 0.0
@@ -5636,14 +5638,13 @@ def reporte_proyecciones():
                                         perdida_live_pendiente = (pendiente_usd * binance_actual / bcv_actual) - pendiente_usd
                                 perdida_live = fuga_congelada + perdida_live_pendiente
                             else:
-                                if occ['fecha_programada'] < hoy_date:
+                                if occ['fecha_programada'] and occ['fecha_programada'] < hoy_date:
                                     estado_pago = 'Atrasado'
                                     clase_estado = 'bg-rose-50 text-rose-600 border-rose-200'
                                 if 'Binance' in metodo_label or 'Cripto' in metodo_label:
                                     if bcv_actual > 0:
                                         perdida_live = (monto * binance_actual / bcv_actual) - monto
                         else:
-                            # Si es un gasto extra manual o no tiene ocurrencia
                             if 'Binance' in metodo_label or 'Cripto' in metodo_label:
                                 if bcv_actual > 0:
                                     perdida_live = (monto * binance_actual / bcv_actual) - monto
@@ -5652,6 +5653,8 @@ def reporte_proyecciones():
                         eg['clase_estado'] = clase_estado
                         eg['perdida_live'] = perdida_live
                         eg['salida_real_live'] = monto + perdida_live
+                        eg['fecha_programada'] = fecha_prog.strftime('%Y-%m-%d') if isinstance(fecha_prog, (date, datetime)) else (str(fecha_prog) if fecha_prog else None)
+                        eg['fecha_pago_real'] = fecha_real.strftime('%Y-%m-%d') if isinstance(fecha_real, (date, datetime)) else (str(fecha_real) if fecha_real else None)
                         nueva_fuga_live += perdida_live
 
                     # Recálculos
@@ -5686,7 +5689,7 @@ def reporte_proyecciones():
                     }
 
         except Exception as e:
-            app.logger.error(f"Error cargando proyección: {e}")
+            app.logger.error(f"Error cargando proyeccion GET: {e}")
 
     if request.method == 'POST' and request.form.get('action') != 'reset':
         simulacion_realizada = True
@@ -5725,10 +5728,17 @@ def reporte_proyecciones():
                     elif 'BCV' in metodo or 'EUR' in metodo: cat, label = 'VES_BCV', 'Bs (Tasa BCV)'
                     elif 'BINANCE' in metodo or 'USDT' in metodo: cat, label, perdida = 'USDT_BINANCE', 'USDT (Cripto)', (monto * tasa_binance / tasa_bcv) - monto
 
+                    occ = ocurrencias_estado.get(eg['titulo'])
+                    fecha_prog = occ.get('fecha_programada').strftime('%Y-%m-%d') if occ and isinstance(occ.get('fecha_programada'), (date, datetime)) else (str(occ.get('fecha_programada')) if occ and occ.get('fecha_programada') else None)
+                    fecha_real = occ.get('fecha_pago_real').strftime('%Y-%m-%d') if occ and isinstance(occ.get('fecha_pago_real'), (date, datetime)) else (str(occ.get('fecha_pago_real')) if occ and occ.get('fecha_pago_real') else None)
+
                     proyeccion['distribucion_egresos'][cat] += monto
                     proyeccion['egresos_total_usd'] += monto
                     proyeccion['perdida_spread_usd'] += perdida
-                    proyeccion['lista_egresos'].append({'titulo': eg['titulo'], 'monto': monto, 'metodo': label, 'perdida': perdida, 'salida_real': monto + perdida})
+                    proyeccion['lista_egresos'].append({
+                        'titulo': eg['titulo'], 'monto': monto, 'metodo': label, 'perdida': perdida, 'salida_real': monto + perdida,
+                        'fecha_programada': fecha_prog, 'fecha_pago_real': fecha_real
+                    })
 
                 keys, vals, metodos = request.form.getlist('eg_div_key[]'), request.form.getlist('eg_div_monto[]'), request.form.getlist('eg_div_metodo[]')
                 for i, k in enumerate(keys):
@@ -5740,10 +5750,17 @@ def reporte_proyecciones():
                         elif metodo == 'USDT_BINANCE': cat, label, perdida = 'USDT_BINANCE', 'USDT (Cripto)', (monto * tasa_binance / tasa_bcv) - monto
                         elif metodo == 'VES_BCV': cat, label = 'VES_BCV', 'Bs (Tasa BCV)'
                             
+                        occ = ocurrencias_estado.get(k.strip())
+                        fecha_prog = occ.get('fecha_programada').strftime('%Y-%m-%d') if occ and isinstance(occ.get('fecha_programada'), (date, datetime)) else (str(occ.get('fecha_programada')) if occ and occ.get('fecha_programada') else None)
+                        fecha_real = occ.get('fecha_pago_real').strftime('%Y-%m-%d') if occ and isinstance(occ.get('fecha_pago_real'), (date, datetime)) else (str(occ.get('fecha_pago_real')) if occ and occ.get('fecha_pago_real') else None)
+
                         proyeccion['distribucion_egresos'][cat] += monto
                         proyeccion['egresos_total_usd'] += monto
                         proyeccion['perdida_spread_usd'] += perdida
-                        proyeccion['lista_egresos'].append({'titulo': f"{k.strip()} (Extra)", 'monto': monto, 'metodo': label, 'perdida': perdida, 'salida_real': monto + perdida})
+                        proyeccion['lista_egresos'].append({
+                            'titulo': f"{k.strip()} (Extra)", 'monto': monto, 'metodo': label, 'perdida': perdida, 'salida_real': monto + perdida,
+                            'fecha_programada': fecha_prog, 'fecha_pago_real': fecha_real
+                        })
 
                 proyeccion['balance_neto_usd'] = proyeccion['recaudo_total_usd'] - proyeccion['egresos_total_usd'] - proyeccion['perdida_spread_usd']
                 proyeccion['progreso_recaudo_pct'] = min((recaudo_real_usd / proyeccion['recaudo_total_usd']) * 100, 100) if proyeccion['recaudo_total_usd'] > 0 else 0
