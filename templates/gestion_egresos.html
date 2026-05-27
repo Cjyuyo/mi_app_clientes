@@ -126,7 +126,6 @@
         
         let m = String(metodoRaw || '').toUpperCase().trim();
         
-        // MAGIA DE RESCATE: Si llega vacío, buscamos la Vía de Pago usando el título del gasto
         if (!m || m === 'NONE' || m === 'NULL') {
             let titLower = String(tit || '').toLowerCase().trim();
             m = String(window.mapaMetodosEgresos[titLower] || '').toUpperCase().trim();
@@ -134,7 +133,6 @@
 
         this.metodoRaw_recibido = m;
         
-        // Blindaje estricto de opciones según la vía
         if (m.indexOf('BP2P') !== -1 || m.indexOf('B.P2P') !== -1) {
             this.grupo_cajas = 'BP2P';
             this.tipo_pago = 'BANESCO_BINANCE';
@@ -200,15 +198,14 @@
         }
     },
 
-    calcTasa() {
-        let abono = parseFloat(this.abono_usd) || 0;
+    calcAbono() {
         let total = parseFloat(this.total_debitar) || 0;
+        let tasa = parseFloat(this.tasa_custom) || 1;
         
-        if (this.tipo_pago && this.tipo_pago.startsWith('BANESCO') && abono > 0) {
-            this.usar_tasa_custom = true;
-            this.tasa_custom = (total / abono).toFixed(4);
-        } else if (!this.tipo_pago || !this.tipo_pago.startsWith('BANESCO')) {
-            this.total_debitar = total.toFixed(2);
+        if (this.tipo_pago && this.tipo_pago.startsWith('BANESCO') && tasa > 0) {
+            this.abono_usd = (total / tasa).toFixed(2);
+        } else {
+            this.abono_usd = total.toFixed(2);
         }
     }
 }">
@@ -221,7 +218,12 @@
             <p class="text-slate-500 text-sm mt-1 font-medium">Control operativo y devoluciones a clientes.</p>
         </div>
 
-        <form method="get" class="flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex flex-wrap items-center gap-3">
+            <a href="{{ url_for('auditoria_egresos') }}" class="px-5 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-md flex items-center gap-2 active:scale-95">
+                <i class="bi bi-calculator"></i> Auditoría de Spread
+            </a>
+
+            <form method="get" class="flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
             <div class="flex items-center gap-2 px-2 border-r border-slate-100">
                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Periodo:</span>
                 <select name="periodo_tipo" class="bg-transparent border-none text-slate-900 text-xs font-bold focus:ring-0 outline-none cursor-pointer">
@@ -391,7 +393,7 @@
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
-                            <div class="min-w-0">
+                            <div class="minw-0">
                                 <label class="stripe-label">Cuotas de pago*</label>
                                 <input type="number" name="numero_de_cuotas" value="1" min="1" required class="stripe-input text-center">
                             </div>
@@ -676,17 +678,10 @@
                             <label class="stripe-label">Total Exacto a Debitar</label>
                             <div class="relative">
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-black" x-text="moneda_simbolo"></span>
-                                <input type="number" step="0.01" name="monto_origen" :value="total_debitar" @input="total_debitar = $event.target.value; calcTasa()" class="stripe-input pl-14 pr-2 font-black text-slate-900 bg-white border-slate-300 shadow-inner text-lg w-full" required>
+                                <input type="number" step="0.01" name="monto_origen" x-model="total_debitar" @input="calcAbono()" class="stripe-input pl-14 pr-2 font-black text-slate-900 bg-white border-slate-300 shadow-inner text-lg w-full" required>
                             </div>
-                            
-                            <div x-show="tipo_pago && tipo_pago.startsWith('BANESCO')" x-collapse>
-                                <div class="flex items-center justify-between bg-emerald-50/50 border border-emerald-100 rounded-lg px-3 py-2 shadow-sm">
-                                    <span class="text-[9px] font-bold text-emerald-600/80 uppercase tracking-widest"><i class="bi bi-calculator mr-1"></i> Eqv. USD</span>
-                                    <span class="text-xs font-black text-emerald-700 tabular-nums">$<span x-text="(parseFloat(total_debitar) / (parseFloat(tasa_custom) || 1)).toFixed(2)"></span></span>
-                                </div>
-                            </div>
+                            <p class="text-[9px] font-semibold text-slate-400 mt-1.5 ml-1">Escribir en Bs calcula el Abono USD.</p>
                         </div>
-                        
                         <div>
                             <label class="stripe-label">N° Referencia / Recibo</label>
                             <input type="text" name="referencia" x-model="referencia" class="stripe-input font-bold" placeholder="#000000" required>
