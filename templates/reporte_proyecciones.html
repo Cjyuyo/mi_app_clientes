@@ -99,7 +99,7 @@
         if (!this.tipo_pago) { this.moneda_simbolo = 'USD'; this.tasa_custom = 1.0; this.mostrar_tasa = false; this.total_debitar = this.abono_usd; }
         else if (this.tipo_pago === 'BANESCO_BCV') { this.moneda_simbolo = 'Bs'; this.tasa_custom = this.tasa_bcv; this.mostrar_tasa = true; this.total_debitar = (this.abono_usd * this.tasa_custom).toFixed(2); }
         else if (this.tipo_pago === 'BANESCO_BINANCE') { this.moneda_simbolo = 'Bs'; this.tasa_custom = this.tasa_binance; this.mostrar_tasa = true; this.total_debitar = (this.abono_usd * this.tasa_custom).toFixed(2); }
-        else if (this.tipo_pago === 'EFECTIVO_USD' || this.tipo_pago === 'BINANCE_DIRECTO') { this.moneda_simbolo = this.tipo_pago === 'EFECTIVO_USD' ? 'USD' : 'USDT'; this.tasa_custom = 1.0; this.mostrar_tasa = false; this.total_debitar = this.abono_usd; }
+        else if (this.tipo_pago === 'EFECTIVO_USD' || this.tipo_pago === 'BINANCE_DIRECTO') { this.moneda_simbolo = 'USDT'; this.tasa_custom = 1.0; this.mostrar_tasa = false; this.total_debitar = this.abono_usd; }
         this.usar_tasa_custom = false;
     },
 
@@ -352,16 +352,16 @@
                     </h3>
                     <span class="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-1 rounded-md uppercase tracking-widest hidden sm:inline-flex"><i class="bi bi-broadcast"></i> Valores en Vivo</span>
                 </div>
-                <div class="w-full overflow-x-auto custom-scrollbar">
-                    <table class="w-full text-sm text-left min-w-[650px]">
+                <div class="w-full overflow-x-auto custom-scrollbar pb-2">
+                    <table class="w-full text-sm text-left">
                         <thead class="bg-white border-b border-slate-100 text-[10px] uppercase text-slate-500 tracking-widest">
                             <tr>
                                 <th class="py-3 px-2 sm:px-4 font-bold text-left">Concepto</th>
-                                <th class="py-3 px-2 font-bold text-center">Fecha Programada</th>
+                                <th class="py-3 px-2 font-bold text-center leading-tight">Fecha Programada</th>
                                 <th class="py-3 px-2 font-bold text-center hidden sm:table-cell">Estatus</th>
-                                <th class="py-3 px-2 font-bold text-right">Base USD</th>
-                                <th class="py-3 px-2 font-bold text-right bg-slate-50/50">Costo Final</th>
-                                <th class="py-3 px-2 sm:px-4 font-bold text-center">Soportes y Acción</th>
+                                <th class="py-3 px-2 font-bold text-right leading-tight">Base USD</th>
+                                <th class="py-3 px-2 font-bold text-right bg-slate-50/50 leading-tight">Costo Final</th>
+                                <th class="py-3 px-2 sm:px-4 font-bold text-center leading-tight">Soportes y Acción</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
@@ -396,7 +396,7 @@
                                 </td>
                                 
                                 <td class="py-3 px-2 align-middle text-center">
-                                    <div class="flex flex-col items-center justify-center gap-1 w-full">
+                                    <div class="flex flex-col items-center justify-center gap-1.5 w-full">
                                         <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap" title="Fecha límite programada">
                                             Prog: 
                                             {% set f_prog = e.get('fecha_programada') %}
@@ -460,25 +460,25 @@
                                     </div>
                                 </td>
                                 
-                                <td class="py-3 px-2 sm:px-4 text-center align-middle w-28 sm:w-32">
-                                    <div class="flex flex-col xl:flex-row items-center justify-center gap-1.5 w-full mx-auto">
+                                <td class="py-3 px-2 sm:px-4 text-center align-middle w-24">
+                                    <div class="flex flex-col items-center justify-center gap-1.5 w-full mx-auto max-w-[85px]">
                                         
                                         {% if occ_id and pagado_val > 0.001 %}
                                             {% if pendiente_val <= 0.001 %}
                                                 <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ occ_id }}', titulo: '{{ titulo_escape }}' })" 
-                                                        class="h-7 w-full xl:w-auto inline-flex items-center justify-center gap-1 px-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap min-w-[75px]" 
+                                                        class="h-7 w-full inline-flex items-center justify-center gap-1 px-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap" 
                                                         title="Ver Pago Completo">
                                                     <i class="bi bi-check-circle text-[10px] leading-none"></i> Ver Pago
                                                 </button>
                                             {% else %}
                                                 <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ occ_id }}', titulo: '{{ titulo_escape }}' })" 
-                                                        class="h-7 w-full xl:w-auto inline-flex items-center justify-center gap-1 px-2.5 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-600 hover:text-white transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap min-w-[75px]" 
+                                                        class="h-7 w-full inline-flex items-center justify-center gap-1 px-2.5 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-600 hover:text-white transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap" 
                                                         title="Ver Abonos Parciales">
-                                                    <i class="bi bi-folder2-open text-[10px] leading-none"></i> Soporte
+                                                    <i class="bi bi-folder2-open text-[10px] leading-none"></i> Ver Abono
                                                 </button>
                                             {% endif %}
                                         {% else %}
-                                            <span class="h-7 w-full xl:w-auto inline-flex items-center justify-center gap-1 px-2.5 bg-slate-50 text-slate-400 border border-slate-200 text-[9px] font-bold uppercase tracking-widest rounded-md cursor-not-allowed whitespace-nowrap min-w-[75px]">
+                                            <span class="h-7 w-full inline-flex items-center justify-center gap-1 px-2.5 bg-slate-50 text-slate-400 border border-slate-200 text-[9px] font-bold uppercase tracking-widest rounded-md cursor-not-allowed whitespace-nowrap">
                                                 Sin registro
                                             </span>
                                         {% endif %}
@@ -486,16 +486,16 @@
                                         {% if occ_id %}
                                             {% if ev != 'pagado' and ev != 'saldado' %}
                                                 <button @click.prevent="abrirModal('{{ occ_id }}', '{{ titulo_escape }}', {{ pendiente_val }}, '{{ e.get('metodo', '') }}')" 
-                                                        class="h-7 w-full xl:w-auto inline-flex items-center justify-center gap-1.5 px-2.5 bg-slate-900 text-white hover:bg-slate-800 transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap min-w-[75px]">
+                                                        class="h-7 w-full inline-flex items-center justify-center gap-1.5 px-2.5 bg-slate-900 text-white hover:bg-slate-800 transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap">
                                                     <i class="bi bi-wallet2 text-[10px] leading-none pointer-events-none"></i> Pagar
                                                 </button>
                                             {% else %}
-                                                <span class="h-7 w-full xl:w-auto inline-flex items-center justify-center gap-1 px-2.5 bg-emerald-50 text-emerald-600 border border-emerald-200 text-[9px] font-bold uppercase tracking-widest rounded-md cursor-not-allowed whitespace-nowrap min-w-[75px]">
+                                                <span class="h-7 w-full inline-flex items-center justify-center gap-1 px-2.5 bg-emerald-50 text-emerald-600 border border-emerald-200 text-[9px] font-bold uppercase tracking-widest rounded-md cursor-not-allowed whitespace-nowrap">
                                                     <i class="bi bi-shield-check text-[10px] leading-none"></i> Completo
                                                 </span>
                                             {% endif %}
                                         {% else %}
-                                            <span class="h-7 w-full xl:w-auto inline-flex items-center justify-center gap-1 px-2.5 bg-slate-100 text-slate-400 border border-slate-200 text-[9px] font-bold uppercase tracking-widest rounded-md cursor-not-allowed whitespace-nowrap min-w-[75px]" title="Gasto proyectado, no registrado en DB">
+                                            <span class="h-7 w-full inline-flex items-center justify-center gap-1 px-2.5 bg-slate-100 text-slate-400 border border-slate-200 text-[9px] font-bold uppercase tracking-widest rounded-md cursor-not-allowed whitespace-nowrap" title="Gasto proyectado, no registrado en DB">
                                                 <i class="bi bi-cpu text-[10px] leading-none"></i> Simulado
                                             </span>
                                         {% endif %}
@@ -737,7 +737,10 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block scripts_extra %}
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 <script>
     document.addEventListener('alpine:init', () => {
         Alpine.data('historialAbonosModal', () => ({

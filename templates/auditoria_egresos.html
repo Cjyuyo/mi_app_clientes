@@ -10,7 +10,7 @@
     
     /* Scrollbar sutil para móviles si es necesario */
     .custom-scrollbar::-webkit-scrollbar { height: 6px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; border-radius: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
@@ -64,7 +64,7 @@
         if (!this.tipo_pago) { this.moneda_simbolo = 'USD'; this.tasa_custom = 1.0; this.mostrar_tasa = false; this.total_debitar = this.abono_usd; }
         else if (this.tipo_pago === 'BANESCO_BCV') { this.moneda_simbolo = 'Bs'; this.tasa_custom = this.tasa_bcv; this.mostrar_tasa = true; this.total_debitar = (this.abono_usd * this.tasa_custom).toFixed(2); }
         else if (this.tipo_pago === 'BANESCO_BINANCE') { this.moneda_simbolo = 'Bs'; this.tasa_custom = this.tasa_binance; this.mostrar_tasa = true; this.total_debitar = (this.abono_usd * this.tasa_custom).toFixed(2); }
-        else if (this.tipo_pago === 'EFECTIVO_USD' || this.tipo_pago === 'BINANCE_DIRECTO') { this.moneda_simbolo = this.tipo_pago === 'EFECTIVO_USD' ? 'USD' : 'USDT'; this.tasa_custom = 1.0; this.mostrar_tasa = false; this.total_debitar = this.abono_usd; }
+        else if (this.tipo_pago === 'EFECTIVO_USD' || this.tipo_pago === 'BINANCE_DIRECTO') { this.moneda_simbolo = 'USDT'; this.tasa_custom = 1.0; this.mostrar_tasa = false; this.total_debitar = this.abono_usd; }
         this.usar_tasa_custom = false;
     },
 
@@ -176,16 +176,16 @@
                 </span>
             </div>
             
-            <div class="overflow-x-auto w-full custom-scrollbar pb-2">
+            <div class="w-full overflow-x-auto custom-scrollbar pb-2">
                 <table class="w-full text-sm text-left">
                     <thead class="bg-slate-50/50 border-b border-slate-100">
                         <tr>
-                            <th class="py-3 sm:py-4 px-3 sm:px-5 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">Concepto</th>
-                            <th class="py-3 sm:py-4 px-2 sm:px-3 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Fecha Programada</th>
-                            <th class="py-3 sm:py-4 px-2 sm:px-3 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Estatus</th>
+                            <th class="py-3 sm:py-4 px-3 sm:px-5 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">Deuda / Concepto</th>
+                            <th class="py-3 sm:py-4 px-2 sm:px-3 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center leading-tight">Fecha<br>Programada</th>
+                            <th class="hidden sm:table-cell py-3 sm:py-4 px-2 sm:px-3 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Estatus</th>
                             <th class="py-3 sm:py-4 px-2 sm:px-3 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Base USD</th>
                             <th class="py-3 sm:py-4 px-2 sm:px-3 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Abonado</th>
-                            <th class="py-3 sm:py-4 px-3 sm:px-5 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Acción</th>
+                            <th class="py-3 sm:py-4 px-3 sm:px-5 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center leading-tight">Soportes y<br>Acción</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
@@ -194,12 +194,26 @@
                             {% set programado_val = row.programado|default(0)|float %}
                             {% set pagado_val = row.pagado|default(0)|float %}
                             {% set pendiente_val = row.pendiente|default(programado_val)|float %}
+                            {% set titulo_escape = row.titulo|escape %}
+                            {% set occ_id = row.ocurrencia_id %}
+                            {% set ev = row.estado_visual|default('Pendiente')|lower %}
                             
                             <tr class="hover:bg-slate-50/50 transition-colors group {% if row.spread_total|float|abs > 0.001 %}border-b-0{% endif %}">
                                 <td class="py-3 sm:py-4 px-3 sm:px-5 align-middle">
-                                    <div class="font-bold text-slate-900 tracking-tight leading-tight whitespace-normal break-words min-w-[120px]">{{ row.titulo }}</div>
+                                    <div class="font-bold text-slate-900 tracking-tight leading-tight whitespace-normal break-words min-w-[120px] max-w-[200px]">{{ row.titulo }}</div>
                                     <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 whitespace-nowrap">
                                         {{ row.tipo_egreso }} <span class="text-slate-300 mx-1">|</span> <span class="text-blue-500"><i class="bi bi-bank"></i> {{ row.metodo_referencia|replace('_', ' ') }}</span>
+                                    </div>
+                                    <div class="sm:hidden mt-1.5">
+                                        {% if ev == 'pagado' or ev == 'saldado' %}
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded border text-[8px] font-bold uppercase tracking-widest bg-emerald-50 text-emerald-700 border-emerald-200 whitespace-nowrap">Saldado</span>
+                                        {% elif ev == 'parcial' %}
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded border text-[8px] font-bold uppercase tracking-widest bg-blue-50 text-blue-700 border-blue-200 whitespace-nowrap">Parcial</span>
+                                        {% elif ev == 'atrasado' %}
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded border text-[8px] font-bold uppercase tracking-widest bg-rose-50 text-rose-700 border-rose-200 whitespace-nowrap">Atrasado</span>
+                                        {% else %}
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded border text-[8px] font-bold uppercase tracking-widest bg-amber-50 text-amber-700 border-amber-200 whitespace-nowrap">Pendiente</span>
+                                        {% endif %}
                                     </div>
                                 </td>
                                 
@@ -215,7 +229,7 @@
                                         {% endif %}
                                         
                                         {% if f_real_any %}
-                                            {% if row.estado_visual|lower in ['saldado', 'pagado'] %}
+                                            {% if ev == 'pagado' or ev == 'saldado' %}
                                                 <div class="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 uppercase tracking-widest whitespace-nowrap mt-0.5">
                                                     Real: <span class="tabular-nums">{{ f_real_any.strftime('%d %b %y') }}</span>
                                                 </div>
@@ -232,10 +246,16 @@
                                     </div>
                                 </td>
                                 
-                                <td class="py-3 sm:py-4 px-2 sm:px-3 text-center align-middle">
-                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-widest border {{ row.clase_visual }} whitespace-nowrap">
-                                        {{ row.estado_visual }}
-                                    </span>
+                                <td class="hidden sm:table-cell py-3 sm:py-4 px-2 sm:px-3 text-center align-middle">
+                                    {% if ev == 'pagado' or ev == 'saldado' %}
+                                        <span class="inline-flex items-center px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-widest border bg-emerald-50 text-emerald-700 border-emerald-200 whitespace-nowrap">Saldado</span>
+                                    {% elif ev == 'parcial' %}
+                                        <span class="inline-flex items-center px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-widest border bg-blue-50 text-blue-700 border-blue-200 whitespace-nowrap">Parcial</span>
+                                    {% elif ev == 'atrasado' %}
+                                        <span class="inline-flex items-center px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-widest border bg-rose-50 text-rose-700 border-rose-200 whitespace-nowrap">Atrasado</span>
+                                    {% else %}
+                                        <span class="inline-flex items-center px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-widest border bg-amber-50 text-amber-700 border-amber-200 whitespace-nowrap">Pendiente</span>
+                                    {% endif %}
                                 </td>
                                 
                                 <td class="py-3 sm:py-4 px-2 sm:px-3 text-right align-middle">
@@ -247,66 +267,41 @@
                                 </td>
 
                                 <td class="py-3 sm:py-4 px-3 sm:px-5 align-middle text-center">
-                                    <div class="flex flex-col lg:flex-row items-center justify-center gap-1.5 w-full mx-auto">
+                                    <div class="flex flex-col items-center justify-center gap-1.5 w-full max-w-[100px] mx-auto">
+                                        
                                         {% if pagado_val > 0.001 %}
                                             {% if pendiente_val <= 0.001 %}
-                                                <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ row.ocurrencia_id }}', titulo: '{{ row.titulo|escape }}' })" 
-                                                        class="h-7 w-full lg:w-auto inline-flex items-center justify-center gap-1.5 px-2 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap min-w-[85px]" 
+                                                <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ occ_id }}', titulo: '{{ titulo_escape }}' })" 
+                                                        class="h-7 w-full inline-flex items-center justify-center gap-1 px-2 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap" 
                                                         title="Ver Pago Completo">
                                                     <i class="bi bi-check-circle text-[10px] leading-none"></i> Ver Pago
                                                 </button>
                                             {% else %}
-                                                <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ row.ocurrencia_id }}', titulo: '{{ row.titulo|escape }}' })" 
-                                                        class="h-7 w-full lg:w-auto inline-flex items-center justify-center gap-1.5 px-2 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-600 hover:text-white transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap min-w-[85px]" 
+                                                <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ occ_id }}', titulo: '{{ titulo_escape }}' })" 
+                                                        class="h-7 w-full inline-flex items-center justify-center gap-1 px-2 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-600 hover:text-white transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap" 
                                                         title="Ver Abonos Parciales">
                                                     <i class="bi bi-folder2-open text-[10px] leading-none"></i> Ver Abono
                                                 </button>
                                             {% endif %}
                                         {% else %}
-                                            <span class="h-7 w-full lg:w-auto inline-flex items-center justify-center px-2 bg-slate-50 text-slate-400 border border-slate-200 text-[9px] font-bold uppercase tracking-widest rounded-md cursor-not-allowed whitespace-nowrap min-w-[85px]">
+                                            <span class="h-7 w-full inline-flex items-center justify-center px-2 bg-slate-50 text-slate-400 border border-slate-200 text-[9px] font-bold uppercase tracking-widest rounded-md cursor-not-allowed whitespace-nowrap">
                                                 Sin registro
                                             </span>
                                         {% endif %}
                                         
                                         {% if pendiente_val > 0.0001 %}
-                                            <button @click.prevent="abrirModal('{{ row.ocurrencia_id }}', '{{ row.titulo|escape }}', {{ pendiente_val }}, '{{ row.metodo_referencia }}')" 
-                                                    class="h-7 w-full lg:w-auto inline-flex items-center justify-center gap-1.5 px-3 bg-slate-900 text-white hover:bg-slate-800 transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap min-w-[85px]">
+                                            <button @click.prevent="abrirModal('{{ occ_id }}', '{{ titulo_escape }}', {{ pendiente_val }}, '{{ row.metodo_referencia }}')" 
+                                                    class="h-7 w-full inline-flex items-center justify-center gap-1.5 px-2 bg-slate-900 text-white hover:bg-slate-800 transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap">
                                                 <i class="bi bi-wallet2 text-[10px] leading-none pointer-events-none"></i> Pagar
                                             </button>
                                         {% else %}
-                                            <span class="h-7 w-full lg:w-auto inline-flex items-center justify-center gap-1.5 px-3 bg-slate-50 text-slate-400 border border-slate-200 text-[9px] font-bold uppercase tracking-widest rounded-md cursor-not-allowed whitespace-nowrap min-w-[85px]">
-                                                <i class="bi bi-check2-all text-[10px] leading-none"></i> Completo
+                                            <span class="h-7 w-full inline-flex items-center justify-center gap-1.5 px-2 bg-emerald-50 text-emerald-600 border border-emerald-200 text-[9px] font-bold uppercase tracking-widest rounded-md cursor-not-allowed whitespace-nowrap">
+                                                <i class="bi bi-shield-check text-[10px] leading-none"></i> Completo
                                             </span>
                                         {% endif %}
                                     </div>
                                 </td>
                             </tr>
-
-                            {% if row.spread_total|float|abs > 0.001 %}
-                            <tr class="bg-slate-50/20 group-hover:bg-slate-50/50 transition-colors">
-                                <td colspan="6" class="px-2 sm:px-4 pb-3 pt-0 border-t-0">
-                                    <div class="p-3 {{ 'bg-rose-50/60 border-rose-100' if row.spread_total|float > 0 else 'bg-emerald-50/60 border-emerald-100' }} border rounded-lg shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                        <div class="flex items-center gap-3">
-                                            <div class="w-8 h-8 rounded-full {{ 'bg-rose-100 text-rose-600' if row.spread_total|float > 0 else 'bg-emerald-100 text-emerald-600' }} flex items-center justify-center shrink-0">
-                                                <i class="bi {{ 'bi-graph-down-arrow' if row.spread_total|float > 0 else 'bi-graph-up-arrow' }}"></i>
-                                            </div>
-                                            <p class="text-[10px] sm:text-xs font-medium text-slate-600 leading-relaxed m-0">
-                                                <strong class="text-slate-800">Costo Real:</strong> Para lograr abonar <strong class="text-emerald-600">${{ "{:,.2f}".format(row.pagado|float) }}</strong> a esta deuda, la empresa consumió fondos equivalentes a {% if row.spread_total|float < 0 %}solo {% endif %}<strong class="{{ 'text-rose-600' if row.spread_total|float > 0 else 'text-emerald-600' }}">${{ "{:,.2f}".format((row.pagado|float) + (row.spread_total|float)) }}</strong> según la tasa BCV oficial.
-                                            </p>
-                                        </div>
-                                        <div class="text-left sm:text-right shrink-0 bg-white px-3 py-1.5 rounded-md border {{ 'border-rose-100' if row.spread_total|float > 0 else 'border-emerald-100' }} shadow-sm sm:ml-4 flex sm:block justify-between items-center w-full sm:w-auto">
-                                            <span class="block text-[8px] font-black {{ 'text-rose-400' if row.spread_total|float > 0 else 'text-emerald-400' }} uppercase tracking-widest sm:mb-0.5">
-                                                {{ 'Fuga por Spread' if row.spread_total|float > 0 else 'Ahorro Cambiario' }}
-                                            </span>
-                                            <span class="text-sm font-black {{ 'text-rose-600' if row.spread_total|float > 0 else 'text-emerald-600' }} tabular-nums">
-                                                {{ '+' if row.spread_total|float > 0 else '-' }}${{ "{:,.2f}".format(row.spread_total|float|abs) }}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endif %}
-                            
                             {% endfor %}
                         {% else %}
                             <tr>
@@ -453,60 +448,16 @@
                     <p class="text-sm font-medium text-slate-500 mt-2">No hay soportes registrados.</p>
                 </div>
 
-                <div x-show="!loading && pagos.length > 0 && Math.abs(total_spread) > 0.001" class="mb-6 animate-fade-in" x-cloak>
-                    <template x-if="total_spread > 0.001">
-                        <div class="p-4 bg-rose-50/60 border border-rose-100 rounded-xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div class="flex items-start sm:items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 mt-1 sm:mt-0 text-lg">
-                                    <i class="bi bi-graph-down-arrow"></i>
-                                </div>
-                                <p class="text-xs font-medium text-slate-600 leading-relaxed m-0">
-                                    <strong class="text-slate-800">Costo Real:</strong> Para lograr abonar <strong class="text-emerald-600">$<span x-text="total_abono.toFixed(2)"></span></strong> a esta deuda, la empresa consumió fondos equivalentes a <strong class="text-rose-600">$<span x-text="(total_abono + total_spread).toFixed(2)"></span></strong> según la tasa BCV oficial.
-                                </p>
-                            </div>
-                            <div class="text-left sm:text-right shrink-0 bg-white px-4 py-2 rounded-lg border border-rose-100 shadow-sm w-full sm:w-auto flex flex-row sm:flex-col justify-between sm:justify-center items-center sm:items-end">
-                                <span class="block text-[9px] font-black text-rose-400 uppercase tracking-widest sm:mb-0.5">Fuga por Spread</span>
-                                <span class="text-base font-black text-rose-600 tabular-nums">+$<span x-text="total_spread.toFixed(2)"></span></span>
-                            </div>
-                        </div>
-                    </template>
-                    <template x-if="total_spread < -0.001">
-                        <div class="p-4 bg-emerald-50/60 border border-emerald-100 rounded-xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                            <div class="flex items-start sm:items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 mt-1 sm:mt-0 text-lg">
-                                    <i class="bi bi-graph-up-arrow"></i>
-                                </div>
-                                <p class="text-xs font-medium text-slate-600 leading-relaxed m-0">
-                                    <strong class="text-slate-800">Costo Real:</strong> Para lograr abonar <strong class="text-emerald-600">$<span x-text="total_abono.toFixed(2)"></span></strong> a esta deuda, la empresa consumió fondos equivalentes a solo <strong class="text-emerald-600">$<span x-text="(total_abono + total_spread).toFixed(2)"></span></strong> según la tasa BCV oficial.
-                                </p>
-                            </div>
-                            <div class="text-left sm:text-right shrink-0 bg-white px-4 py-2 rounded-lg border border-emerald-100 shadow-sm w-full sm:w-auto flex flex-row sm:flex-col justify-between sm:justify-center items-center sm:items-end">
-                                <span class="block text-[9px] font-black text-emerald-400 uppercase tracking-widest sm:mb-0.5">Ahorro Cambiario</span>
-                                <span class="text-base font-black text-emerald-600 tabular-nums">-$<span x-text="Math.abs(total_spread).toFixed(2)"></span></span>
-                            </div>
-                        </div>
-                    </template>
-                </div>
-                
-                <div x-show="!loading && pagos.length > 0 && Math.abs(total_spread) <= 0.001" class="mb-6 p-4 bg-slate-50/60 border border-slate-200 rounded-xl shadow-sm flex items-center gap-3 animate-fade-in" x-cloak>
-                    <div class="w-10 h-10 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center shrink-0">
-                        <i class="bi bi-check2-circle text-lg"></i>
-                    </div>
-                    <p class="text-xs font-medium text-slate-600 leading-relaxed m-0">
-                        Pago ejecutado sin variación cambiaria. Monto abonado exacto: <strong class="text-slate-800">$<span x-text="total_abono.toFixed(2)"></span></strong>.
-                    </p>
-                </div>
-
                 <div x-show="!loading && pagos.length > 0" class="overflow-x-auto custom-scrollbar border border-slate-200 rounded-xl w-full">
                     <table class="w-full text-sm text-left min-w-[500px]">
                         <thead class="bg-slate-50 border-b border-slate-100">
                             <tr>
-                                <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Fecha</th>
-                                <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Caja Origen</th>
-                                <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Tasa FX</th>
-                                <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Debitó</th>
-                                <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-slate-900 uppercase tracking-widest text-right bg-emerald-50">Abonó (USD)</th>
-                                <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-rose-500 uppercase tracking-widest text-center">Acción</th>
+                                <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Fecha</th>
+                                <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Caja Origen</th>
+                                <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center whitespace-nowrap">Tasa FX</th>
+                                <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right whitespace-nowrap">Debitó</th>
+                                <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-slate-900 uppercase tracking-widest text-right bg-emerald-50 whitespace-nowrap">Abonó (USD)</th>
+                                <th class="py-3 px-3 sm:px-4 text-[10px] font-bold text-rose-500 uppercase tracking-widest text-center whitespace-nowrap">Acción</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
