@@ -435,10 +435,10 @@
                             <thead class="bg-white border-b border-slate-100">
                                 <tr>
                                     <th class="py-3 px-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left">Concepto</th>
-                                    <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left">Fecha</th>
+                                    <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Fecha</th>
                                     <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Deuda Base</th>
                                     <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Estatus</th>
-                                    <th class="py-3 px-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Acción</th>
+                                    <th class="py-3 px-6 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Acción</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
@@ -457,12 +457,14 @@
                                                 Frec: {{ item.frecuencia }} <span class="text-slate-300 mx-1">|</span> <span class="text-blue-500"><i class="bi bi-bank"></i> VÍA: <span x-text="metodo.replace(/_/g, ' ')"></span></span>
                                             </div>
                                         </td>
-                                        <td class="px-4 py-4 align-middle">
-                                            <div class="flex items-center gap-1.5 text-slate-600">
+                                        
+                                        <td class="px-4 py-4 align-middle text-center">
+                                            <div class="flex justify-center items-center gap-1.5 text-slate-600">
                                                 <i class="bi bi-calendar-event text-slate-400"></i>
                                                 <span class="text-xs font-semibold tabular-nums">{{ o.fecha_programada.strftime('%d %b %Y') }}</span>
                                             </div>
                                         </td>
+                                        
                                         <td class="px-4 py-4 text-right align-middle">
                                             <span class="font-bold text-slate-900 tabular-nums">${{ '%.2f'|format(o.programado) }}</span>
                                         </td>
@@ -480,14 +482,14 @@
                                             {% endif %}
                                         </td>
 
-                                        <td class="px-6 py-4 text-right align-middle">
-                                            <div class="flex items-center justify-end gap-2">
+                                        <td class="px-6 py-4 text-center align-middle">
+                                            <div class="flex items-center justify-center gap-2 w-full">
                                                 {% if (o.programado - o.pendiente) > 0.001 %}
-                                                <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ o.ocurrencia_id }}', titulo: '{{ item.titulo|escape }}' })" 
-                                                        class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all shadow-sm text-[10px] font-bold uppercase tracking-widest rounded-lg active:scale-95" 
-                                                        title="Ver historial de abonos">
-                                                    <i class="bi bi-eye-fill"></i> Ver Abonos
-                                                </button>
+                                                    <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ o.ocurrencia_id }}', titulo: '{{ item.titulo|escape }}' })" 
+                                                            class="h-8 inline-flex items-center justify-center gap-1.5 px-3 bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all shadow-sm text-[10px] font-bold uppercase tracking-widest rounded-lg active:scale-95 whitespace-nowrap" 
+                                                            title="Ver historial de abonos">
+                                                        <i class="bi bi-eye-fill text-sm leading-none"></i> <span class="hidden sm:inline">Ver Abonos</span>
+                                                    </button>
                                                 {% endif %}
 
                                                 {% if o.pendiente > 0.0001 %}
@@ -495,12 +497,12 @@
                                                             data-titulo="{{ item.titulo|escape }}"
                                                             data-metodo="{{ item.metodo_referencia or o.metodo_referencia or '' }}"
                                                             @click.prevent="abrirModal('{{ o.ocurrencia_id }}', $event.currentTarget.dataset.titulo, {{ o.pendiente }}, $event.currentTarget.dataset.metodo)" 
-                                                            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm active:scale-[0.98]">
-                                                        <i class="bi bi-wallet2 pointer-events-none"></i> Pagar
+                                                            class="h-8 inline-flex items-center justify-center gap-1.5 px-4 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm rounded-lg active:scale-95 whitespace-nowrap">
+                                                        <i class="bi bi-wallet2 text-sm leading-none pointer-events-none"></i> Pagar
                                                     </button>
                                                 {% else %}
-                                                    <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold uppercase tracking-widest">
-                                                        <i class="bi bi-check2-all"></i> Saldado
+                                                    <span class="h-8 inline-flex items-center justify-center gap-1.5 px-4 bg-slate-50 text-slate-400 border border-slate-200 text-[10px] font-bold uppercase tracking-widest rounded-lg cursor-not-allowed whitespace-nowrap">
+                                                        <i class="bi bi-check2-all text-sm leading-none"></i> Completo
                                                     </span>
                                                 {% endif %}
                                             </div>

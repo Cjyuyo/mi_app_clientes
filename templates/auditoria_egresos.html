@@ -181,102 +181,61 @@
                             <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Estatus</th>
                             <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Base USD</th>
                             <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Abonado</th>
-                            <th class="py-4 px-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Acción</th>
+                            <th class="py-4 px-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Acción</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         {% if datos.historial %}
                             {% for row in datos.historial %}
-                            <tr class="hover:bg-slate-50/50 transition-colors group {% if row.spread_total|float|abs > 0.001 %}border-b-0{% endif %}">
-                                <td class="py-4 px-6 align-top">
+                            <tr class="hover:bg-slate-50/50 transition-colors group">
+                                <td class="py-4 px-6 align-middle">
                                     <div class="font-bold text-slate-900 tracking-tight">{{ row.titulo }}</div>
                                     <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
                                         {{ row.tipo_egreso }} <span class="text-slate-300 mx-1">|</span> <span class="text-blue-500"><i class="bi bi-bank"></i> VÍA: {{ row.metodo_referencia|replace('_', ' ') }}</span>
                                     </div>
                                 </td>
                                 
-                                <td class="py-4 px-4 text-center align-top text-xs font-semibold text-slate-600 tabular-nums">
+                                <td class="py-4 px-4 text-center align-middle text-xs font-semibold text-slate-600 tabular-nums">
                                     <i class="bi bi-calendar-event text-slate-400 mr-1"></i> {{ row.fecha_programada.strftime('%d/%m/%Y') }}
                                 </td>
                                 
-                                <td class="py-4 px-4 text-center align-top">
+                                <td class="py-4 px-4 text-center align-middle">
                                     <span class="inline-flex items-center px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-widest border {{ row.clase_visual }}">
                                         {{ row.estado_visual }}
                                     </span>
                                 </td>
                                 
-                                <td class="py-4 px-4 text-right align-top">
+                                <td class="py-4 px-4 text-right align-middle">
                                     <div class="font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(row.programado|float) }}</div>
                                 </td>
                                 
-                                <td class="py-4 px-4 text-right align-top">
+                                <td class="py-4 px-4 text-right align-middle">
                                     <div class="font-bold text-emerald-600 tabular-nums">${{ "{:,.2f}".format(row.pagado|float) }}</div>
                                 </td>
 
-                                <td class="py-4 px-6 text-right align-top">
-                                    <div class="flex items-center justify-end gap-2">
+                                <td class="py-4 px-6 text-center align-middle">
+                                    <div class="flex items-center justify-center gap-2 w-full">
                                         {% if row.pagado|float > 0.001 %}
                                             <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ row.ocurrencia_id }}', titulo: '{{ row.titulo|escape }}' })" 
-                                                    class="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all shadow-sm text-[10px] font-bold uppercase tracking-widest rounded-lg active:scale-95" 
+                                                    class="h-8 inline-flex items-center justify-center gap-1.5 px-3 bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all shadow-sm text-[10px] font-bold uppercase tracking-widest rounded-lg active:scale-95 whitespace-nowrap" 
                                                     title="Ver historial de abonos">
-                                                <i class="bi bi-eye-fill"></i> Ver Abonos
+                                                <i class="bi bi-eye-fill text-sm leading-none"></i> <span class="hidden sm:inline">Ver Abonos</span>
                                             </button>
                                         {% endif %}
                                         
                                         {% if row.pendiente|float > 0.0001 %}
                                             <button @click.prevent="abrirModal('{{ row.ocurrencia_id }}', '{{ row.titulo|escape }}', {{ row.pendiente|float }}, '{{ row.metodo_referencia }}')" 
-                                                    class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm active:scale-95">
-                                                <i class="bi bi-wallet2 pointer-events-none"></i> Pagar
+                                                    class="h-8 inline-flex items-center justify-center gap-1.5 px-4 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm rounded-lg active:scale-95 whitespace-nowrap">
+                                                <i class="bi bi-wallet2 text-sm leading-none pointer-events-none"></i> Pagar
                                             </button>
                                         {% else %}
-                                            <span class="inline-flex items-center justify-center gap-1 px-4 py-2 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 text-[10px] font-bold uppercase tracking-widest cursor-not-allowed">
-                                                <i class="bi bi-check2-all"></i> Completo
+                                            <span class="h-8 inline-flex items-center justify-center gap-1.5 px-4 bg-slate-50 text-slate-400 border border-slate-200 text-[10px] font-bold uppercase tracking-widest rounded-lg cursor-not-allowed whitespace-nowrap">
+                                                <i class="bi bi-check2-all text-sm leading-none"></i> Completo
                                             </span>
                                         {% endif %}
                                     </div>
                                 </td>
                             </tr>
-
-                            {% if row.spread_total|float > 0.001 %}
-                            <tr class="bg-slate-50/20 group-hover:bg-slate-50/50 transition-colors">
-                                <td colspan="6" class="px-6 pb-4 pt-0 border-t-0">
-                                    <div class="p-3 bg-rose-50/60 border border-rose-100 rounded-lg shadow-sm flex items-center justify-between">
-                                        <div class="flex items-center gap-3">
-                                            <div class="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-                                                <i class="bi bi-graph-down-arrow"></i>
-                                            </div>
-                                            <p class="text-xs font-medium text-slate-600 leading-relaxed m-0">
-                                                <strong class="text-slate-800">Costo Real:</strong> Para lograr abonar <strong class="text-emerald-600">${{ "{:,.2f}".format(row.pagado|float) }}</strong> a esta deuda, la empresa consumió fondos equivalentes a <strong class="text-rose-600">${{ "{:,.2f}".format((row.pagado|float) + (row.spread_total|float)) }}</strong> según la tasa BCV oficial.
-                                            </p>
-                                        </div>
-                                        <div class="text-right shrink-0 bg-white px-3 py-1.5 rounded-md border border-rose-100 shadow-sm ml-4">
-                                            <span class="block text-[8px] font-black text-rose-400 uppercase tracking-widest mb-0.5">Fuga por Spread</span>
-                                            <span class="text-sm font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(row.spread_total|float) }}</span>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% elif row.spread_total|float < -0.001 %}
-                            <tr class="bg-slate-50/20 group-hover:bg-slate-50/50 transition-colors">
-                                <td colspan="6" class="px-6 pb-4 pt-0 border-t-0">
-                                    <div class="p-3 bg-emerald-50/60 border border-emerald-100 rounded-lg shadow-sm flex items-center justify-between">
-                                        <div class="flex items-center gap-3">
-                                            <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                                                <i class="bi bi-graph-up-arrow"></i>
-                                            </div>
-                                            <p class="text-xs font-medium text-slate-600 leading-relaxed m-0">
-                                                <strong class="text-slate-800">Costo Real:</strong> Para lograr abonar <strong class="text-emerald-600">${{ "{:,.2f}".format(row.pagado|float) }}</strong> a esta deuda, la empresa consumió fondos equivalentes a solo <strong class="text-emerald-600">${{ "{:,.2f}".format((row.pagado|float) + (row.spread_total|float)) }}</strong> según la tasa BCV oficial.
-                                            </p>
-                                        </div>
-                                        <div class="text-right shrink-0 bg-white px-3 py-1.5 rounded-md border border-emerald-100 shadow-sm ml-4">
-                                            <span class="block text-[8px] font-black text-emerald-400 uppercase tracking-widest mb-0.5">Ahorro Cambiario</span>
-                                            <span class="text-sm font-black text-emerald-600 tabular-nums">-${{ "{:,.2f}".format(row.spread_total|float|abs) }}</span>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endif %}
-                            
                             {% endfor %}
                         {% else %}
                             <tr>
