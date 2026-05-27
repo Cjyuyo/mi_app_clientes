@@ -569,20 +569,25 @@
 
                     <div>
                         <label class="stripe-label">Caja y Tasa a Aplicar</label>
-                        
-                        <div x-show="grupo_cajas === 'BINANCE'" x-cloak>
-                            <select x-model="tipo_pago" @change="cambioCaja()" class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300 w-full">
+                        <select x-model="tipo_pago" @change="cambioCaja()" class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300 w-full" required>
+                            
+                            <template x-if="grupo_cajas === 'BINANCE'">
                                 <option value="BANESCO_BINANCE">Caja Banesco Bs (Tasa Binance)</option>
+                            </template>
+                            <template x-if="grupo_cajas === 'BINANCE' || grupo_cajas === 'BCV'">
                                 <option value="BINANCE_DIRECTO">Binance Directo (Saldo USDT)</option>
-                            </select>
-                        </div>
+                            </template>
 
-                        <div x-show="grupo_cajas === 'BCV'" x-cloak>
-                            <select x-model="tipo_pago" @change="cambioCaja()" class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300 w-full">
+                            <template x-if="grupo_cajas === 'BCV'">
                                 <option value="BANESCO_BCV">Caja Banesco Bs (Tasa BCV)</option>
-                                <option value="BINANCE_DIRECTO">Binance Directo (Saldo USDT)</option>
-                            </select>
-                        </div>
+                            </template>
+
+                            <template x-if="grupo_cajas === 'EFECTIVO'">
+                                <option value="EFECTIVO_USD">Caja Efectivo USD</option>
+                            </template>
+                            
+                        </select>
+                    </div>
 
                         <div x-show="grupo_cajas === 'EFECTIVO'" x-cloak>
                             <select x-model="tipo_pago" @change="cambioCaja()" class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300 w-full">
