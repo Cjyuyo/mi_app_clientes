@@ -100,11 +100,16 @@
             return [
                 { value: 'EFECTIVO_USD', label: 'Caja Efectivo USD' }
             ];
+        } else if (this.grupo_cajas === 'BP2P') {
+            return [
+                { value: 'BANESCO_BINANCE', label: 'Caja Banesco Bs (Tasa B.P2P)' },
+                { value: 'EFECTIVO_USD', label: 'Caja Efectivo USD' }
+            ];
         }
         
         return [
             { value: '', label: '-- Seleccione una Caja --' },
-            { value: 'BANESCO_BINANCE', label: 'Caja Banesco Bs (Tasa Binance)' },
+            { value: 'BANESCO_BINANCE', label: 'Caja Banesco Bs (Tasa Binance P2P)' },
             { value: 'BANESCO_BCV', label: 'Caja Banesco Bs (Tasa BCV)' },
             { value: 'BINANCE_DIRECTO', label: 'Binance Directo (Saldo USDT)' },
             { value: 'EFECTIVO_USD', label: 'Caja Efectivo USD' }
@@ -130,7 +135,10 @@
         this.metodoRaw_recibido = m;
         
         // Blindaje estricto de opciones según la vía
-        if (m.indexOf('BINANCE') !== -1 || m.indexOf('CRIPTO') !== -1 || m.indexOf('USDT') !== -1) {
+        if (m.indexOf('BP2P') !== -1 || m.indexOf('B.P2P') !== -1) {
+            this.grupo_cajas = 'BP2P';
+            this.tipo_pago = 'BANESCO_BINANCE';
+        } else if (m.indexOf('BINANCE') !== -1 || m.indexOf('CRIPTO') !== -1 || m.indexOf('USDT') !== -1) {
             this.grupo_cajas = 'BINANCE';
             this.tipo_pago = 'BANESCO_BINANCE';
         } else if (m.indexOf('BCV') !== -1 || m.indexOf('EUR') !== -1 || m.indexOf('BS') !== -1 || m.indexOf('VES') !== -1) {
@@ -284,6 +292,7 @@
                                     <option value="VES_BCV">Bs (BCV)</option>
                                     <option value="VES_EUR">Bs (EUR)</option>
                                     <option value="VES_BINANCE">Bs (Binance)</option>
+                                    <option value="VES_BP2P">Bs (Tasa B.P2P)</option>
                                     <option value="USDT">USDT (Cripto)</option>
                                 </select>
                             </div>
@@ -376,6 +385,7 @@
                                     <option value="USD_EFECTIVO">USD Físico</option>
                                     <option value="VES_BCV">Bs (BCV)</option>
                                     <option value="VES_BINANCE">Bs (Binance)</option>
+                                    <option value="VES_BP2P">Bs (Tasa B.P2P)</option>
                                 </select>
                             </div>
                         </div>
@@ -637,7 +647,6 @@
 
                     <div>
                         <label class="stripe-label">Caja y Tasa a Aplicar</label>
-                        
                         <select name="tipo_pago" x-model="tipo_pago" @change="cambioCaja()" class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300 w-full" required>
                             <template x-for="op in opcionesCaja" :key="op.value">
                                 <option :value="op.value" x-text="op.label"></option>
