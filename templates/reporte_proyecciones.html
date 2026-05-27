@@ -30,104 +30,113 @@
         background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
         background-position: right 0.5rem center;
         background-repeat: no-repeat;
-        background-size: 1em 1em;
+        background-size: 1.2em 1.2em;
     }
     
-    .stripe-label { @apply block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5; }
+    .stripe-label { @apply block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5; }
+    
+    /* Utilidad para tarjetas Fintech densas */
+    .card-dense { @apply bg-white border border-slate-200 rounded-xl p-4 shadow-sm; }
 </style>
 {% endblock %}
 
 {% block body %}
-<div class="min-h-screen bg-slate-50 -m-6 p-6 font-sans">
-<div class="max-w-[1200px] mx-auto space-y-6 mb-12">
+<div class="min-h-screen bg-slate-50 -m-6 p-5 sm:p-8 font-sans">
+<div class="max-w-[1200px] mx-auto space-y-5 mb-12">
 
     <div x-data="{ show_form: {{ 'false' if simulacion_realizada else 'true' }}, period_mode: '{{ period_mode }}' }">
 
-        <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-4 border-b border-slate-200 mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-slate-200 mb-5">
             <div>
                 <h1 class="text-xl font-bold text-slate-900 tracking-tight">Proyecciones y Riesgo Cambiario</h1>
                 <p class="text-xs font-medium text-slate-500 mt-1">El sistema importa automáticamente tus clientes y egresos para calcular el impacto del spread.</p>
             </div>
             <div class="flex items-center gap-2">
-                <a href="{{ url_for('reporte_proyecciones') }}" class="px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-all shadow-sm">Restablecer</a>
+                <a href="{{ url_for('reporte_proyecciones') }}" class="px-3 py-1.5 text-[11px] font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-all shadow-sm">Restablecer</a>
                 
-                <button x-show="show_form" type="submit" form="simulation-form" class="px-4 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm transition-all flex items-center gap-2">
-                    Generar Proyección <i class="bi bi-cpu"></i>
+                <button x-show="show_form" type="submit" form="simulation-form" class="px-4 py-1.5 text-[11px] font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg shadow-sm transition-all flex items-center gap-1.5">
+                    Generar Proyección <i class="bi bi-cpu text-emerald-400"></i>
                 </button>
             </div>
         </div>
 
-        <div x-show="!show_form" x-cloak class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 relative mb-6">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="bg-{{ 'rose' if category in ['error', 'danger'] else 'emerald' }}-50 border border-{{ 'rose' if category in ['error', 'danger'] else 'emerald' }}-200 text-{{ 'rose' if category in ['error', 'danger'] else 'emerald' }}-700 p-3 rounded-lg text-xs font-semibold flex items-center gap-2 mb-5 shadow-sm">
+                        <i class="bi {{ 'bi-exclamation-triangle-fill' if category in ['error', 'danger'] else 'bi-check-circle-fill' }}"></i> {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div x-show="!show_form" x-cloak class="space-y-4">
             
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4 border-b border-slate-100 pb-4">
+            <div class="card-dense flex flex-col sm:flex-row justify-between items-center gap-4">
                 <div class="flex items-center gap-3">
-                    <span class="relative flex h-2 w-2">
-                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    <h2 class="text-slate-900 text-base font-bold tracking-tight">Cobranza en Curso</h2>
-                    <span class="px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-600 text-[9px] font-bold rounded uppercase tracking-widest">{{ fecha_inicio.strftime('%d %b') }} a {{ fecha_fin.strftime('%d %b') }}</span>
+                    <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
+                    <h2 class="text-sm font-bold text-slate-900 tracking-tight">Cobranza en Curso</h2>
+                    <span class="px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-600 text-[9px] font-bold rounded uppercase tracking-widest">{{ fecha_inicio.strftime('%d %b') }} - {{ fecha_fin.strftime('%d %b') }}</span>
                 </div>
-                
                 <div class="flex items-center gap-2">
                     {% if is_superadmin %}
-                    <form method="POST" action="{{ url_for('reporte_proyecciones') }}" onsubmit="return confirm('¿Estás seguro de ELIMINAR el ciclo activo? Se borrará la meta operativa, pero los pagos reales están a salvo en su tabla.');" class="inline">
+                    <form method="POST" action="{{ url_for('reporte_proyecciones') }}" onsubmit="return confirm('¿Estás seguro de ELIMINAR el ciclo activo?');" class="inline">
                         <input type="hidden" name="action" value="reset">
                         <input type="hidden" name="start_date" value="{{ fecha_inicio.strftime('%Y-%m-%d') }}">
-                        <button type="submit" class="text-[10px] font-bold text-rose-600 hover:text-rose-700 uppercase tracking-widest transition-all flex items-center gap-1.5 bg-white hover:bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 shadow-sm">
-                            <i class="bi bi-trash3"></i> Eliminar Ciclo
+                        <button type="submit" class="text-[10px] font-bold text-rose-600 hover:text-rose-700 uppercase tracking-widest transition-colors flex items-center gap-1.5 bg-white border border-slate-200 px-3 py-1.5 rounded-md shadow-sm">
+                            <i class="bi bi-trash3"></i> Eliminar
                         </button>
                     </form>
                     {% endif %}
-                    
-                    <button type="button" @click="show_form = true" class="text-[10px] font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest transition-all flex items-center gap-1.5 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
-                        <i class="bi bi-sliders"></i> Ajustar Proyección
+                    <button type="button" @click="show_form = true" class="text-[10px] font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest transition-colors flex items-center gap-1.5 bg-white border border-slate-200 px-3 py-1.5 rounded-md shadow-sm">
+                        <i class="bi bi-sliders"></i> Ajustar
                     </button>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Recaudado (Total) vs Meta</p>
-                    <div class="flex items-end gap-1 mb-2">
-                        <span class="text-2xl font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.get('recaudo_real_usd', 0)|float) }}</span>
-                        <span class="text-xs font-bold text-slate-400 mb-0.5">/ ${{ "{:,.0f}".format(proyeccion.get('recaudo_total_usd', 0)|float) }}</span>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="md:col-span-2 card-dense flex flex-col justify-center">
+                    <div class="flex justify-between items-end mb-2">
+                        <div>
+                            <p class="stripe-label">Recaudo vs Meta Operativa</p>
+                            <div class="flex items-baseline gap-1">
+                                <span class="text-2xl font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.get('recaudo_real_usd', 0)|float) }}</span>
+                                <span class="text-xs font-bold text-slate-400 tabular-nums">/ ${{ "{:,.0f}".format(proyeccion.get('recaudo_total_usd', 0)|float) }}</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[10px] font-bold {{ 'text-emerald-600' if proyeccion.get('progreso_recaudo_pct', 0)|float >= 100 else 'text-slate-500' }}">{{ "{:,.1f}".format(proyeccion.get('progreso_recaudo_pct', 0)|float) }}%</span>
+                        </div>
                     </div>
-                    
-                    <div class="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
-                        <div class="h-full bg-emerald-500 rounded-full transition-all duration-1000" style="width: {{ proyeccion.get('progreso_recaudo_pct', 0)|float }}%;"></div>
-                    </div>
-                    <div class="mt-1.5 flex justify-between items-center">
-                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Progreso</span>
-                        <span class="text-[9px] font-bold text-emerald-600">{{ "{:,.1f}".format(proyeccion.get('progreso_recaudo_pct', 0)|float) }}% Completado</span>
+                    <div class="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-blue-500 rounded-full transition-all duration-1000" style="width: {{ proyeccion.get('progreso_recaudo_pct', 0)|float }}%;"></div>
                     </div>
                 </div>
                 
-                <div class="flex flex-col sm:flex-row gap-4">
-                    <div class="w-full flex-1 bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col justify-center">
-                        <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Por Recaudar</p>
-                        <span class="text-xl font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format([(proyeccion.get('recaudo_total_usd', 0)|float) - (proyeccion.get('recaudo_real_usd', 0)|float), 0]|max) }}</span>
-                    </div>
-                    <div class="w-full flex-1 bg-amber-50/50 rounded-xl p-4 border border-amber-100 shadow-sm flex flex-col justify-center">
-                        <p class="text-[9px] font-bold text-amber-600 uppercase tracking-widest mb-1">Punto Equilibrio</p>
-                        <span class="text-xl font-black text-amber-600 tabular-nums" title="Suma de Egresos + Costo del Spread">${{ "{:,.2f}".format((proyeccion.get('egresos_total_usd', 0)|float) + (proyeccion.get('perdida_spread_usd', 0)|float)) }}</span>
-                    </div>
+                <div class="card-dense flex flex-col justify-center">
+                    <p class="stripe-label">Por Recaudar</p>
+                    <span class="text-xl font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format([(proyeccion.get('recaudo_total_usd', 0)|float) - (proyeccion.get('recaudo_real_usd', 0)|float), 0]|max) }}</span>
+                </div>
+                
+                <div class="card-dense flex flex-col justify-center bg-amber-50/40 border-amber-100">
+                    <p class="stripe-label !text-amber-600">Punto de Equilibrio</p>
+                    <span class="text-xl font-black text-amber-600 tabular-nums">${{ "{:,.2f}".format((proyeccion.get('egresos_total_usd', 0)|float) + (proyeccion.get('perdida_spread_usd', 0)|float)) }}</span>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 
-                <div class="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
-                        <div class="flex items-center gap-1.5 mb-1.5">
+                <div class="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="card-dense flex flex-col">
+                        <div class="flex items-center gap-1.5 mb-2">
                             <div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                            <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">USD Cash</span>
+                            <span class="stripe-label !mb-0">USD Cash</span>
                         </div>
                         <div class="flex items-baseline gap-0.5 mb-1">
                             <span class="text-[10px] text-slate-400 font-bold">$</span>
                             <span class="text-lg font-black text-slate-900 tabular-nums">{{ "{:,.2f}".format(proyeccion.get('recaudo_real_desglose', {}).get('USD_EFECTIVO', 0)|float) }}</span>
                         </div>
-                        <div class="flex justify-between items-center text-[9px] text-slate-500 font-medium">
+                        <div class="flex justify-between items-center text-[9px] text-slate-500 font-medium mt-auto pt-2 border-t border-slate-100">
                             <span>Meta: ${{ "{:,.0f}".format(proyeccion.get('recaudo_desglose', {}).get('USD_EFECTIVO', 0)|float) }}</span>
                             {% set p_usd = proyeccion.get('recaudo_desglose', {}).get('USD_EFECTIVO', 1)|float %}
                             {% set pct_usd = (proyeccion.get('recaudo_real_desglose', {}).get('USD_EFECTIVO', 0)|float / p_usd * 100) if p_usd > 0 else 0 %}
@@ -135,16 +144,16 @@
                         </div>
                     </div>
 
-                    <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
-                        <div class="flex items-center gap-1.5 mb-1.5">
+                    <div class="card-dense flex flex-col">
+                        <div class="flex items-center gap-1.5 mb-2">
                             <div class="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
-                            <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">USDT (P2P)</span>
+                            <span class="stripe-label !mb-0">USDT (P2P)</span>
                         </div>
                         <div class="flex items-baseline gap-0.5 mb-1">
                             <span class="text-[10px] text-slate-400 font-bold">$</span>
                             <span class="text-lg font-black text-slate-900 tabular-nums">{{ "{:,.2f}".format(proyeccion.get('recaudo_real_desglose', {}).get('USDT_BINANCE', 0)|float) }}</span>
                         </div>
-                        <div class="flex justify-between items-center text-[9px] text-slate-500 font-medium">
+                        <div class="flex justify-between items-center text-[9px] text-slate-500 font-medium mt-auto pt-2 border-t border-slate-100">
                             <span>Meta: ${{ "{:,.0f}".format(proyeccion.get('recaudo_desglose', {}).get('USDT_BINANCE', 0)|float) }}</span>
                             {% set p_usdt = proyeccion.get('recaudo_desglose', {}).get('USDT_BINANCE', 1)|float %}
                             {% set pct_usdt = (proyeccion.get('recaudo_real_desglose', {}).get('USDT_BINANCE', 0)|float / p_usdt * 100) if p_usdt > 0 else 0 %}
@@ -152,16 +161,16 @@
                         </div>
                     </div>
 
-                    <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
-                        <div class="flex items-center gap-1.5 mb-1.5">
+                    <div class="card-dense flex flex-col">
+                        <div class="flex items-center gap-1.5 mb-2">
                             <div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                            <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Bolívares (USD)</span>
+                            <span class="stripe-label !mb-0">Bolívares (BCV)</span>
                         </div>
                         <div class="flex items-baseline gap-0.5 mb-1">
                             <span class="text-[10px] text-slate-400 font-bold">$</span>
                             <span class="text-lg font-black text-slate-900 tabular-nums">{{ "{:,.2f}".format(proyeccion.get('recaudo_real_desglose', {}).get('VES_BCV', 0)|float) }}</span>
                         </div>
-                        <div class="flex justify-between items-center text-[9px] text-slate-500 font-medium">
+                        <div class="flex justify-between items-center text-[9px] text-slate-500 font-medium mt-auto pt-2 border-t border-slate-100">
                             <span>Meta: ${{ "{:,.0f}".format(proyeccion.get('recaudo_desglose', {}).get('VES_BCV', 0)|float) }}</span>
                             {% set p_ves = proyeccion.get('recaudo_desglose', {}).get('VES_BCV', 1)|float %}
                             {% set r_ves = proyeccion.get('recaudo_real_desglose', {}).get('VES_BCV', 0)|float %}
@@ -171,9 +180,9 @@
                     </div>
                 </div>
 
-                <div class="bg-slate-50 rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col justify-between">
-                    <p class="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                        <i class="bi bi-robot text-indigo-500"></i> Estocástico en Vivo
+                <div class="card-dense bg-slate-100/50 flex flex-col border-slate-200">
+                    <p class="stripe-label flex items-center gap-1.5 mb-2">
+                        <i class="bi bi-robot text-blue-500"></i> Análisis Estocástico
                     </p>
                     
                     {% set inf = proyeccion.get('informe_vivo', {}) %}
@@ -185,23 +194,30 @@
                         <div class="space-y-2 mb-3">
                             <div class="flex items-start gap-1.5 text-[10px] leading-tight">
                                 <i class="bi bi-info-circle-fill text-amber-500 mt-0.5 text-[9px]"></i>
-                                <span class="text-slate-600">Costo friccional: Fuga base de <b class="text-rose-500">${{ "{:,.2f}".format(inf.get('fuga_live', 0)|float) }}</b> al cruzar.</span>
+                                <span class="text-slate-600">Costo friccional: Fuga base <b class="text-rose-500">${{ "{:,.2f}".format(inf.get('fuga_live', 0)|float) }}</b>.</span>
                             </div>
 
                             {% if inf.get('ahorro_brecha', 0)|float > 0 %}
                             <div class="flex items-start gap-1.5 text-[10px] leading-tight">
                                 <i class="bi bi-arrow-down-right-circle-fill text-emerald-500 mt-0.5 text-[9px]"></i>
-                                <span class="text-slate-600">Ahorro por brecha: <b class="text-emerald-600">+${{ "{:,.2f}".format(inf.get('ahorro_brecha')|float) }}</b>.</span>
+                                <span class="text-slate-600">Ahorro brecha: <b class="text-emerald-600">+${{ "{:,.2f}".format(inf.get('ahorro_brecha')|float) }}</b>.</span>
                             </div>
                             {% elif inf.get('ahorro_brecha', 0)|float < 0 %}
                             <div class="flex items-start gap-1.5 text-[10px] leading-tight">
                                 <i class="bi bi-arrow-up-right-circle-fill text-rose-500 mt-0.5 text-[9px]"></i>
-                                <span class="text-slate-600">Sobrecosto devaluación: <b class="text-rose-600">-${{ "{:,.2f}".format((inf.get('ahorro_brecha')|float) * -1) }}</b>.</span>
+                                <span class="text-slate-600">Sobrecosto: <b class="text-rose-600">-${{ "{:,.2f}".format((inf.get('ahorro_brecha')|float) * -1) }}</b>.</span>
+                            </div>
+                            {% endif %}
+
+                            {% if inf.get('riesgo_bs', 0)|float > 0 %}
+                            <div class="flex items-start gap-1.5 text-[10px] leading-tight">
+                                <i class="bi bi-exclamation-triangle-fill text-amber-500 mt-0.5 text-[9px]"></i>
+                                <span class="text-slate-600">Fuga por exceso Bs: <b class="text-amber-600">-${{ "{:,.2f}".format(inf.get('riesgo_bs')|float) }}</b>.</span>
                             </div>
                             {% endif %}
                         </div>
 
-                        <div class="pt-2 border-t border-slate-200 flex justify-between items-center">
+                        <div class="mt-auto pt-2 border-t border-slate-200 flex justify-between items-center">
                             <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Ajuste Neto</span>
                             {% if impacto > 0 %}
                                 <span class="text-xs font-black text-emerald-600 tabular-nums">+${{ "{:,.2f}".format(impacto) }}</span>
@@ -214,103 +230,98 @@
                     {% endif %}
                 </div>
             </div>
-            
-            <div class="flex justify-between items-center bg-emerald-50 border border-emerald-200 p-4 rounded-xl">
-                <div>
-                    <span class="text-[9px] font-bold text-emerald-700 uppercase tracking-widest block mb-0.5">Caja Líquida Real</span>
-                    <span class="text-[8px] text-emerald-600/70 font-semibold uppercase">Ajustada al segundo</span>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-md flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
+                        <i class="bi bi-safe2-fill text-emerald-400"></i>
+                    </div>
+                    <div>
+                        <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest block leading-tight">Caja Líquida Real</span>
+                        <span class="text-[8px] text-slate-400 font-medium uppercase">Ajustada al segundo</span>
+                    </div>
                 </div>
-                <span class="text-2xl font-black text-emerald-700 tabular-nums">${{ "{:,.2f}".format(proyeccion.get('informe_vivo', {}).get('balance_ajustado', proyeccion.get('balance_neto_usd', 0))|float) }}</span>
+                <span class="text-2xl font-black text-white tabular-nums">${{ "{:,.2f}".format(proyeccion.get('informe_vivo', {}).get('balance_ajustado', proyeccion.get('balance_neto_usd', 0))|float) }}</span>
             </div>
 
-        </div>
-
-        <div x-show="show_form" x-collapse>
+        </div> <div x-show="show_form" x-collapse>
             <form id="simulation-form" method="POST" action="{{ url_for('reporte_proyecciones') }}" class="space-y-4">
                 
-                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6">
+                <div class="card-dense">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div class="flex items-center gap-2">
-                            <i class="bi bi-calendar3 text-blue-500 text-lg"></i>
+                            <i class="bi bi-calendar3 text-blue-500 text-sm"></i>
                             <div>
-                                <h2 class="text-sm font-bold text-slate-900">Evaluación Temporal</h2>
-                                <p class="text-[10px] font-medium text-slate-500">Define el ciclo operativo.</p>
+                                <h2 class="text-xs font-bold text-slate-900">Evaluación Temporal</h2>
                             </div>
                         </div>
 
                         <div class="bg-slate-50 rounded-lg p-1 border border-slate-200 flex text-[10px] font-bold">
-                            <label class="cursor-pointer px-3 py-1.5 rounded-md transition-colors" :class="period_mode === 'auto' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'">
+                            <label class="cursor-pointer">
                                 <input type="radio" name="period_mode" value="auto" class="sr-only" x-model="period_mode" {% if period_mode == 'auto' %}checked{% endif %}>
-                                Ciclo Activo
+                                <div class="px-3 py-1 rounded-md transition-colors" :class="period_mode === 'auto' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500'">Ciclo Activo</div>
                             </label>
                             
                             {% if is_superadmin %}
-                            <label class="cursor-pointer px-3 py-1.5 rounded-md transition-colors flex items-center gap-1" :class="period_mode === 'manual' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'">
+                            <label class="cursor-pointer">
                                 <input type="radio" name="period_mode" value="manual" class="sr-only" x-model="period_mode" {% if period_mode == 'manual' %}checked{% endif %}>
-                                <i class="bi bi-unlock-fill text-[8px]"></i> Manual
+                                <div class="px-3 py-1 rounded-md transition-colors flex items-center gap-1" :class="period_mode === 'manual' ? 'bg-white text-slate-800 shadow-sm border border-slate-200' : 'text-slate-500'">Manual</div>
                             </label>
-                            {% else %}
-                            <div class="px-3 py-1.5 text-slate-400 flex items-center gap-1 opacity-50 cursor-not-allowed">
-                                <i class="bi bi-lock-fill text-[8px]"></i> Manual
-                            </div>
                             {% endif %}
                         </div>
                     </div>
 
-                    <div class="mt-4 pt-4 border-t border-slate-100">
-                        <div x-show="period_mode === 'auto'" class="flex items-center gap-2 text-xs font-semibold text-slate-700">
-                            <span class="px-3 py-1.5 bg-slate-50 rounded border border-slate-200 tabular-nums">{{ fecha_inicio.strftime('%d %b %Y') }}</span>
-                            <i class="bi bi-arrow-right text-slate-300"></i>
-                            <span class="px-3 py-1.5 bg-slate-50 rounded border border-slate-200 tabular-nums">{{ fecha_fin.strftime('%d %b %Y') }}</span>
+                    <div x-show="period_mode === 'manual'" x-cloak class="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-100">
+                        <div>
+                            <label class="stripe-label">Fecha Inicial</label>
+                            <input type="date" name="start_date" value="{{ fecha_inicio.strftime('%Y-%m-%d') }}" class="fintech-input-sm">
                         </div>
-                        <div x-show="period_mode === 'manual'" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label class="stripe-label">Corte Inicial</label>
-                                <input type="date" name="start_date" value="{{ fecha_inicio.strftime('%Y-%m-%d') }}" class="fintech-input-sm">
-                            </div>
-                            <div>
-                                <label class="stripe-label">Cierre Final</label>
-                                <input type="date" name="end_date" value="{{ fecha_fin.strftime('%Y-%m-%d') }}" class="fintech-input-sm">
-                            </div>
+                        <div>
+                            <label class="stripe-label">Fecha Final</label>
+                            <input type="date" name="end_date" value="{{ fecha_fin.strftime('%Y-%m-%d') }}" class="fintech-input-sm">
                         </div>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-5">
-                        <h2 class="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center gap-2"><i class="bi bi-graph-up text-blue-500"></i> Tasas y Distribución</h2>
-                        
+                    <div class="card-dense space-y-5">
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="stripe-label">BCV (Proyectada)</label>
-                                <input type="number" step="0.0001" name="usd_bcv" class="fintech-input-sm bg-slate-50" value="{{ tasas.bcv_now.usd }}" required>
+                                <label class="stripe-label">BCV (Proy.)</label>
+                                <div class="relative">
+                                    <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">Bs</span>
+                                    <input type="number" step="0.0001" name="usd_bcv" class="fintech-input-sm pl-7 bg-slate-50" value="{{ tasas.bcv_now.usd }}" required>
+                                </div>
                             </div>
                             <div>
                                 <label class="stripe-label">Binance (P2P)</label>
-                                <input type="number" step="0.0001" name="binance_prevision" class="fintech-input-sm bg-slate-50" value="{{ tasas.bcv_now.tasa_binance }}" required>
+                                <div class="relative">
+                                    <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">Bs</span>
+                                    <input type="number" step="0.0001" name="binance_prevision" class="fintech-input-sm pl-7 bg-slate-50" value="{{ tasas.bcv_now.tasa_binance }}" required>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="pt-1">
-                            <label class="stripe-label mb-2">Comportamiento esperado del recaudo</label>
+                        <div>
+                            <label class="stripe-label mb-1.5">Distribución Recaudo (%)</label>
                             <div class="grid grid-cols-3 gap-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                                <div class="text-center">
-                                    <span class="text-[9px] font-bold text-slate-500 block mb-1">% Bs</span>
+                                <div>
+                                    <span class="text-[9px] font-bold text-slate-500 block mb-1 text-center">Bs</span>
                                     <input type="text" inputmode="numeric" name="pct_bs" class="fintech-input-sm text-center px-1" value="50">
                                 </div>
-                                <div class="text-center">
-                                    <span class="text-[9px] font-bold text-slate-500 block mb-1">% USDT</span>
+                                <div>
+                                    <span class="text-[9px] font-bold text-slate-500 block mb-1 text-center">USDT</span>
                                     <input type="text" inputmode="numeric" name="pct_usdt" class="fintech-input-sm text-center px-1" value="30">
                                 </div>
-                                <div class="text-center">
-                                    <span class="text-[9px] font-bold text-slate-500 block mb-1">% USD</span>
+                                <div>
+                                    <span class="text-[9px] font-bold text-slate-500 block mb-1 text-center">USD</span>
                                     <input type="text" inputmode="numeric" name="pct_usd" class="fintech-input-sm text-center px-1" value="20">
                                 </div>
                             </div>
                         </div>
 
-                        <div class="pt-1">
-                            <label class="stripe-label mb-2">Ingresos Extracontables</label>
+                        <div>
+                            <label class="stripe-label mb-1.5">Ingresos Extracontables</label>
                             <div class="grid grid-cols-3 gap-2">
                                 <input type="number" step="0.01" name="ing_efectivo" class="fintech-input-sm text-right tabular-nums" placeholder="+ USD">
                                 <input type="number" step="0.01" name="ing_usdt" class="fintech-input-sm text-right tabular-nums" placeholder="+ USDT">
@@ -319,128 +330,141 @@
                         </div>
                     </div>
 
-                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 flex flex-col h-full">
-                        <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
-                            <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2"><i class="bi bi-journal-minus text-rose-500"></i> Egresos Extra</h2>
-                            <button type="button" class="text-[9px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded hover:bg-blue-100 transition-colors" id="btn-add-egdiv">+ Añadir</button>
+                    <div class="card-dense flex flex-col h-full" x-data="{
+                        egresos: [{id: 1}],
+                        addEgreso() { this.egresos.push({id: Date.now()}); },
+                        removeEgreso(id) { this.egresos = this.egresos.filter(e => e.id !== id); }
+                    }">
+                        <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                            <h3 class="text-xs font-bold text-slate-800 flex items-center gap-1.5"><i class="bi bi-journal-minus text-rose-500"></i> Egresos Extraordinarios</h3>
+                            <button type="button" @click="addEgreso()" class="text-[9px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100 hover:bg-blue-100 transition-colors">+ Fila</button>
                         </div>
-                        <p class="text-[10px] text-slate-500 font-medium mb-3">Registra aquí solo gastos excepcionales que ocurrirán este mes.</p>
 
-                        <div class="overflow-x-auto flex-1 hide-scrollbar">
-                            <table class="w-full text-left" id="tbl-egdiv">
-                                <tbody class="block">
-                                    </tbody>
-                            </table>
+                        <div class="space-y-2 overflow-y-auto max-h-48 hide-scrollbar">
+                            <template x-for="(eg, index) in egresos" :key="eg.id">
+                                <div class="flex items-center gap-2">
+                                    <input type="text" name="eg_div_key[]" class="fintech-input-sm flex-1" placeholder="Concepto">
+                                    <input type="number" step="0.01" name="eg_div_monto[]" class="fintech-input-sm w-20 text-right tabular-nums" placeholder="0.00">
+                                    <select name="eg_div_metodo[]" class="form-select-sm w-28">
+                                        <option value="USD_EFECTIVO">USD Fís.</option>
+                                        <option value="USDT_BINANCE">USDT (P2P)</option>
+                                        <option value="VES_BINANCE">Bs (Bin)</option>
+                                        <option value="VES_BCV">Bs (BCV)</option>
+                                    </select>
+                                    <button type="button" @click="removeEgreso(eg.id)" class="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-rose-500 bg-slate-50 rounded border border-slate-200">
+                                        <i class="bi bi-x-lg text-[9px]"></i>
+                                    </button>
+                                </div>
+                            </template>
                         </div>
                     </div>
                 </div>
-
             </form>
         </div>
 
         {% if simulacion_realizada %}
-        <section class="space-y-4 pt-6 border-t border-slate-200 animate-fade-in">
+        <section class="space-y-4 pt-6 border-t border-slate-200 animate-fade-in mt-6">
             
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col justify-center">
-                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Recaudo Estimado</p>
-                    <span class="text-xl font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.get('recaudo_total_usd', 0)|float) }}</span>
+                <div class="card-dense flex flex-col justify-center">
+                    <p class="stripe-label">Recaudo Estimado</p>
+                    <span class="text-lg font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.get('recaudo_total_usd', 0)|float) }}</span>
                 </div>
-                <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col justify-center">
-                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Egresos Computados</p>
-                    <span class="text-xl font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.get('egresos_total_usd', 0)|float) }}</span>
+                <div class="card-dense flex flex-col justify-center">
+                    <p class="stripe-label">Egresos Computados</p>
+                    <span class="text-lg font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.get('egresos_total_usd', 0)|float) }}</span>
                 </div>
-                <div class="bg-rose-50/50 border border-rose-100 rounded-xl p-4 shadow-sm flex flex-col justify-center">
-                    <p class="text-[9px] font-bold text-rose-500 uppercase tracking-widest mb-1">Pérdida Spread (FX)</p>
-                    <span class="text-xl font-black text-rose-600 tabular-nums">-${{ "{:,.2f}".format(proyeccion.get('perdida_spread_usd', 0)|float) }}</span>
+                <div class="card-dense flex flex-col justify-center bg-rose-50/30 border-rose-100">
+                    <p class="stripe-label !text-rose-500">Pérdida Spread (FX)</p>
+                    <span class="text-lg font-black text-rose-600 tabular-nums">-${{ "{:,.2f}".format(proyeccion.get('perdida_spread_usd', 0)|float) }}</span>
                 </div>
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm flex flex-col justify-center">
-                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Balance Neto Base</p>
-                    <span class="text-xl font-black text-white tabular-nums">${{ "{:,.2f}".format(proyeccion.get('balance_neto_usd', 0)|float) }}</span>
+                <div class="card-dense flex flex-col justify-center bg-slate-900 border-slate-800">
+                    <p class="stripe-label !text-slate-400">Balance Neto Base</p>
+                    <span class="text-lg font-black text-white tabular-nums">${{ "{:,.2f}".format(proyeccion.get('balance_neto_usd', 0)|float) }}</span>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                    <h3 class="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-3 border-b border-slate-100 pb-2">Distribución de Ingresos</h3>
-                    <ul class="divide-y divide-slate-50">
-                        <li class="flex justify-between items-center py-2">
-                            <span class="text-xs font-semibold text-slate-600">USD Efectivo</span>
-                            <span class="font-bold text-slate-900 tabular-nums text-sm">{{ "${:,.2f}".format(proyeccion.get('recaudo_desglose', {}).get('USD_EFECTIVO', 0)|float) if proyeccion.get('recaudo_desglose', {}).get('USD_EFECTIVO', 0)|float > 0 else '—' }}</span>
+                <div class="card-dense">
+                    <h3 class="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-2 border-b border-slate-100 pb-2">Distribución Proyectada (Ingresos)</h3>
+                    <ul class="divide-y divide-slate-50 text-xs">
+                        <li class="flex justify-between items-center py-1.5">
+                            <span class="font-semibold text-slate-600">USD Efectivo</span>
+                            <span class="font-bold text-slate-900 tabular-nums">{{ "${:,.2f}".format(proyeccion.get('recaudo_desglose', {}).get('USD_EFECTIVO', 0)|float) if proyeccion.get('recaudo_desglose', {}).get('USD_EFECTIVO', 0)|float > 0 else '—' }}</span>
                         </li>
-                        <li class="flex justify-between items-center py-2">
-                            <span class="text-xs font-semibold text-slate-600">USDT (Binance)</span>
-                            <span class="font-bold text-slate-900 tabular-nums text-sm">{{ "${:,.2f}".format(proyeccion.get('recaudo_desglose', {}).get('USDT_BINANCE', 0)|float) if proyeccion.get('recaudo_desglose', {}).get('USDT_BINANCE', 0)|float > 0 else '—' }}</span>
+                        <li class="flex justify-between items-center py-1.5">
+                            <span class="font-semibold text-slate-600">USDT (Binance)</span>
+                            <span class="font-bold text-slate-900 tabular-nums">{{ "${:,.2f}".format(proyeccion.get('recaudo_desglose', {}).get('USDT_BINANCE', 0)|float) if proyeccion.get('recaudo_desglose', {}).get('USDT_BINANCE', 0)|float > 0 else '—' }}</span>
                         </li>
-                        <li class="flex justify-between items-center py-2">
-                            <span class="text-xs font-semibold text-slate-600">Bolívares (BCV)</span>
-                            <span class="font-bold text-slate-900 tabular-nums text-sm">{{ "${:,.2f}".format(proyeccion.get('recaudo_desglose', {}).get('VES_BCV', 0)|float) if proyeccion.get('recaudo_desglose', {}).get('VES_BCV', 0)|float > 0 else '—' }}</span>
+                        <li class="flex justify-between items-center py-1.5">
+                            <span class="font-semibold text-slate-600">Bolívares (BCV)</span>
+                            <span class="font-bold text-slate-900 tabular-nums">{{ "${:,.2f}".format(proyeccion.get('recaudo_desglose', {}).get('VES_BCV', 0)|float) if proyeccion.get('recaudo_desglose', {}).get('VES_BCV', 0)|float > 0 else '—' }}</span>
                         </li>
                     </ul>
                 </div>
 
-                <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                    <h3 class="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-3 border-b border-slate-100 pb-2">Destinos de Salida (Obligaciones)</h3>
-                    <ul class="divide-y divide-slate-50">
-                        <li class="flex justify-between items-center py-2">
-                            <span class="text-xs font-semibold text-slate-600">Pagos en USD</span>
-                            <span class="font-bold text-slate-900 tabular-nums text-sm">{{ "${:,.2f}".format(proyeccion.get('distribucion_egresos', {}).get('USD_EFECTIVO', 0)|float) if proyeccion.get('distribucion_egresos', {}).get('USD_EFECTIVO', 0)|float > 0 else '—' }}</span>
+                <div class="card-dense">
+                    <h3 class="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-2 border-b border-slate-100 pb-2">Obligaciones (Salidas)</h3>
+                    <ul class="divide-y divide-slate-50 text-xs">
+                        <li class="flex justify-between items-center py-1.5">
+                            <span class="font-semibold text-slate-600">Pagos USD</span>
+                            <span class="font-bold text-slate-900 tabular-nums">{{ "${:,.2f}".format(proyeccion.get('distribucion_egresos', {}).get('USD_EFECTIVO', 0)|float) if proyeccion.get('distribucion_egresos', {}).get('USD_EFECTIVO', 0)|float > 0 else '—' }}</span>
                         </li>
-                        <li class="flex justify-between items-center py-2">
-                            <span class="text-xs font-semibold text-slate-600">Pagos en USDT</span>
-                            <span class="font-bold text-slate-900 tabular-nums text-sm">{{ "${:,.2f}".format(proyeccion.get('distribucion_egresos', {}).get('USDT_BINANCE', 0)|float) if proyeccion.get('distribucion_egresos', {}).get('USDT_BINANCE', 0)|float > 0 else '—' }}</span>
+                        <li class="flex justify-between items-center py-1.5">
+                            <span class="font-semibold text-slate-600">Pagos USDT</span>
+                            <span class="font-bold text-slate-900 tabular-nums">{{ "${:,.2f}".format(proyeccion.get('distribucion_egresos', {}).get('USDT_BINANCE', 0)|float) if proyeccion.get('distribucion_egresos', {}).get('USDT_BINANCE', 0)|float > 0 else '—' }}</span>
                         </li>
-                        <li class="flex justify-between items-center py-2">
-                            <span class="text-xs font-semibold text-slate-600">Pagos Bs (T. Binance)</span>
-                            <span class="font-bold text-slate-900 tabular-nums text-sm">{{ "${:,.2f}".format(proyeccion.get('distribucion_egresos', {}).get('VES_BINANCE', 0)|float) if proyeccion.get('distribucion_egresos', {}).get('VES_BINANCE', 0)|float > 0 else '—' }}</span>
+                        <li class="flex justify-between items-center py-1.5">
+                            <span class="font-semibold text-slate-600">Pagos Bs (T. Binance)</span>
+                            <span class="font-bold text-slate-900 tabular-nums">{{ "${:,.2f}".format(proyeccion.get('distribucion_egresos', {}).get('VES_BINANCE', 0)|float) if proyeccion.get('distribucion_egresos', {}).get('VES_BINANCE', 0)|float > 0 else '—' }}</span>
                         </li>
-                        <li class="flex justify-between items-center py-2">
-                            <span class="text-xs font-semibold text-slate-600">Pagos Bs (T. BCV)</span>
-                            <span class="font-bold text-slate-900 tabular-nums text-sm">{{ "${:,.2f}".format(proyeccion.get('distribucion_egresos', {}).get('VES_BCV', 0)|float) if proyeccion.get('distribucion_egresos', {}).get('VES_BCV', 0)|float > 0 else '—' }}</span>
+                        <li class="flex justify-between items-center py-1.5">
+                            <span class="font-semibold text-slate-600">Pagos Bs (T. BCV)</span>
+                            <span class="font-bold text-slate-900 tabular-nums">{{ "${:,.2f}".format(proyeccion.get('distribucion_egresos', {}).get('VES_BCV', 0)|float) if proyeccion.get('distribucion_egresos', {}).get('VES_BCV', 0)|float > 0 else '—' }}</span>
                         </li>
                     </ul>
                 </div>
             </div>
 
-            <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mt-4">
-                <div class="px-5 py-3 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                    <h3 class="text-xs font-bold text-slate-800">Auditoría Egresos / Fuga (Live)</h3>
+            <div class="card-dense overflow-hidden p-0">
+                <div class="px-4 py-3 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                    <h3 class="text-[10px] font-bold text-slate-800 uppercase tracking-widest">Auditoría Egresos / Spread Live</h3>
                 </div>
                 <div class="overflow-x-auto hide-scrollbar">
                     <table class="w-full text-left">
                         <thead class="bg-white border-b border-slate-100">
                             <tr>
-                                <th class="py-2.5 px-5 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Concepto</th>
-                                <th class="py-2.5 px-4 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Moneda</th>
-                                <th class="py-2.5 px-4 text-[9px] font-bold text-slate-500 uppercase tracking-widest text-center">Estatus</th>
-                                <th class="py-2.5 px-4 text-[9px] font-bold text-slate-500 uppercase tracking-widest text-right">Base USD</th>
-                                <th class="py-2.5 px-4 text-[9px] font-bold text-slate-500 uppercase tracking-widest text-right">Spread Live</th>
-                                <th class="py-2.5 px-5 text-[9px] font-bold text-slate-800 uppercase tracking-widest text-right bg-slate-50">Costo Final</th>
+                                <th class="py-2 px-4 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Concepto</th>
+                                <th class="py-2 px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Vía</th>
+                                <th class="py-2 px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest text-center">Estatus</th>
+                                <th class="py-2 px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest text-right">Base USD</th>
+                                <th class="py-2 px-3 text-[9px] font-bold text-slate-500 uppercase tracking-widest text-right">Fuga FX</th>
+                                <th class="py-2 px-4 text-[9px] font-bold text-slate-800 uppercase tracking-widest text-right bg-slate-50/50">Costo Final</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-50">
+                        <tbody class="divide-y divide-slate-50 text-xs">
                             {% for e in proyeccion.get('lista_egresos', []) %}
                             {% set p_actual = e.perdida_live if e.perdida_live is defined else e.perdida %}
                             {% set s_actual = e.salida_real_live if e.salida_real_live is defined else e.salida_real %}
-                            <tr class="hover:bg-slate-50/50 transition-colors">
-                                <td class="px-5 py-2.5 text-xs font-semibold text-slate-900">{{ e.titulo }}</td>
-                                <td class="px-4 py-2.5 text-[10px] text-slate-500 font-medium">{{ e.metodo|replace('_', ' ') }}</td>
-                                <td class="px-4 py-2.5 text-center">
-                                    <span class="px-2 py-0.5 text-[9px] font-bold rounded border {{ 'bg-emerald-50 text-emerald-700 border-emerald-200' if e.estado_pago == 'Pagado' else 'bg-slate-50 text-slate-500 border-slate-200' }}">
-                                        {{ e.estado_pago|default('Planificado') }}
+                            <tr class="hover:bg-slate-50/50">
+                                <td class="px-4 py-2 font-semibold text-slate-900">{{ e.titulo }}</td>
+                                <td class="px-3 py-2 text-[10px] text-slate-500">{{ e.metodo|replace('_', ' ') }}</td>
+                                <td class="px-3 py-2 text-center">
+                                    <span class="px-1.5 py-0.5 text-[9px] font-bold rounded border {{ 'bg-emerald-50 text-emerald-700 border-emerald-200' if e.estado_pago == 'Pagado' else 'bg-slate-50 text-slate-500 border-slate-200' }}">
+                                        {{ e.estado_pago|default('Plan')[:4] }}
                                     </span>
                                 </td>
-                                <td class="px-4 py-2.5 text-right text-xs font-medium text-slate-700 tabular-nums">${{ "{:,.2f}".format(e.monto|float) }}</td>
-                                <td class="px-4 py-2.5 text-right text-xs tabular-nums">
+                                <td class="px-3 py-2 text-right font-medium text-slate-600 tabular-nums">${{ "{:,.2f}".format(e.monto|float) }}</td>
+                                <td class="px-3 py-2 text-right tabular-nums">
                                     {% if p_actual|float > 0.001 %}
-                                        <span class="text-rose-600 font-bold">+${{ "{:,.2f}".format(p_actual|float) }}</span>
+                                        <span class="text-rose-600 font-bold text-[10px]">+${{ "{:,.2f}".format(p_actual|float) }}</span>
                                     {% elif p_actual|float < -0.001 %}
-                                        <span class="text-emerald-600 font-bold">${{ "{:,.2f}".format(p_actual|float) }}</span>
+                                        <span class="text-emerald-600 font-bold text-[10px]">${{ "{:,.2f}".format(p_actual|float) }}</span>
                                     {% else %}
-                                        <span class="text-slate-400">—</span>
+                                        <span class="text-slate-300">—</span>
                                     {% endif %}
                                 </td>
-                                <td class="px-5 py-2.5 text-right font-black text-slate-900 tabular-nums text-xs bg-slate-50/50">${{ "{:,.2f}".format(s_actual|float) }}</td>
+                                <td class="px-4 py-2 text-right font-bold text-slate-900 tabular-nums bg-slate-50/50">${{ "{:,.2f}".format(s_actual|float) }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -451,37 +475,11 @@
         </section>
         {% endif %}
 
-    </div> </div>
+    </div> 
+</div>
 </div>
 {% endblock %}
 
 {% block scripts_extra %}
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  const tblEgDiv = document.getElementById('tbl-egdiv').querySelector('tbody');
-  
-  document.getElementById('btn-add-egdiv').addEventListener('click', () => {
-    const tr = document.createElement('tr');
-    tr.className = "hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0 block sm:table-row w-full sm:w-auto p-3 sm:p-0";
-    tr.innerHTML = `
-      <td class="py-2 pr-2 w-full sm:w-1/2 block sm:table-cell"><input type="text" name="eg_div_key[]" class="fintech-input-sm" placeholder="Concepto del Gasto" required></td>
-      <td class="py-2 px-0 sm:px-2 w-full sm:w-1/4 block sm:table-cell"><input type="number" step="0.01" name="eg_div_monto[]" class="fintech-input-sm text-right tabular-nums font-black" placeholder="0.00" required></td>
-      <td class="py-2 px-0 sm:px-2 w-full sm:w-1/4 block sm:table-cell">
-        <select name="eg_div_metodo[]" class="form-select-sm text-slate-600 w-full">
-            <option value="USD_EFECTIVO">USD Físico</option>
-            <option value="USDT_BINANCE">USDT (Cripto)</option>
-            <option value="VES_BINANCE">Bs (Tasa Binance)</option>
-            <option value="VES_BCV">Bs (Tasa BCV)</option>
-        </select>
-      </td>
-      <td class="py-2 pl-0 sm:pl-2 text-right block sm:table-cell">
-          <button type="button" class="w-7 h-7 rounded bg-white border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors shadow-sm ml-auto flex items-center justify-center" onclick="this.closest('tr').remove()" title="Eliminar gasto">
-              <i class="bi bi-trash3-fill text-[10px]"></i>
-          </button>
-      </td>`;
-    tblEgDiv.appendChild(tr);
-  });
-});
-</script>
 <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 {% endblock %}
