@@ -428,96 +428,105 @@
                     </div>
                 </div>
 
-                <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden w-full">
                     <div class="px-4 sm:px-6 py-4 border-b border-slate-100 bg-white flex justify-between items-center">
-                        <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-calendar2-check text-slate-400"></i> Próximos Pagos</h3>
+                        <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                            <i class="bi bi-calendar2-check text-slate-400"></i> Próximos Pagos
+                        </h3>
                     </div>
-                    <div class="overflow-x-auto hide-scrollbar w-full">
+                    
+                    <div class="overflow-x-auto w-full">
                         <table class="w-full text-sm text-left">
                             <thead class="bg-white border-b border-slate-100">
                                 <tr>
-                                    <th class="py-3 px-4 sm:px-6 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left whitespace-nowrap">Concepto</th>
-                                    <th class="py-3 px-3 sm:px-4 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">Fecha Programada</th>
-                                    <th class="py-3 px-3 sm:px-4 text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right whitespace-nowrap">Deuda Base</th>
-                                    <th class="py-3 px-3 sm:px-4 text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center whitespace-nowrap">Estatus</th>
-                                    <th class="py-3 px-4 sm:px-6 text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center whitespace-nowrap">Soportes y Acción</th>
+                                    <th class="py-3 px-2 sm:px-4 text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest text-left">Concepto</th>
+                                    <th class="py-3 px-2 sm:px-3 text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center whitespace-nowrap">Fecha Programada</th>
+                                    <th class="py-3 px-2 sm:px-3 text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Estatus</th>
+                                    <th class="hidden sm:table-cell py-3 px-2 sm:px-3 text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Base USD</th>
+                                    <th class="py-3 px-2 sm:px-4 text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Soportes y Acción</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
                                 {% for item in resumen.items %}
                                     {% for o in item.ocurrencias %}
+                                    {% set o_prog = o.get('programado', 0)|float if o is mapping else o.programado|default(0)|float %}
+                                    {% set o_pend = o.get('pendiente', 0)|float if o is mapping else o.pendiente|default(o_prog)|float %}
+                                    {% set o_pag = o_prog - o_pend %}
+                                    {% set occ_id = o.get('ocurrencia_id') if o is mapping else o.ocurrencia_id %}
+                                    {% set titulo_escape = item.titulo|escape %}
+                                    
                                     <tr class="hover:bg-slate-50 transition-colors duration-200">
-                                        <td class="px-4 sm:px-6 py-4 align-middle min-w-[140px]">
-                                            <div class="font-bold text-slate-900 leading-tight">{{ item.titulo }}</div>
-                                            <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 whitespace-nowrap"
+                                        <td class="px-2 sm:px-4 py-4 align-middle">
+                                            <div class="font-bold text-slate-900 leading-tight whitespace-normal min-w-[120px] max-w-[200px] break-words">{{ item.titulo }}</div>
+                                            <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 whitespace-nowrap"
                                                  x-data="{ 
-                                                    metodo: '{{ item.metodo_referencia or o.metodo_referencia or '' }}', 
+                                                    metodo: '{{ item.metodo_referencia or (o.get('metodo_referencia') if o is mapping else o.metodo_referencia) or '' }}', 
                                                     init() { 
                                                         if (!this.metodo) this.metodo = window.mapaMetodosEgresos['{{ item.titulo|lower|trim|escape }}'] || 'NO DEFINIDA'; 
                                                     } 
                                                  }">
-                                                Frec: {{ item.frecuencia }} <span class="text-slate-300 mx-1">|</span> <span class="text-blue-500"><i class="bi bi-bank"></i> VÍA: <span x-text="metodo.replace(/_/g, ' ')"></span></span>
+                                                Frec: {{ item.frecuencia }} <span class="text-slate-300 mx-1">|</span> <span class="text-blue-500"><i class="bi bi-bank"></i> <span x-text="metodo.replace(/_/g, ' ')"></span></span>
                                             </div>
                                         </td>
                                         
-                                        <td class="px-3 sm:px-4 py-4 align-middle text-center">
+                                        <td class="px-2 sm:px-3 py-4 align-middle text-center">
                                             <div class="flex justify-center items-center gap-1.5 text-slate-600 whitespace-nowrap">
                                                 <i class="bi bi-calendar-event text-slate-400"></i>
-                                                <span class="text-xs font-semibold tabular-nums">{{ o.fecha_programada.strftime('%d %b %y') }}</span>
+                                                {% set f_prog_obj = o.get('fecha_programada') if o is mapping else o.fecha_programada %}
+                                                <span class="text-xs font-semibold tabular-nums">{{ f_prog_obj.strftime('%d %b %y') if f_prog_obj else '' }}</span>
                                             </div>
                                         </td>
-                                        
-                                        <td class="px-3 sm:px-4 py-4 text-right align-middle">
-                                            <span class="font-bold text-slate-900 tabular-nums">${{ '%.2f'|format(o.programado) }}</span>
-                                        </td>
-                                        
-                                        <td class="px-3 sm:px-4 py-4 text-center align-middle">
-                                            {% set ev = (o.estado_visual|default('Pendiente'))|lower %}
+
+                                        <td class="px-2 sm:px-3 py-4 text-center align-middle">
+                                            {% set ev = (o.get('estado_visual', 'Pendiente') if o is mapping else o.estado_visual|default('Pendiente'))|lower %}
                                             {% if ev == 'pagado' %}
-                                                <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border bg-emerald-50 text-emerald-700 border-emerald-200 whitespace-nowrap">Saldado</span>
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase tracking-widest bg-emerald-50 text-emerald-700 border-emerald-200 whitespace-nowrap">Saldado</span>
                                             {% elif ev == 'parcial' %}
-                                                <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border bg-blue-50 text-blue-700 border-blue-200 whitespace-nowrap">Parcial</span>
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase tracking-widest bg-blue-50 text-blue-700 border-blue-200 whitespace-nowrap">Parcial</span>
                                             {% elif ev == 'atrasado' %}
-                                                <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border bg-rose-50 text-rose-700 border-rose-200 whitespace-nowrap">Atrasado</span>
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase tracking-widest bg-rose-50 text-rose-700 border-rose-200 whitespace-nowrap">Atrasado</span>
                                             {% else %}
-                                                <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border bg-amber-50 text-amber-700 border-amber-200 whitespace-nowrap">Pendiente</span>
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase tracking-widest bg-amber-50 text-amber-700 border-amber-200 whitespace-nowrap">Pendiente</span>
                                             {% endif %}
                                         </td>
+                                        
+                                        <td class="hidden sm:table-cell px-2 sm:px-3 py-4 text-right align-middle">
+                                            <span class="font-bold text-slate-900 tabular-nums">${{ '%.2f'|format(o_prog) }}</span>
+                                        </td>
 
-                                        <td class="px-4 sm:px-6 py-4 text-center align-middle">
-                                            <div class="flex flex-col xl:flex-row items-center justify-center gap-1.5 sm:gap-2 w-full">
-                                                
-                                                {% if o.pagado > 0.001 %}
-                                                    {% if o.pendiente <= 0.001 %}
-                                                        <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ o.ocurrencia_id }}', titulo: '{{ item.titulo|escape }}' })" 
-                                                                class="h-8 inline-flex items-center justify-center gap-1.5 px-3 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all shadow-sm text-[9px] sm:text-[10px] font-bold uppercase tracking-widest rounded-lg active:scale-95 whitespace-nowrap w-full xl:w-auto" 
-                                                                title="Ver Soportes y Análisis">
-                                                            <i class="bi bi-folder-check text-sm leading-none"></i> <span class="hidden sm:inline">Ver Pago</span><span class="sm:hidden">Soporte</span>
+                                        <td class="px-2 sm:px-4 py-4 text-center align-middle">
+                                            <div class="flex flex-col xl:flex-row items-center justify-center gap-1.5 w-full mx-auto">
+                                                {% if o_pag > 0.001 %}
+                                                    {% if o_pend <= 0.001 %}
+                                                        <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ occ_id }}', titulo: '{{ titulo_escape }}' })" 
+                                                                class="h-7 w-full inline-flex items-center justify-center gap-1 px-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap xl:w-auto min-w-[85px]" 
+                                                                title="Ver Pago Completo">
+                                                            <i class="bi bi-folder-check text-[10px] leading-none"></i> Ver Pago
                                                         </button>
                                                     {% else %}
-                                                        <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ o.ocurrencia_id }}', titulo: '{{ item.titulo|escape }}' })" 
-                                                                class="h-8 inline-flex items-center justify-center gap-1.5 px-3 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-600 hover:text-white transition-all shadow-sm text-[9px] sm:text-[10px] font-bold uppercase tracking-widest rounded-lg active:scale-95 whitespace-nowrap w-full xl:w-auto" 
-                                                                title="Ver Soportes y Análisis">
-                                                            <i class="bi bi-folder2-open text-sm leading-none"></i> <span class="hidden sm:inline">Ver Abonos</span><span class="sm:hidden">Soportes</span>
+                                                        <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ occ_id }}', titulo: '{{ titulo_escape }}' })" 
+                                                                class="h-7 w-full inline-flex items-center justify-center gap-1 px-2.5 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-600 hover:text-white transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap xl:w-auto min-w-[85px]" 
+                                                                title="Ver Abonos Parciales">
+                                                            <i class="bi bi-folder2-open text-[10px] leading-none"></i> Soporte
                                                         </button>
                                                     {% endif %}
                                                 {% else %}
-                                                    <span class="h-8 inline-flex items-center justify-center gap-1.5 px-3 bg-slate-50 text-slate-400 border border-slate-200 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest rounded-lg whitespace-nowrap w-full xl:w-auto cursor-not-allowed">
+                                                    <span class="h-7 w-full inline-flex items-center justify-center gap-1 px-2.5 bg-slate-50 text-slate-400 border border-slate-200 text-[9px] font-bold uppercase tracking-widest rounded-md cursor-not-allowed whitespace-nowrap xl:w-auto min-w-[85px]">
                                                         Sin registro
                                                     </span>
                                                 {% endif %}
 
-                                                {% if o.pendiente > 0.0001 %}
+                                                {% if o_pend > 0.0001 %}
                                                     <button type="button" 
                                                             data-titulo="{{ item.titulo|escape }}"
-                                                            data-metodo="{{ item.metodo_referencia or o.metodo_referencia or '' }}"
-                                                            @click.prevent="abrirModal('{{ o.ocurrencia_id }}', $event.currentTarget.dataset.titulo, {{ o.pendiente }}, $event.currentTarget.dataset.metodo)" 
-                                                            class="h-8 inline-flex items-center justify-center gap-1.5 px-4 bg-slate-900 text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm rounded-lg active:scale-95 whitespace-nowrap w-full xl:w-auto min-w-[90px]">
-                                                        <i class="bi bi-wallet2 text-sm leading-none pointer-events-none"></i> Pagar
+                                                            data-metodo="{{ item.metodo_referencia or (o.get('metodo_referencia') if o is mapping else o.metodo_referencia) or '' }}"
+                                                            @click.prevent="abrirModal('{{ occ_id }}', $event.currentTarget.dataset.titulo, {{ o_pend }}, $event.currentTarget.dataset.metodo)" 
+                                                            class="h-7 w-full inline-flex items-center justify-center gap-1.5 px-2.5 bg-slate-900 text-white text-[9px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm rounded-md active:scale-95 whitespace-nowrap xl:w-auto min-w-[85px]">
+                                                        <i class="bi bi-wallet2 text-[10px] leading-none pointer-events-none"></i> Pagar
                                                     </button>
                                                 {% else %}
-                                                    <span class="h-8 inline-flex items-center justify-center gap-1.5 px-4 bg-slate-50 text-slate-400 border border-slate-200 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest rounded-lg cursor-not-allowed whitespace-nowrap w-full xl:w-auto min-w-[90px]">
-                                                        <i class="bi bi-check2-all text-sm leading-none"></i> Completo
+                                                    <span class="h-7 w-full inline-flex items-center justify-center gap-1 px-2.5 bg-emerald-50 text-emerald-600 border border-emerald-200 text-[9px] font-bold uppercase tracking-widest rounded-md cursor-not-allowed whitespace-nowrap xl:w-auto min-w-[85px]">
+                                                        <i class="bi bi-shield-check text-[10px] leading-none"></i> Completo
                                                     </span>
                                                 {% endif %}
                                             </div>
@@ -537,7 +546,7 @@
                 </div>
             </div>
 
-            <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden w-full mt-6">
                 <div class="px-4 sm:px-6 py-4 border-b border-slate-100 bg-slate-50">
                     <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center justify-between">
                         <span><i class="bi bi-archive text-slate-400 mr-2"></i> Historial de Gastos Registrados</span>
@@ -850,10 +859,6 @@
     </div>
 </div>
 
-{% endblock %}
-
-{% block scripts_extra %}
-<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 <script>
     document.addEventListener('alpine:init', () => {
         Alpine.data('historialAbonosModal', () => ({
