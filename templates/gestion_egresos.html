@@ -61,8 +61,8 @@
     monto_deuda_original: 0,
     abono_usd: 0,
     grupo_cajas: 'EFECTIVO',
-    tipo_pago: '',
-    moneda_simbolo: '',
+    tipo_pago: 'EFECTIVO_USD',
+    moneda_simbolo: 'USD',
     total_debitar: 0,
     tasa_bcv: parseFloat('{{ tasas_hoy.usd if tasas_hoy else 1 }}') || 1,
     tasa_binance: parseFloat('{{ tasas_hoy.binance if tasas_hoy else 1 }}') || 1,
@@ -70,6 +70,31 @@
     usar_tasa_custom: false,
     mostrar_tasa: false,
     referencia: '',
+
+    get opcionesCaja() {
+        if (this.grupo_cajas === 'BINANCE') {
+            return [
+                { value: 'BANESCO_BINANCE', label: 'Caja Banesco Bs (Tasa Binance)' },
+                { value: 'BINANCE_DIRECTO', label: 'Binance Directo (Saldo USDT)' }
+            ];
+        } else if (this.grupo_cajas === 'BCV') {
+            return [
+                { value: 'BANESCO_BCV', label: 'Caja Banesco Bs (Tasa BCV)' },
+                { value: 'BINANCE_DIRECTO', label: 'Binance Directo (Saldo USDT)' }
+            ];
+        } else if (this.grupo_cajas === 'EFECTIVO') {
+            return [
+                { value: 'EFECTIVO_USD', label: 'Caja Efectivo USD' }
+            ];
+        }
+        return [
+            { value: '', label: '-- Seleccione una Caja --' },
+            { value: 'BANESCO_BINANCE', label: 'Caja Banesco Bs (Tasa Binance)' },
+            { value: 'BANESCO_BCV', label: 'Caja Banesco Bs (Tasa BCV)' },
+            { value: 'BINANCE_DIRECTO', label: 'Binance Directo (Saldo USDT)' },
+            { value: 'EFECTIVO_USD', label: 'Caja Efectivo USD' }
+        ];
+    },
 
     abrirModal(id, tit, monto, metodoRaw) {
         this.occ_id = id;
@@ -81,7 +106,10 @@
         
         let m = String(metodoRaw || '').toUpperCase().trim();
         
-        if (m.indexOf('BINANCE') !== -1 || m.indexOf('CRIPTO') !== -1 || m.indexOf('USDT') !== -1) {
+        if (!m || m === 'NONE' || m === 'NULL') {
+            this.grupo_cajas = 'TODAS';
+            this.tipo_pago = '';
+        } else if (m.indexOf('BINANCE') !== -1 || m.indexOf('CRIPTO') !== -1 || m.indexOf('USDT') !== -1) {
             this.grupo_cajas = 'BINANCE';
             this.tipo_pago = 'BANESCO_BINANCE';
         } else if (m.indexOf('BCV') !== -1 || m.indexOf('EUR') !== -1 || m.indexOf('BS') !== -1 || m.indexOf('VES') !== -1) {
@@ -92,12 +120,21 @@
             this.tipo_pago = 'EFECTIVO_USD';
         }
         
-        this.cambioCaja();
         this.isModalOpen = true;
+
+        // Esperamos a que Alpine arme las opciones del select y luego calculamos todo
+        this.$nextTick(() => {
+            this.cambioCaja();
+        });
     },
     
     cambioCaja() {
-        if (this.tipo_pago === 'BANESCO_BCV') {
+        if (!this.tipo_pago) {
+            this.moneda_simbolo = 'USD';
+            this.tasa_custom = 1.0;
+            this.mostrar_tasa = false;
+            this.total_debitar = this.abono_usd;
+        } else if (this.tipo_pago === 'BANESCO_BCV') {
             this.moneda_simbolo = 'Bs';
             this.tasa_custom = this.tasa_bcv;
             this.mostrar_tasa = true;
@@ -125,7 +162,7 @@
         let abono = parseFloat(this.abono_usd) || 0;
         let tasa = parseFloat(this.tasa_custom) || 1;
         
-        if (this.tipo_pago.startsWith('BANESCO')) {
+        if (this.tipo_pago && this.tipo_pago.startsWith('BANESCO')) {
             this.total_debitar = (abono * tasa).toFixed(2);
         } else {
             this.total_debitar = abono.toFixed(2);
@@ -136,10 +173,10 @@
         let abono = parseFloat(this.abono_usd) || 0;
         let total = parseFloat(this.total_debitar) || 0;
         
-        if (this.tipo_pago.startsWith('BANESCO') && abono > 0) {
+        if (this.tipo_pago && this.tipo_pago.startsWith('BANESCO') && abono > 0) {
             this.usar_tasa_custom = true;
             this.tasa_custom = (total / abono).toFixed(4);
-        } else if (!this.tipo_pago.startsWith('BANESCO')) {
+        } else if (!this.tipo_pago || !this.tipo_pago.startsWith('BANESCO')) {
             this.total_debitar = total.toFixed(2);
         }
     }
@@ -419,7 +456,7 @@
                                         {% if o.pendiente > 0.0001 %}
                                             <button type="button" 
                                                     data-titulo="{{ item.titulo|escape }}"
-                                                    data-metodo="{{ item.metodo_referencia or o.metodo_referencia or 'USD_EFECTIVO' }}"
+                                                    data-metodo="{{ item.metodo_referencia or o.metodo_referencia or '' }}"
                                                     @click.prevent="abrirModal('{{ o.ocurrencia_id }}', $event.currentTarget.dataset.titulo, {{ o.pendiente }}, $event.currentTarget.dataset.metodo)" 
                                                     class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white border border-slate-800 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700 transition-all shadow-sm active:scale-95">
                                                 <i class="bi bi-wallet2 pointer-events-none"></i> Pagar
@@ -569,29 +606,14 @@
 
                     <div>
                         <label class="stripe-label">Caja y Tasa a Aplicar</label>
-                        
-                        <template x-if="grupo_cajas === 'BINANCE'">
-                            <select x-model="tipo_pago" @change="cambioCaja()" class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300 w-full" required>
-                                <option value="BANESCO_BINANCE">Caja Banesco Bs (Tasa Binance)</option>
-                                <option value="BINANCE_DIRECTO">Binance Directo (Saldo USDT)</option>
-                            </select>
-                        </template>
-
-                        <template x-if="grupo_cajas === 'BCV'">
-                            <select x-model="tipo_pago" @change="cambioCaja()" class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300 w-full" required>
-                                <option value="BANESCO_BCV">Caja Banesco Bs (Tasa BCV)</option>
-                                <option value="BINANCE_DIRECTO">Binance Directo (Saldo USDT)</option>
-                            </select>
-                        </template>
-
-                        <template x-if="grupo_cajas === 'EFECTIVO'">
-                            <select x-model="tipo_pago" @change="cambioCaja()" class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300 w-full" required>
-                                <option value="EFECTIVO_USD">Caja Efectivo USD</option>
-                            </select>
-                        </template>
+                        <select name="tipo_pago" x-model="tipo_pago" @change="cambioCaja()" class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300 w-full" required>
+                            <template x-for="op in opcionesCaja" :key="op.value">
+                                <option :value="op.value" x-text="op.label"></option>
+                            </template>
+                        </select>
                     </div>
 
-                    <div x-show="mostrar_tasa" x-collapse>
+                    <div x-show="mostrar_tasa" x-collapse x-cloak>
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm mt-2">
                             <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-200">
                                 <label class="stripe-label !mb-0 text-slate-700"><i class="bi bi-arrow-left-right text-blue-500"></i> Tasa de Cambio Operativa</label>
