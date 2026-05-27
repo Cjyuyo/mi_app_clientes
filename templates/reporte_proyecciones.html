@@ -4,6 +4,9 @@
 
 {% block head_extra %}
 <style>
+    [x-cloak] { display: none !important; }
+    
+    /* El Corazón Fintech: Números siempre alineados */
     .tabular-nums { font-variant-numeric: tabular-nums; }
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -15,55 +18,73 @@
     }
     input[type="number"] { -moz-appearance: textfield; }
 
-    /* Inputs Estilo Stripe */
-    .fintech-input {
-        @apply w-full min-w-0 bg-slate-50/60 border border-slate-200 text-slate-900 text-sm font-semibold rounded-xl p-3 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 placeholder:font-medium shadow-inner;
+    /* Efecto Stripe en Inputs */
+    .stripe-input {
+        width: 100%; min-width: 0; background-color: #ffffff; border: 1px solid #e2e8f0;
+        color: #0f172a; font-size: 0.875rem; font-weight: 600; border-radius: 0.5rem;
+        padding: 0.625rem 0.75rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.2s ease;
     }
-    .fintech-input-sm {
-        @apply w-full min-w-0 bg-white border border-slate-200 text-slate-900 text-xs font-semibold rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all placeholder:text-slate-400 shadow-sm;
+    .stripe-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+    
+    .stripe-input-sm {
+        width: 100%; min-width: 0; background-color: #ffffff; border: 1px solid #e2e8f0;
+        color: #0f172a; font-size: 0.75rem; font-weight: 600; border-radius: 0.5rem;
+        padding: 0.5rem 0.75rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.2s ease;
     }
-    .form-select-sm {
-        @apply w-full min-w-0 bg-white border border-slate-200 text-slate-900 text-xs font-semibold rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500/10 outline-none cursor-pointer appearance-none;
+    .stripe-input-sm:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+
+    .stripe-select-sm {
+        appearance: none; background-color: #ffffff; border: 1px solid #e2e8f0;
+        color: #0f172a; font-size: 0.75rem; font-weight: 600; border-radius: 0.5rem;
+        padding: 0.5rem 2.5rem 0.5rem 0.75rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.2s ease;
         background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-        background-position: right 0.5rem center;
-        background-repeat: no-repeat;
-        background-size: 1em 1em;
+        background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.2em 1.2em; cursor: pointer;
     }
+    .stripe-select-sm:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+    
+    .stripe-label { display: block; font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.375rem; }
 </style>
 {% endblock %}
 
 {% block body %}
-<div class="min-h-screen bg-[#f7f9fc] -m-6 p-6 sm:p-10 font-sans">
+<div class="min-h-screen bg-slate-50 -m-6 p-6 sm:p-10 font-sans">
 <div class="max-w-[1300px] mx-auto space-y-8 mb-12">
 
     <div x-data="{ show_form: {{ 'false' if simulacion_realizada else 'true' }}, period_mode: '{{ period_mode }}' }">
 
         <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-slate-200 mb-6">
             <div>
-                <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Proyecciones y Riesgo Cambiario</h1>
+                <h1 class="text-2xl font-black text-slate-900 tracking-tight">Proyecciones y Riesgo Cambiario</h1>
                 <p class="text-sm font-medium text-slate-500 mt-1">El sistema importa automáticamente tus clientes y egresos para calcular el impacto del spread.</p>
             </div>
             <div class="flex items-center gap-3">
-                <a href="{{ url_for('reporte_proyecciones') }}" class="px-5 py-2.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-all shadow-sm">Restablecer Formulario</a>
+                <a href="{{ url_for('reporte_proyecciones') }}" class="px-5 py-2.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl transition-all shadow-sm active:scale-[0.98]">Restablecer</a>
                 
-                <button x-show="show_form" type="submit" form="simulation-form" class="px-6 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-md transition-all flex items-center gap-2">
-                    Ejecutar Proyección Automática <i class="bi bi-magic"></i>
+                <button x-show="show_form" type="submit" form="simulation-form" class="px-6 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-md transition-all active:scale-[0.98] flex items-center gap-2">
+                    Ejecutar Proyección Automática <i class="bi bi-cpu text-emerald-400"></i>
                 </button>
             </div>
         </div>
 
-        <div x-show="!show_form" x-cloak class="bg-slate-900/80 backdrop-blur-2xl rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative overflow-hidden mb-8 border border-white/10">
-            <div class="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
-            <div class="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none"></div>
-            
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="bg-{{ 'rose' if category in ['error', 'danger'] else 'emerald' }}-50 border border-{{ 'rose' if category in ['error', 'danger'] else 'emerald' }}-200 text-{{ 'rose' if category in ['error', 'danger'] else 'emerald' }}-700 p-4 rounded-xl font-medium flex items-center gap-3 shadow-sm mb-6">
+                        <i class="bi {{ 'bi-exclamation-triangle-fill' if category in ['error', 'danger'] else 'bi-check-circle-fill' }}"></i> {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div x-show="!show_form" x-cloak class="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200 relative overflow-hidden mb-8">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-8 relative z-10 gap-4">
                 <div class="flex items-center gap-3">
                     <span class="relative flex h-3 w-3">
                       <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span>
+                      <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
                     </span>
-                    <h2 class="text-white text-lg font-bold tracking-wide drop-shadow-sm">Cobranza en Curso</h2>
-                    <span class="px-3 py-1 bg-white/5 border border-white/10 text-slate-300 text-[10px] font-bold rounded-lg uppercase tracking-wider backdrop-blur-md">{{ fecha_inicio.strftime('%d %b') }} a {{ fecha_fin.strftime('%d %b') }}</span>
+                    <h2 class="text-slate-900 text-lg font-black tracking-tight">Cobranza en Curso</h2>
+                    <span class="px-3 py-1 bg-slate-50 border border-slate-200 text-slate-600 text-[10px] font-bold rounded-lg uppercase tracking-widest shadow-sm">{{ fecha_inicio.strftime('%d %b') }} a {{ fecha_fin.strftime('%d %b') }}</span>
                 </div>
                 
                 <div class="flex items-center gap-3">
@@ -71,200 +92,207 @@
                     <form method="POST" action="{{ url_for('reporte_proyecciones') }}" onsubmit="return confirm('¿Estás seguro de ELIMINAR el ciclo activo? Se borrará la meta operativa, pero los pagos reales están a salvo en su tabla.');" class="inline">
                         <input type="hidden" name="action" value="reset">
                         <input type="hidden" name="start_date" value="{{ fecha_inicio.strftime('%Y-%m-%d') }}">
-                        <button type="submit" class="text-[10px] font-bold text-rose-400 hover:text-white uppercase tracking-widest transition-all flex items-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/30 px-4 py-2 rounded-xl border border-rose-500/20 shadow-inner">
-                            <i class="bi bi-trash3"></i> Eliminar Ciclo
+                        <button type="submit" class="text-[10px] font-bold text-rose-600 hover:text-rose-700 uppercase tracking-widest transition-all flex items-center gap-1.5 bg-white hover:bg-rose-50 border border-rose-200 hover:border-rose-300 px-4 py-2.5 rounded-xl shadow-sm active:scale-95">
+                            <i class="bi bi-trash3-fill"></i> Eliminar Ciclo
                         </button>
                     </form>
                     {% endif %}
                     
-                    <button type="button" @click="show_form = true" class="text-[10px] font-bold text-slate-300 hover:text-white uppercase tracking-widest transition-all flex items-center gap-1.5 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl border border-white/10 shadow-inner backdrop-blur-md">
+                    <button type="button" @click="show_form = true" class="text-[10px] font-bold text-slate-700 hover:text-slate-900 uppercase tracking-widest transition-all flex items-center gap-1.5 bg-white hover:bg-slate-50 border border-slate-200 px-4 py-2.5 rounded-xl shadow-sm active:scale-95">
                         <i class="bi bi-sliders"></i> Ajustar Proyección
                     </button>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10 mb-8 border-b border-white/10 pb-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10 mb-8 border-b border-slate-100 pb-8">
                 <div>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Recaudado (Total) vs Meta Operativa</p>
+                    <p class="stripe-label text-slate-500">Recaudado (Total) vs Meta Operativa</p>
                     <div class="flex items-end gap-2 mb-3">
-                        <span class="text-4xl font-black text-white tabular-nums drop-shadow-md">${{ "{:,.2f}".format(proyeccion.get('recaudo_real_usd', 0)|float) }}</span>
-                        <span class="text-sm font-bold text-slate-500 mb-1">/ ${{ "{:,.2f}".format(proyeccion.get('recaudo_total_usd', 0)|float) }}</span>
+                        <span class="text-4xl md:text-5xl font-black text-slate-900 tabular-nums tracking-tighter">${{ "{:,.2f}".format(proyeccion.get('recaudo_real_usd', 0)|float) }}</span>
+                        <span class="text-sm font-bold text-slate-400 mb-1.5">/ ${{ "{:,.2f}".format(proyeccion.get('recaudo_total_usd', 0)|float) }}</span>
                     </div>
                     
-                    <div class="h-3.5 w-full bg-slate-900/50 rounded-full overflow-hidden border border-white/5 shadow-inner">
-                        <div class="h-full bg-gradient-to-r from-emerald-500 to-emerald-300 rounded-full relative transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(52,211,153,0.4)]" style="width: {{ proyeccion.get('progreso_recaudo_pct', 0)|float }}%;">
-                            <div class="absolute inset-0 bg-white/20 w-full h-full animate-[shimmer_2s_infinite]"></div>
-                        </div>
+                    {% set pct_progreso = proyeccion.get('progreso_recaudo_pct', 0)|float %}
+                    <div class="h-3 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200/60 shadow-inner">
+                        <div class="h-full bg-slate-900 rounded-full relative transition-all duration-1000 ease-out" style="width: {{ pct_progreso }}%;"></div>
                     </div>
                     <div class="mt-2 flex justify-between items-center">
-                        <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Progreso del Ciclo</span>
-                        <span class="text-[10px] font-bold text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.4)]">{{ "{:,.1f}".format(proyeccion.get('progreso_recaudo_pct', 0)|float) }}% Completado</span>
+                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Progreso del Ciclo</span>
+                        <span class="text-[10px] font-black {{ 'text-emerald-600' if pct_progreso >= 100 else 'text-slate-600' }} tracking-widest uppercase">{{ "{:,.1f}".format(pct_progreso) }}% Completado</span>
                     </div>
                 </div>
                 
                 <div class="flex flex-col sm:flex-row items-center gap-4">
-                    <div class="w-full flex-1 bg-white/5 rounded-2xl p-5 border border-white/10 backdrop-blur-md shadow-[0_4px_16px_rgba(0,0,0,0.2)] hover:bg-white/10 transition-colors">
-                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Por Recaudar</p>
-                        <span class="text-2xl font-bold text-white tabular-nums">${{ "{:,.2f}".format([(proyeccion.get('recaudo_total_usd', 0)|float) - (proyeccion.get('recaudo_real_usd', 0)|float), 0]|max) }}</span>
+                    <div class="w-full flex-1 bg-slate-50 rounded-2xl p-5 border border-slate-200 shadow-sm">
+                        <p class="stripe-label !text-slate-500 !mb-1">Por Recaudar</p>
+                        <span class="text-2xl font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format([(proyeccion.get('recaudo_total_usd', 0)|float) - (proyeccion.get('recaudo_real_usd', 0)|float), 0]|max) }}</span>
                     </div>
-                    <div class="w-full flex-1 bg-white/5 rounded-2xl p-5 border border-white/10 backdrop-blur-md shadow-[0_4px_16px_rgba(0,0,0,0.2)] hover:bg-white/10 transition-colors">
-                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Punto de Equilibrio</p>
-                        <span class="text-2xl font-bold text-amber-400 tabular-nums drop-shadow-[0_0_8px_rgba(251,191,36,0.3)]" title="Suma de Egresos + Costo del Spread">${{ "{:,.2f}".format((proyeccion.get('egresos_total_usd', 0)|float) + (proyeccion.get('perdida_spread_usd', 0)|float)) }}</span>
+                    <div class="w-full flex-1 bg-amber-50 rounded-2xl p-5 border border-amber-200 shadow-sm">
+                        <p class="stripe-label !text-amber-700 !mb-1">Punto de Equilibrio</p>
+                        <span class="text-2xl font-black text-amber-600 tabular-nums" title="Suma de Egresos + Costo del Spread">${{ "{:,.2f}".format((proyeccion.get('egresos_total_usd', 0)|float) + (proyeccion.get('perdida_spread_usd', 0)|float)) }}</span>
                     </div>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 relative z-10 mb-8">
-                
                 <div class="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div class="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10 shadow-inner">
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col">
                         <div class="flex items-center gap-2 mb-2">
-                            <div class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_5px_#34d399]"></div>
-                            <span class="text-[9px] font-bold text-slate-300 uppercase tracking-widest">USD Cash</span>
+                            <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_5px_#34d399]"></div>
+                            <span class="stripe-label !mb-0 text-slate-700">USD Cash</span>
                         </div>
                         <div class="flex items-baseline gap-1 mb-1">
-                            <span class="text-xs text-slate-500 font-bold">$</span>
-                            <span class="text-lg font-bold text-white tabular-nums">{{ "{:,.2f}".format(proyeccion.get('recaudo_real_desglose', {}).get('USD_EFECTIVO', 0)|float) }}</span>
+                            <span class="text-xs text-slate-400 font-bold">$</span>
+                            <span class="text-xl font-black text-slate-900 tabular-nums tracking-tight">{{ "{:,.2f}".format(proyeccion.get('recaudo_real_desglose', {}).get('USD_EFECTIVO', 0)|float) }}</span>
                         </div>
-                        <p class="text-[9px] text-slate-500 font-medium">Meta: ${{ "{:,.2f}".format(proyeccion.get('recaudo_desglose', {}).get('USD_EFECTIVO', 0)|float) }}</p>
+                        <p class="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-2">Meta: ${{ "{:,.2f}".format(proyeccion.get('recaudo_desglose', {}).get('USD_EFECTIVO', 0)|float) }}</p>
                         
                         {% set p_usd = proyeccion.get('recaudo_desglose', {}).get('USD_EFECTIVO', 1)|float %}
                         {% set pct_usd = (proyeccion.get('recaudo_real_desglose', {}).get('USD_EFECTIVO', 0)|float / p_usd * 100) if p_usd > 0 else 0 %}
-                        <div class="h-1 w-full bg-slate-800 rounded-full mt-3 overflow-hidden">
-                            <div class="h-full bg-emerald-400 rounded-full" style="width: {{ [pct_usd, 100]|min }}%;"></div>
+                        <div class="h-1.5 w-full bg-slate-100 rounded-full mt-auto overflow-hidden">
+                            <div class="h-full bg-emerald-500 rounded-full" style="width: {{ [pct_usd, 100]|min }}%;"></div>
                         </div>
                     </div>
 
-                    <div class="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10 shadow-inner">
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col">
                         <div class="flex items-center gap-2 mb-2">
-                            <div class="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_5px_#fbbf24]"></div>
-                            <span class="text-[9px] font-bold text-slate-300 uppercase tracking-widest">USDT (P2P)</span>
+                            <div class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_5px_#fbbf24]"></div>
+                            <span class="stripe-label !mb-0 text-slate-700">USDT (P2P)</span>
                         </div>
                         <div class="flex items-baseline gap-1 mb-1">
-                            <span class="text-xs text-slate-500 font-bold">$</span>
-                            <span class="text-lg font-bold text-white tabular-nums">{{ "{:,.2f}".format(proyeccion.get('recaudo_real_desglose', {}).get('USDT_BINANCE', 0)|float) }}</span>
+                            <span class="text-xs text-slate-400 font-bold">$</span>
+                            <span class="text-xl font-black text-slate-900 tabular-nums tracking-tight">{{ "{:,.2f}".format(proyeccion.get('recaudo_real_desglose', {}).get('USDT_BINANCE', 0)|float) }}</span>
                         </div>
-                        <p class="text-[9px] text-slate-500 font-medium">Meta: ${{ "{:,.2f}".format(proyeccion.get('recaudo_desglose', {}).get('USDT_BINANCE', 0)|float) }}</p>
+                        <p class="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-2">Meta: ${{ "{:,.2f}".format(proyeccion.get('recaudo_desglose', {}).get('USDT_BINANCE', 0)|float) }}</p>
                         
                         {% set p_usdt = proyeccion.get('recaudo_desglose', {}).get('USDT_BINANCE', 1)|float %}
                         {% set pct_usdt = (proyeccion.get('recaudo_real_desglose', {}).get('USDT_BINANCE', 0)|float / p_usdt * 100) if p_usdt > 0 else 0 %}
-                        <div class="h-1 w-full bg-slate-800 rounded-full mt-3 overflow-hidden">
-                            <div class="h-full bg-amber-400 rounded-full" style="width: {{ [pct_usdt, 100]|min }}%;"></div>
+                        <div class="h-1.5 w-full bg-slate-100 rounded-full mt-auto overflow-hidden">
+                            <div class="h-full bg-amber-500 rounded-full" style="width: {{ [pct_usdt, 100]|min }}%;"></div>
                         </div>
                     </div>
 
-                    <div class="bg-white/5 backdrop-blur-sm rounded-2xl p-4 border border-white/10 shadow-inner">
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-col">
                         <div class="flex items-center gap-2 mb-2">
-                            <div class="w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_5px_#60a5fa]"></div>
-                            <span class="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Bolívares (USD)</span>
+                            <div class="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_5px_#3b82f6]"></div>
+                            <span class="stripe-label !mb-0 text-slate-700">Bolívares (USD)</span>
                         </div>
                         <div class="flex items-baseline gap-1 mb-1">
-                            <span class="text-xs text-slate-500 font-bold">$</span>
-                            <span class="text-lg font-bold text-white tabular-nums">{{ "{:,.2f}".format(proyeccion.get('recaudo_real_desglose', {}).get('VES_BCV', 0)|float) }}</span>
+                            <span class="text-xs text-slate-400 font-bold">$</span>
+                            <span class="text-xl font-black text-slate-900 tabular-nums tracking-tight">{{ "{:,.2f}".format(proyeccion.get('recaudo_real_desglose', {}).get('VES_BCV', 0)|float) }}</span>
                         </div>
-                        <p class="text-[9px] text-slate-500 font-medium">Límite Proyectado: ${{ "{:,.2f}".format(proyeccion.get('recaudo_desglose', {}).get('VES_BCV', 0)|float) }}</p>
+                        <p class="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-2">Límite Proy: ${{ "{:,.2f}".format(proyeccion.get('recaudo_desglose', {}).get('VES_BCV', 0)|float) }}</p>
                         
                         {% set p_ves = proyeccion.get('recaudo_desglose', {}).get('VES_BCV', 1)|float %}
                         {% set r_ves = proyeccion.get('recaudo_real_desglose', {}).get('VES_BCV', 0)|float %}
                         {% set pct_ves = (r_ves / p_ves * 100) if p_ves > 0 else 0 %}
-                        <div class="h-1 w-full bg-slate-800 rounded-full mt-3 overflow-hidden">
-                            <div class="h-full {% if r_ves > p_ves %}bg-rose-500 shadow-[0_0_8px_#f43f5e]{% else %}bg-blue-400{% endif %} rounded-full transition-all" style="width: {{ [pct_ves, 100]|min }}%;"></div>
+                        <div class="h-1.5 w-full bg-slate-100 rounded-full mt-auto overflow-hidden">
+                            <div class="h-full {% if r_ves > p_ves %}bg-rose-500 shadow-[0_0_8px_#f43f5e]{% else %}bg-blue-500{% endif %} rounded-full transition-all" style="width: {{ [pct_ves, 100]|min }}%;"></div>
                         </div>
                     </div>
                 </div>
 
-                <div class="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] flex flex-col">
-                    <p class="text-[9px] font-bold text-white uppercase tracking-widest mb-3 flex items-center gap-2">
-                        <i class="bi bi-robot text-blue-400"></i> Análisis Estocástico en Vivo
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 shadow-inner flex flex-col">
+                    <p class="text-[9px] font-bold text-slate-800 uppercase tracking-widest mb-3 flex items-center gap-2 mt-1">
+                        <i class="bi bi-cpu text-blue-500 text-base"></i> Análisis Estocástico en Vivo
                     </p>
                     
                     {% set inf = proyeccion.get('informe_vivo', {}) %}
                     {% set impacto = inf.get('impacto_total', 0)|float %}
                     
                     {% if not inf %}
-                        <p class="text-xs text-slate-400">Recopilando datos de mercado...</p>
+                        <p class="text-xs text-slate-400 font-medium">Recopilando datos de mercado...</p>
                     {% else %}
                         <div class="flex-1 space-y-3">
-                            
-                            <div class="flex items-start gap-2 text-[10px] pb-2 border-b border-white/10">
-                                <i class="bi bi-cash-coin text-amber-400 mt-0.5"></i>
-                                <span class="text-slate-300 leading-relaxed">Costo Friccional: Para ajustar la brecha cambiaria y cumplir obligaciones en divisas, se requieren inyectar <b class="text-white">{{ "{:,.2f}".format(inf.get('bs_usados_spread', 0)|float) }} Bolívares extras</b> del recaudo base. Esto materializa una pérdida cambiaria de <b class="text-rose-400">${{ "{:,.2f}".format(inf.get('fuga_live', 0)|float) }}</b>.</span>
+                            <div class="bg-white border border-slate-200 p-3.5 rounded-xl shadow-sm flex items-start gap-2">
+                                <i class="bi bi-cash-coin text-amber-500 mt-0.5 text-xs"></i>
+                                <span class="text-[10px] text-slate-600 font-medium leading-relaxed">
+                                    <strong class="text-slate-900 font-bold">Costo Friccional:</strong> Para ajustar la brecha, se requieren inyectar <strong class="text-slate-900 tabular-nums font-bold">{{ "{:,.2f}".format(inf.get('bs_usados_spread', 0)|float) }} Bs extras</strong>. Pérdida cambiaria: <strong class="text-rose-600 tabular-nums">${{ "{:,.2f}".format(inf.get('fuga_live', 0)|float) }}</strong>.
+                                </span>
                             </div>
 
                             {% if inf.get('ahorro_brecha', 0)|float > 0 %}
-                            <div class="flex items-start gap-2 text-[10px]">
-                                <i class="bi bi-arrow-down-right-circle-fill text-emerald-400 mt-0.5"></i>
-                                <span class="text-slate-300">La brecha general de reposición se ha reducido. Esto genera un <b>ahorro de ${{ "{:,.2f}".format(inf.get('ahorro_brecha')|float) }}</b> respecto a la planificación inicial.</span>
+                            <div class="bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl shadow-sm flex items-start gap-2">
+                                <i class="bi bi-arrow-down-right-circle-fill text-emerald-500 mt-0.5 text-xs"></i>
+                                <span class="text-[10px] text-emerald-800 font-medium leading-relaxed">La brecha de reposición bajó. Genera un <strong class="tabular-nums font-bold text-emerald-700">ahorro de +${{ "{:,.2f}".format(inf.get('ahorro_brecha')|float) }}</strong>.</span>
                             </div>
                             {% elif inf.get('ahorro_brecha', 0)|float < 0 %}
-                            <div class="flex items-start gap-2 text-[10px]">
-                                <i class="bi bi-arrow-up-right-circle-fill text-rose-400 mt-0.5"></i>
-                                <span class="text-slate-300">El mercado aceleró la devaluación. Se registra un <b>sobrecosto operativo de ${{ "{:,.2f}".format((inf.get('ahorro_brecha')|float) * -1) }}</b>.</span>
+                            <div class="bg-rose-50 border border-rose-200 p-3.5 rounded-xl shadow-sm flex items-start gap-2">
+                                <i class="bi bi-arrow-up-right-circle-fill text-rose-500 mt-0.5 text-xs"></i>
+                                <span class="text-[10px] text-rose-800 font-medium leading-relaxed">El mercado aceleró. Registra un <strong class="tabular-nums font-bold text-rose-700">sobrecosto de -${{ "{:,.2f}".format((inf.get('ahorro_brecha')|float) * -1) }}</strong>.</span>
                             </div>
                             {% endif %}
 
                             {% if inf.get('riesgo_bs', 0)|float > 0 %}
-                            <div class="flex items-start gap-2 text-[10px]">
-                                <i class="bi bi-exclamation-triangle-fill text-amber-400 mt-0.5"></i>
-                                <span class="text-slate-300">El exceso actual de cobranza en Bolívares está generando una <b>fuga imprevista de ${{ "{:,.2f}".format(inf.get('riesgo_bs')|float) }}</b> al cruzar divisas.</span>
+                            <div class="bg-amber-50 border border-amber-200 p-3.5 rounded-xl shadow-sm flex items-start gap-2">
+                                <i class="bi bi-exclamation-triangle-fill text-amber-500 mt-0.5 text-xs"></i>
+                                <span class="text-[10px] text-amber-800 font-medium leading-relaxed">Exceso de Bs genera fuga de <strong class="tabular-nums font-bold text-amber-700">-${{ "{:,.2f}".format(inf.get('riesgo_bs')|float) }}</strong> al cruzar divisas.</span>
                             </div>
                             {% endif %}
                         </div>
 
-                        <div class="mt-4 pt-3 border-t border-white/10 flex justify-between items-center bg-black/20 p-3 rounded-xl border border-black/30 shadow-inner">
-                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ajuste de Margen Neto</span>
+                        <div class="mt-4 pt-3 border-t border-slate-200 flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Ajuste de Margen Neto</span>
                             <div class="flex items-center gap-1.5">
                                 {% if impacto > 0 %}
-                                    <span class="text-sm font-black text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]">+${{ "{:,.2f}".format(impacto) }}</span>
+                                    <span class="text-sm font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 tabular-nums">+${{ "{:,.2f}".format(impacto) }}</span>
                                 {% elif impacto < 0 %}
-                                    <span class="text-sm font-black text-rose-500 drop-shadow-[0_0_5px_rgba(244,63,94,0.5)]">-${{ "{:,.2f}".format(impacto * -1) }}</span>
+                                    <span class="text-sm font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-100 tabular-nums">-${{ "{:,.2f}".format(impacto * -1) }}</span>
                                 {% else %}
-                                    <span class="text-sm font-black text-slate-400">$0.00</span>
+                                    <span class="text-sm font-black text-slate-500 tabular-nums">$0.00</span>
                                 {% endif %}
                             </div>
                         </div>
                     {% endif %}
                 </div>
             </div>
-            
-            <div class="flex justify-end items-center gap-4 bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl backdrop-blur-sm">
-                <div class="text-right">
-                    <span class="text-[9px] font-bold text-emerald-400 uppercase tracking-widest block mb-1">Caja Líquida Real (Ajustada al Segundo)</span>
-                    <span class="text-2xl font-black text-white tabular-nums drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]">${{ "{:,.2f}".format(proyeccion.get('informe_vivo', {}).get('balance_ajustado', proyeccion.get('balance_neto_usd', 0))|float) }}</span>
+
+            <div class="bg-emerald-50 border border-emerald-200 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden mb-8">
+                <div class="absolute right-0 top-0 h-full w-1/2 bg-gradient-to-l from-emerald-100/50 to-transparent pointer-events-none"></div>
+                <div class="flex items-center gap-4 relative z-10">
+                    <div class="w-16 h-16 rounded-2xl bg-white border border-emerald-100 flex items-center justify-center shadow-sm">
+                        <i class="bi bi-safe2-fill text-emerald-500 text-3xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-black text-emerald-700 uppercase tracking-widest mb-0.5">Caja Líquida Real</p>
+                        <p class="text-[10px] font-bold text-emerald-600/70 uppercase tracking-widest">Ajustada al segundo</p>
+                    </div>
+                </div>
+                <div class="text-4xl md:text-5xl font-black text-emerald-700 tabular-nums tracking-tighter relative z-10">
+                    ${{ "{:,.2f}".format(proyeccion.get('informe_vivo', {}).get('balance_ajustado', proyeccion.get('balance_neto_usd', 0))|float) }}
                 </div>
             </div>
-
         </div>
 
         <div x-show="show_form" x-collapse>
             <form id="simulation-form" method="POST" action="{{ url_for('reporte_proyecciones') }}" class="space-y-6">
                 
-                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
+                <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><i class="bi bi-calendar3"></i></div>
+                            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100"><i class="bi bi-calendar3"></i></div>
                             <div>
                                 <h2 class="text-sm font-bold text-slate-900">Horizonte de Evaluación Temporal</h2>
-                                <p class="text-[10px] font-medium text-slate-500 mt-0.5">Define el ciclo operativo para cruzar cuotas contra egresos registrados.</p>
+                                <p class="text-[10px] font-bold text-slate-500 mt-0.5 uppercase tracking-widest">Define el ciclo operativo.</p>
                             </div>
                         </div>
 
                         <div class="flex flex-col sm:items-end gap-3">
-                            <div class="inline-flex bg-slate-100 rounded-xl p-1 shadow-inner min-w-[200px]">
+                            <div class="inline-flex bg-slate-50 border border-slate-200 rounded-xl p-1 shadow-inner min-w-[200px]">
                                 <label class="flex-1 relative text-center cursor-pointer">
                                     <input type="radio" name="period_mode" value="auto" class="sr-only" x-model="period_mode" {% if period_mode == 'auto' %}checked{% endif %}>
-                                    <div class="py-1.5 px-3 text-[10px] font-bold rounded-lg transition-all" :class="period_mode === 'auto' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'">Ciclo Activo</div>
+                                    <div class="py-2 px-3 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all" :class="period_mode === 'auto' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-500 hover:text-slate-700'">Ciclo Activo</div>
                                 </label>
                                 
                                 {% if is_superadmin %}
                                 <label class="flex-1 relative text-center cursor-pointer">
                                     <input type="radio" name="period_mode" value="manual" class="sr-only" x-model="period_mode" {% if period_mode == 'manual' %}checked{% endif %}>
-                                    <div class="py-1.5 px-3 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5" :class="period_mode === 'manual' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'">
+                                    <div class="py-2 px-3 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-1.5" :class="period_mode === 'manual' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'">
                                         <i class="bi bi-unlock-fill text-[8px]"></i> Manual
                                     </div>
                                 </label>
                                 {% else %}
-                                <div class="py-1.5 px-3 text-[10px] font-bold text-slate-400 flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed" title="Modo reservado exclusivamente para Superadmin">
+                                <div class="py-2 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-400 flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed">
                                     <i class="bi bi-lock-fill text-[8px]"></i> Manual
                                 </div>
                                 {% endif %}
@@ -272,89 +300,104 @@
                         </div>
                     </div>
 
-                    <div class="mt-5 pt-5 border-t border-slate-100">
+                    <div class="mt-6 pt-6 border-t border-slate-100">
                         <div x-show="period_mode === 'auto'" class="flex items-center gap-3 text-sm font-semibold text-slate-700">
-                            <span class="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg border border-blue-100">{{ fecha_inicio.strftime('%d %b %Y') }}</span>
+                            <span class="px-4 py-2 bg-slate-50 text-slate-900 rounded-xl border border-slate-200 shadow-sm tabular-nums">{{ fecha_inicio.strftime('%d %b %Y') }}</span>
                             <i class="bi bi-arrow-right text-slate-300"></i>
-                            <span class="px-3 py-1 bg-blue-50 text-blue-700 rounded-lg border border-blue-100">{{ fecha_fin.strftime('%d %b %Y') }}</span>
+                            <span class="px-4 py-2 bg-slate-50 text-slate-900 rounded-xl border border-slate-200 shadow-sm tabular-nums">{{ fecha_fin.strftime('%d %b %Y') }}</span>
                         </div>
-                        <div x-show="period_mode === 'manual'" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div x-show="period_mode === 'manual'" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div>
-                                <label class="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Fecha Inicial (Corte)</label>
-                                <input type="date" name="start_date" value="{{ fecha_inicio.strftime('%Y-%m-%d') }}" class="fintech-input bg-white !p-2 !text-xs">
+                                <label class="stripe-label pl-1">Fecha Inicial (Corte)</label>
+                                <input type="date" name="start_date" value="{{ fecha_inicio.strftime('%Y-%m-%d') }}" class="stripe-input bg-slate-50">
                             </div>
                             <div>
-                                <label class="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 pl-1">Fecha Final (Cierre)</label>
-                                <input type="date" name="end_date" value="{{ fecha_fin.strftime('%Y-%m-%d') }}" class="fintech-input bg-white !p-2 !text-xs">
+                                <label class="stripe-label pl-1">Fecha Final (Cierre)</label>
+                                <input type="date" name="end_date" value="{{ fecha_fin.strftime('%Y-%m-%d') }}" class="stripe-input bg-slate-50">
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
-                        <div class="flex items-center gap-3 pb-3 border-b border-slate-100">
-                            <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><i class="bi bi-graph-up-arrow"></i></div>
+                    <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+                        <div class="flex items-center gap-3 pb-4 border-b border-slate-100">
+                            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100"><i class="bi bi-graph-up-arrow"></i></div>
                             <h2 class="text-sm font-bold text-slate-900">Estimación de Ingresos y Tasas</h2>
                         </div>
                         
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Tasa BCV (Proyectada)</label>
-                                <input type="number" step="0.0001" name="usd_bcv" class="fintech-input-sm border-blue-200 bg-blue-50/30" value="{{ tasas.bcv_now.usd }}" required>
+                                <label class="stripe-label ml-1">Tasa BCV (Proyectada)</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-black">Bs</span>
+                                    <input type="number" step="0.0001" name="usd_bcv" class="stripe-input pl-8 font-black text-blue-600 bg-blue-50/50 border-blue-200 focus:bg-white" value="{{ tasas.bcv_now.usd }}" required>
+                                </div>
                             </div>
                             <div>
-                                <label class="text-[9px] font-bold text-slate-500 uppercase block mb-1">Tasa Binance (P2P)</label>
-                                <input type="number" step="0.0001" name="binance_prevision" class="fintech-input-sm border-amber-200 bg-amber-50/30" value="{{ tasas.bcv_now.tasa_binance }}" required>
-                            </div>
-                        </div>
-
-                        <div class="pt-4">
-                            <p class="text-[9px] font-bold text-slate-500 uppercase mb-2">Comportamiento esperado del recaudo</p>
-                            <div class="grid grid-cols-3 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                <div class="flex flex-col items-center justify-center">
-                                    <label class="text-[9px] text-slate-500 font-bold mb-1.5">% en Bs</label>
-                                    <input type="text" inputmode="numeric" name="pct_bs" class="fintech-input-sm text-center !px-1 w-16" value="50">
-                                </div>
-                                <div class="flex flex-col items-center justify-center">
-                                    <label class="text-[9px] text-slate-500 font-bold mb-1.5">% en USDT</label>
-                                    <input type="text" inputmode="numeric" name="pct_usdt" class="fintech-input-sm text-center !px-1 w-16" value="30">
-                                </div>
-                                <div class="flex flex-col items-center justify-center">
-                                    <label class="text-[9px] text-slate-500 font-bold mb-1.5">% en USD</label>
-                                    <input type="text" inputmode="numeric" name="pct_usd" class="fintech-input-sm text-center !px-1 w-16" value="20">
+                                <label class="stripe-label ml-1 text-amber-600">Tasa Binance (P2P)</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-black">Bs</span>
+                                    <input type="number" step="0.0001" name="binance_prevision" class="stripe-input pl-8 font-black text-amber-600 bg-amber-50/50 border-amber-200 focus:bg-white" value="{{ tasas.bcv_now.tasa_binance }}" required>
                                 </div>
                             </div>
                         </div>
 
                         <div class="pt-2">
-                            <p class="text-[9px] font-bold text-slate-500 uppercase mb-2">Ingresos Extra (Fuera de cartera)</p>
-                            <div class="grid grid-cols-3 gap-2">
-                                <input type="number" step="0.01" name="ing_efectivo" class="fintech-input-sm" placeholder="+ USD Cash">
-                                <input type="number" step="0.01" name="ing_usdt" class="fintech-input-sm" placeholder="+ USDT Cripto">
-                                <input type="number" step="0.01" name="ing_bs_sc" class="fintech-input-sm" placeholder="+ Bs Banesco">
+                            <p class="stripe-label ml-1 mb-2">Comportamiento esperado del recaudo</p>
+                            <div class="grid grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100 shadow-inner">
+                                <div class="flex flex-col items-center justify-center">
+                                    <label class="text-[9px] text-slate-500 font-bold mb-1.5 uppercase tracking-widest">% en Bs</label>
+                                    <input type="text" inputmode="numeric" name="pct_bs" class="stripe-input-sm text-center !px-1 w-16 font-black tabular-nums" value="50">
+                                </div>
+                                <div class="flex flex-col items-center justify-center">
+                                    <label class="text-[9px] text-slate-500 font-bold mb-1.5 uppercase tracking-widest">% USDT</label>
+                                    <input type="text" inputmode="numeric" name="pct_usdt" class="stripe-input-sm text-center !px-1 w-16 font-black tabular-nums" value="30">
+                                </div>
+                                <div class="flex flex-col items-center justify-center">
+                                    <label class="text-[9px] text-slate-500 font-bold mb-1.5 uppercase tracking-widest">% USD</label>
+                                    <input type="text" inputmode="numeric" name="pct_usd" class="stripe-input-sm text-center !px-1 w-16 font-black tabular-nums" value="20">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-2">
+                            <p class="stripe-label ml-1 mb-2">Ingresos Extra (Fuera de cartera)</p>
+                            <div class="grid grid-cols-3 gap-3">
+                                <input type="number" step="0.01" name="ing_efectivo" class="stripe-input-sm bg-slate-50 tabular-nums font-black text-right" placeholder="+ USD Cash">
+                                <input type="number" step="0.01" name="ing_usdt" class="stripe-input-sm bg-slate-50 tabular-nums font-black text-right" placeholder="+ USDT Cripto">
+                                <input type="number" step="0.01" name="ing_bs_sc" class="stripe-input-sm bg-slate-50 tabular-nums font-black text-right" placeholder="+ Bs Banesco">
                             </div>
                         </div>
                     </div>
 
-                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 flex flex-col h-full">
-                        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                    <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 flex flex-col h-full">
+                        <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
                             <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center"><i class="bi bi-journal-minus"></i></div>
-                                <h2 class="text-sm font-bold text-slate-900">Egresos Adicionales (No planificados)</h2>
+                                <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100"><i class="bi bi-journal-minus"></i></div>
+                                <h2 class="text-sm font-bold text-slate-900">Egresos Variables</h2>
                             </div>
-                            <button type="button" class="text-[10px] font-bold text-blue-600 uppercase" id="btn-add-egdiv">+ Añadir Gasto</button>
+                            <button type="button" class="text-[9px] font-bold text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg uppercase tracking-widest hover:bg-slate-100 transition-colors shadow-sm active:scale-95" id="btn-add-egdiv">+ Añadir</button>
                         </div>
 
-                        <p class="text-[10px] text-slate-500 mb-4 font-medium leading-relaxed">Los gastos fijos ya están importados. Registra aquí solo gastos excepcionales que ocurrirán este mes.</p>
+                        <p class="text-[10px] text-slate-500 mb-4 font-bold uppercase tracking-widest leading-relaxed">Los gastos fijos ya están importados. Registra excepciones del mes.</p>
 
-                        <div class="overflow-hidden flex-1">
+                        <div class="overflow-x-auto flex-1 hide-scrollbar bg-slate-50 border border-slate-100 rounded-xl p-2 shadow-inner">
                             <table class="w-full text-left" id="tbl-egdiv">
-                                <tbody class="divide-y divide-slate-100">
-                                </tbody>
+                                <tbody class="block">
+                                    </tbody>
                             </table>
+                            <div class="text-center py-8 text-slate-400 text-xs font-medium" id="empty-state-egdiv">
+                                No has añadido gastos extraordinarios.
+                            </div>
                         </div>
                     </div>
+                </div>
+
+                <div class="pt-6 pb-12">
+                    <button type="submit" class="w-full py-4 bg-slate-900 text-white text-sm font-black uppercase tracking-widest rounded-2xl shadow-xl hover:bg-slate-800 transition-all active:scale-[0.98] flex items-center justify-center gap-3">
+                        <i class="bi bi-rocket-takeoff text-lg text-emerald-400"></i> Iniciar Ciclo de Proyección
+                    </button>
                 </div>
             </form>
         </div>
@@ -364,7 +407,7 @@
             
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Recaudo Estimado ({{ proyeccion.get('clientes_activos', 0) }} clientes)</p>
+                    <p class="stripe-label !mb-1">Recaudo Estimado <span class="lowercase tracking-normal font-medium ml-1">({{ proyeccion.get('clientes_activos', 0) }} clientes)</span></p>
                     <div class="flex items-baseline gap-1 mt-2">
                         <span class="text-sm font-semibold text-slate-400">$</span>
                         <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums">{{ "{:,.2f}".format(proyeccion.get('recaudo_total_usd', 0)|float) }}</h3>
@@ -372,26 +415,24 @@
                 </div>
                 
                 <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Egresos Computados</p>
+                    <p class="stripe-label !mb-1">Egresos Computados</p>
                     <div class="flex items-baseline gap-1 mt-2">
                         <span class="text-sm font-semibold text-slate-400">$</span>
                         <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums">{{ "{:,.2f}".format(proyeccion.get('egresos_total_usd', 0)|float) }}</h3>
                     </div>
                 </div>
 
-                <div class="bg-rose-50/50 border border-rose-100 rounded-2xl p-5 shadow-sm relative overflow-hidden">
-                    <div class="absolute top-0 right-0 w-32 h-32 bg-rose-500/5 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
-                    <p class="text-[9px] font-bold text-rose-500 uppercase tracking-widest mb-1 relative z-10">Pérdida por Spread (FX)</p>
-                    <div class="flex items-baseline gap-1 mt-2 relative z-10">
-                        <span class="text-sm font-semibold text-rose-400">($</span>
+                <div class="bg-white border-l-4 border-slate-200 border-l-rose-500 rounded-2xl p-5 shadow-sm">
+                    <p class="stripe-label !text-rose-500 !mb-1">Pérdida por Spread (FX)</p>
+                    <div class="flex items-baseline gap-1 mt-2">
+                        <span class="text-sm font-semibold text-rose-400">-$</span>
                         <h3 class="text-2xl font-black text-rose-600 tracking-tight tabular-nums">{{ "{:,.2f}".format(proyeccion.get('perdida_spread_usd', 0)|float) }}</h3>
-                        <span class="text-sm font-semibold text-rose-400">)</span>
                     </div>
                 </div>
 
-                <div class="bg-[#0B1121] border border-slate-800 rounded-2xl p-5 shadow-lg relative overflow-hidden">
-                    <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-500/20 rounded-full blur-2xl pointer-events-none"></div>
-                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 relative z-10">Balance Neto Base</p>
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm relative overflow-hidden">
+                    <div class="absolute -right-4 -bottom-4 w-20 h-20 bg-blue-500/20 rounded-full blur-2xl pointer-events-none"></div>
+                    <p class="stripe-label !text-slate-400 !mb-1 relative z-10">Balance Neto Base</p>
                     <div class="flex items-baseline gap-1 mt-2 relative z-10">
                         <span class="text-sm font-semibold text-slate-500">$</span>
                         <h3 class="text-2xl font-black text-white tracking-tight tabular-nums">{{ "{:,.2f}".format(proyeccion.get('balance_neto_usd', 0)|float) }}</h3>
@@ -400,101 +441,100 @@
             </div>
 
             {% if proyeccion and proyeccion.informe_vivo %}
-            <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm mt-6">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-5">
+            <div class="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm mt-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5 mb-6">
                     <div>
-                        <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                            <i class="bi bi-currency-exchange text-blue-500"></i> Control Estadístico de Spread Cambiario
+                        <h3 class="text-xs font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                            <i class="bi bi-bar-chart-line text-slate-400"></i> Control Estadístico de Spread Cambiario
                         </h3>
-                        <p class="text-xs text-slate-500 font-medium mt-0.5">Comparativa del comportamiento de la brecha: Apertura de Ciclo vs. Mercado Live.</p>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Comparativa de brecha: Apertura vs. Mercado Live.</p>
                     </div>
                     <div>
-                        <span class="text-[10px] font-bold px-2.5 py-1 rounded-full border {{ 'bg-emerald-50 text-emerald-700 border-emerald-200' if proyeccion.informe_vivo.impacto_positivo else 'bg-rose-50 text-rose-700 border-rose-200' }}">
+                        <span class="text-[10px] font-bold px-3 py-1.5 rounded-lg border uppercase tracking-widest shadow-sm {{ 'bg-emerald-50 text-emerald-700 border-emerald-200' if proyeccion.informe_vivo.impacto_positivo else 'bg-rose-50 text-rose-700 border-rose-200' }}">
                             {% if proyeccion.informe_vivo.impacto_positivo %}
-                                <i class="bi bi-arrow-down-right-circle-fill"></i> Brecha Comprimida (Impacto Positivo)
+                                <i class="bi bi-arrow-down-right"></i> Brecha Comprimida (Ahorro)
                             {% else %}
-                                <i class="bi bi-arrow-up-right-circle-fill"></i> Brecha Ampliada (Riesgo de Cobertura)
+                                <i class="bi bi-arrow-up-right"></i> Brecha Ampliada (Riesgo)
                             {% endif %}
                         </span>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    
-                    <div class="bg-slate-50 border border-slate-100 p-4 rounded-xl space-y-3">
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">1. Apertura de Proyección</span>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="bg-slate-50 border border-slate-200 p-6 rounded-2xl space-y-4 shadow-inner">
+                        <div class="flex items-center gap-2 mb-2 border-b border-slate-200 pb-3">
+                            <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                            <span class="stripe-label !mb-0 !text-slate-600">1. Apertura de Proyección</span>
                         </div>
-                        <div class="flex justify-between items-center text-sm font-semibold text-slate-600">
-                            <span>Tasa BCV de Referencia:</span>
+                        <div class="flex justify-between items-center text-sm font-semibold text-slate-500">
+                            <span>Tasa BCV Base:</span>
                             <span class="tabular-nums text-slate-900 font-bold">{{ "%.2f"|format(proyeccion.informe_vivo.t_bcv_proj|default(0.0)) }} Bs</span>
                         </div>
-                        <div class="flex justify-between items-center text-sm font-semibold text-slate-600">
-                            <span>Tasa Previsión Binance:</span>
+                        <div class="flex justify-between items-center text-sm font-semibold text-slate-500">
+                            <span>Tasa Binance Base:</span>
                             <span class="tabular-nums text-slate-900 font-bold">{{ "%.2f"|format(proyeccion.informe_vivo.t_bin_proj|default(0.0)) }} Bs</span>
                         </div>
-                        <div class="pt-2 border-t border-slate-200/60 flex justify-between items-center text-xs font-bold">
+                        <div class="pt-3 flex justify-between items-center text-xs font-bold">
                             <span class="text-slate-500">Spread Inicial Calculado:</span>
-                            <span class="tabular-nums text-slate-700 bg-slate-200/80 px-2.5 py-0.5 rounded font-bold">{{ "%.2f"|format(proyeccion.informe_vivo.spread_apertura_pct|default(0.0)) }}%</span>
+                            <span class="tabular-nums text-slate-700 bg-white border border-slate-200 px-3 py-1 rounded-lg font-black shadow-sm">{{ "%.2f"|format(proyeccion.informe_vivo.spread_apertura_pct|default(0.0)) }}%</span>
                         </div>
                     </div>
 
-                    <div class="bg-slate-50 border border-slate-100 p-4 rounded-xl space-y-3">
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
-                            <span class="text-[10px] font-bold text-blue-500 uppercase tracking-widest">2. Cotización de este Segundo</span>
+                    <div class="bg-white border border-blue-200 p-6 rounded-2xl space-y-4 shadow-sm relative overflow-hidden">
+                        <div class="absolute -right-4 -top-4 w-20 h-20 bg-blue-500/10 rounded-full blur-xl pointer-events-none"></div>
+                        <div class="flex items-center gap-2 mb-2 border-b border-slate-100 pb-3 relative z-10">
+                            <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                            <span class="stripe-label !mb-0 !text-blue-600">2. Cotización de este Segundo</span>
                         </div>
-                        <div class="flex justify-between items-center text-sm font-semibold text-slate-600">
-                            <span>Tasa Oficial BCV Hoy:</span>
-                            <span class="tabular-nums text-slate-900 font-bold">{{ "%.2f"|format(proyeccion.informe_vivo.t_bcv_hoy|default(0.0)) }} Bs</span>
+                        <div class="flex justify-between items-center text-sm font-semibold text-slate-500 relative z-10">
+                            <span>Tasa BCV Hoy:</span>
+                            <span class="tabular-nums text-slate-900 font-black">{{ "%.2f"|format(proyeccion.informe_vivo.t_bcv_hoy|default(0.0)) }} Bs</span>
                         </div>
-                        <div class="flex justify-between items-center text-sm font-semibold text-slate-600">
+                        <div class="flex justify-between items-center text-sm font-semibold text-slate-500 relative z-10">
                             <span>Tasa P2P Binance Hoy:</span>
-                            <span class="tabular-nums text-slate-900 font-bold">{{ "%.2f"|format(proyeccion.informe_vivo.t_bin_hoy|default(0.0)) }} Bs</span>
+                            <span class="tabular-nums text-slate-900 font-black">{{ "%.2f"|format(proyeccion.informe_vivo.t_bin_hoy|default(0.0)) }} Bs</span>
                         </div>
-                        <div class="pt-2 border-t border-slate-200/60 flex justify-between items-center text-xs font-bold">
-                            <span class="text-slate-500">Spread de Mercado Live:</span>
-                            <span class="tabular-nums font-black px-2.5 py-0.5 rounded {{ 'text-emerald-700 bg-emerald-50' if proyeccion.informe_vivo.impacto_positivo else 'text-rose-700 bg-rose-50' }}">{{ "%.2f"|format(proyeccion.informe_vivo.spread_live_pct|default(0.0)) }}%</span>
+                        <div class="pt-3 flex justify-between items-center text-xs font-bold relative z-10">
+                            <span class="text-slate-500">Spread Live:</span>
+                            <span class="tabular-nums font-black px-3 py-1 rounded-lg border shadow-sm {{ 'text-emerald-700 bg-emerald-50 border-emerald-200' if proyeccion.informe_vivo.impacto_positivo else 'text-rose-700 bg-rose-50 border-rose-200' }}">{{ "%.2f"|format(proyeccion.informe_vivo.spread_live_pct|default(0.0)) }}%</span>
                         </div>
                     </div>
-
                 </div>
             </div>
             {% endif %}
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                    <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 pb-3 border-b border-slate-100">Distribución de Ingresos Proyectados</h3>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+                <div class="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                    <h3 class="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-4 pb-4 border-b border-slate-100"><i class="bi bi-pie-chart text-emerald-500 mr-2"></i> Distribución de Ingresos</h3>
                     <ul class="divide-y divide-slate-50">
-                        <li class="flex justify-between items-center py-3.5">
-                            <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> USD Efectivo Físico</span>
+                        <li class="flex justify-between items-center py-4">
+                            <span class="text-xs font-semibold text-slate-600 uppercase tracking-wider flex items-center gap-2"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> USD Físico</span>
                             <div class="flex items-center gap-2">
                                 {% if proyeccion.get('recaudo_desglose', {}).get('USD_EFECTIVO', 0)|float > 0 %}
-                                    <span class="text-[10px] font-medium text-slate-400">$</span>
-                                    <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion['recaudo_desglose']['USD_EFECTIVO']|float) }}</span>
+                                    <span class="text-[10px] font-bold text-slate-400">$</span>
+                                    <span class="font-black text-slate-900 tabular-nums w-24 text-right text-base">{{ "{:,.2f}".format(proyeccion['recaudo_desglose']['USD_EFECTIVO']|float) }}</span>
                                 {% else %}
                                     <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
                                 {% endif %}
                             </div>
                         </li>
-                        <li class="flex justify-between items-center py-3.5">
-                            <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-amber-400"></div> USDT (Binance)</span>
+                        <li class="flex justify-between items-center py-4">
+                            <span class="text-xs font-semibold text-slate-600 uppercase tracking-wider flex items-center gap-2"><div class="w-1.5 h-1.5 rounded-full bg-amber-500"></div> USDT (Cripto)</span>
                             <div class="flex items-center gap-2">
                                 {% if proyeccion.get('recaudo_desglose', {}).get('USDT_BINANCE', 0)|float > 0 %}
-                                    <span class="text-[10px] font-medium text-slate-400">$</span>
-                                    <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion['recaudo_desglose']['USDT_BINANCE']|float) }}</span>
+                                    <span class="text-[10px] font-bold text-slate-400">$</span>
+                                    <span class="font-black text-slate-900 tabular-nums w-24 text-right text-base">{{ "{:,.2f}".format(proyeccion['recaudo_desglose']['USDT_BINANCE']|float) }}</span>
                                 {% else %}
                                     <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
                                 {% endif %}
                             </div>
                         </li>
-                        <li class="flex justify-between items-center py-3.5">
-                            <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-blue-400"></div> Bolívares (Tasa BCV)</span>
+                        <li class="flex justify-between items-center py-4">
+                            <span class="text-xs font-semibold text-slate-600 uppercase tracking-wider flex items-center gap-2"><div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div> Bolívares (BCV)</span>
                             <div class="flex items-center gap-2">
                                 {% if proyeccion.get('recaudo_desglose', {}).get('VES_BCV', 0)|float > 0 %}
-                                    <span class="text-[10px] font-medium text-slate-400">$</span>
-                                    <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion['recaudo_desglose']['VES_BCV']|float) }}</span>
+                                    <span class="text-[10px] font-bold text-slate-400">$</span>
+                                    <span class="font-black text-slate-900 tabular-nums w-24 text-right text-base">{{ "{:,.2f}".format(proyeccion['recaudo_desglose']['VES_BCV']|float) }}</span>
                                 {% else %}
                                     <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
                                 {% endif %}
@@ -503,48 +543,48 @@
                     </ul>
                 </div>
 
-                <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                    <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 pb-3 border-b border-slate-100">Obligaciones (Destinos de Salida)</h3>
+                <div class="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+                    <h3 class="text-[10px] font-bold text-slate-900 uppercase tracking-widest mb-4 pb-4 border-b border-slate-100"><i class="bi bi-box-arrow-right text-rose-500 mr-2"></i> Obligaciones de Salida</h3>
                     <ul class="divide-y divide-slate-50">
-                        <li class="flex justify-between items-center py-3">
-                            <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> Pagos en USD Efectivo</span>
+                        <li class="flex justify-between items-center py-3.5">
+                            <span class="text-xs font-semibold text-slate-600 uppercase tracking-wider flex items-center gap-2"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Pagos en USD</span>
                             <div class="flex items-center gap-2">
                                 {% if proyeccion.get('distribucion_egresos', {}).get('USD_EFECTIVO', 0)|float > 0 %}
-                                    <span class="text-[10px] font-medium text-slate-400">$</span>
-                                    <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion['distribucion_egresos']['USD_EFECTIVO']|float) }}</span>
+                                    <span class="text-[10px] font-bold text-slate-400">$</span>
+                                    <span class="font-black text-slate-900 tabular-nums w-24 text-right text-base">{{ "{:,.2f}".format(proyeccion['distribucion_egresos']['USD_EFECTIVO']|float) }}</span>
                                 {% else %}
                                     <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
                                 {% endif %}
                             </div>
                         </li>
-                        <li class="flex justify-between items-center py-3">
-                            <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-rose-400"></div> Pagos en USDT (Cripto)</span>
+                        <li class="flex justify-between items-center py-3.5">
+                            <span class="text-xs font-semibold text-slate-600 uppercase tracking-wider flex items-center gap-2"><div class="w-1.5 h-1.5 rounded-full bg-rose-500"></div> Pagos en USDT</span>
                             <div class="flex items-center gap-2">
                                 {% if proyeccion.get('distribucion_egresos', {}).get('USDT_BINANCE', 0)|float > 0 %}
-                                    <span class="text-[10px] font-medium text-slate-400">$</span>
-                                    <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion['distribucion_egresos']['USDT_BINANCE']|float) }}</span>
+                                    <span class="text-[10px] font-bold text-slate-400">$</span>
+                                    <span class="font-black text-slate-900 tabular-nums w-24 text-right text-base">{{ "{:,.2f}".format(proyeccion['distribucion_egresos']['USDT_BINANCE']|float) }}</span>
                                 {% else %}
                                     <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
                                 {% endif %}
                             </div>
                         </li>
-                        <li class="flex justify-between items-center py-3">
-                            <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-orange-400"></div> Pagos en Bs (Tasa Binance)</span>
+                        <li class="flex justify-between items-center py-3.5">
+                            <span class="text-xs font-semibold text-slate-600 uppercase tracking-wider flex items-center gap-2"><div class="w-1.5 h-1.5 rounded-full bg-amber-500"></div> Pagos Bs (T. Binance)</span>
                             <div class="flex items-center gap-2">
                                 {% if proyeccion.get('distribucion_egresos', {}).get('VES_BINANCE', 0)|float > 0 %}
-                                    <span class="text-[10px] font-medium text-orange-400">$</span>
-                                    <span class="font-bold text-orange-600 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion['distribucion_egresos']['VES_BINANCE']|float) }}</span>
+                                    <span class="text-[10px] font-bold text-amber-500">$</span>
+                                    <span class="font-black text-amber-600 tabular-nums w-24 text-right text-base">{{ "{:,.2f}".format(proyeccion['distribucion_egresos']['VES_BINANCE']|float) }}</span>
                                 {% else %}
                                     <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
                                 {% endif %}
                             </div>
                         </li>
-                        <li class="flex justify-between items-center py-3">
-                            <span class="text-xs font-semibold text-slate-600 flex items-center gap-2.5"><div class="w-1.5 h-1.5 rounded-full bg-blue-400"></div> Pagos directos en Bs (BCV)</span>
+                        <li class="flex justify-between items-center py-3.5">
+                            <span class="text-xs font-semibold text-slate-600 uppercase tracking-wider flex items-center gap-2"><div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div> Pagos Bs (T. BCV)</span>
                             <div class="flex items-center gap-2">
                                 {% if proyeccion.get('distribucion_egresos', {}).get('VES_BCV', 0)|float > 0 %}
-                                    <span class="text-[10px] font-medium text-slate-400">$</span>
-                                    <span class="font-bold text-slate-900 tabular-nums w-24 text-right tracking-tight">{{ "{:,.2f}".format(proyeccion['distribucion_egresos']['VES_BCV']|float) }}</span>
+                                    <span class="text-[10px] font-bold text-slate-400">$</span>
+                                    <span class="font-black text-slate-900 tabular-nums w-24 text-right text-base">{{ "{:,.2f}".format(proyeccion['distribucion_egresos']['VES_BCV']|float) }}</span>
                                 {% else %}
                                     <span class="text-slate-300 font-medium tabular-nums w-24 text-right">—</span>
                                 {% endif %}
@@ -554,66 +594,72 @@
                 </div>
             </div>
 
-            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mt-6">
-                <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                    <h3 class="text-[10px] font-bold text-slate-800 uppercase tracking-widest">Auditoría de Egresos y Fuga de Capital</h3>
-                    <span class="text-[9px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-1 rounded-md uppercase tracking-widest"><i class="bi bi-broadcast"></i> Valores en Vivo</span>
+            <div class="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden mt-8">
+                <div class="px-6 py-5 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                    <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-shield-check text-slate-400"></i> Auditoría de Egresos y Fuga de Capital</h3>
+                    <span class="text-[9px] font-black text-blue-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg uppercase tracking-widest shadow-sm"><i class="bi bi-broadcast text-blue-500 animate-pulse"></i> Live</span>
                 </div>
                 <div class="overflow-x-auto hide-scrollbar">
                     <table class="w-full text-sm text-left">
                         <thead class="bg-white border-b border-slate-100">
                             <tr>
-                                <th class="py-3.5 px-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest w-1/4">Gasto (Planificado + Manual)</th>
-                                <th class="py-3.5 px-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest w-1/5">Moneda Requerida</th>
-                                <th class="py-3.5 px-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Estatus</th>
-                                <th class="py-3.5 px-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Monto Base</th>
-                                <th class="py-3.5 px-6 text-[9px] font-bold text-rose-500 uppercase tracking-widest text-right">Fuga Real (Spread Live)</th>
-                                <th class="py-3.5 px-6 text-[9px] font-bold text-slate-900 uppercase tracking-widest text-right bg-slate-50">Costo Final (Eq. USD)</th>
+                                <th class="py-4 px-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-1/4">Gasto Planificado</th>
+                                <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-1/5">Moneda Requerida</th>
+                                <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Estatus</th>
+                                <th class="py-4 px-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Monto Base</th>
+                                <th class="py-4 px-6 text-[10px] font-bold text-rose-500 uppercase tracking-widest text-right">Fuga Real (Spread)</th>
+                                <th class="py-4 px-6 text-[10px] font-bold text-slate-900 uppercase tracking-widest text-right bg-slate-50/50">Costo Final (USD)</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100">
+                        <tbody class="divide-y divide-slate-50">
                             {% for e in proyeccion.get('lista_egresos', []) %}
                             {% set p_actual = e.perdida_live if e.perdida_live is defined else e.perdida %}
                             {% set s_actual = e.salida_real_live if e.salida_real_live is defined else e.salida_real %}
                             
-                            <tr class="hover:bg-slate-50/80 transition-colors group">
-                                <td class="px-6 py-3.5 font-semibold text-slate-900">{{ e.titulo }}</td>
-                                <td class="px-4 py-3.5 text-xs font-bold text-slate-500">{{ e.metodo }}</td>
+                            <tr class="hover:bg-slate-50 transition-colors group">
+                                <td class="px-6 py-4 font-bold text-slate-900 tracking-tight">{{ e.titulo }}</td>
+                                <td class="px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">{{ e.metodo|replace('_', ' ') }}</td>
                                 
-                                <td class="px-4 py-3.5 text-center">
-                                    <span class="px-2 py-1 text-[8px] font-bold uppercase tracking-widest rounded-md border {{ e.clase_estado|default('bg-slate-50 text-slate-500 border-slate-200') }}">
+                                <td class="px-4 py-4 text-center">
+                                    <span class="px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border {{ 'bg-emerald-50 text-emerald-700 border-emerald-200' if e.estado_pago == 'Pagado' else 'bg-slate-50 text-slate-500 border-slate-200' }}">
                                         {{ e.estado_pago|default('Planificado') }}
                                     </span>
                                 </td>
                                 
-                                <td class="px-6 py-3.5 whitespace-nowrap">
-                                    <div class="flex items-center justify-end gap-2">
-                                        <span class="text-[10px] text-slate-400 font-medium">$</span>
-                                        <span class="font-bold text-slate-600 tabular-nums text-right w-20 tracking-tight">{{ "{:,.2f}".format(e.monto|float) }}</span>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center justify-end gap-1.5">
+                                        <span class="text-[10px] text-slate-400 font-bold">$</span>
+                                        <span class="font-bold text-slate-700 tabular-nums text-right w-20 tracking-tight">{{ "{:,.2f}".format(e.monto|float) }}</span>
                                     </div>
                                 </td>
                                 
-                                <td class="px-6 py-3.5 whitespace-nowrap">
-                                    <div class="flex items-center justify-end gap-2">
-                                        {% if p_actual|float > 0 %}
-                                            <span class="text-[10px] text-rose-400 font-bold">$</span>
-                                            <span class="font-bold text-rose-500 tabular-nums text-right w-20 tracking-tight">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center justify-end gap-1.5">
+                                        {% if p_actual|float > 0.001 %}
+                                            <span class="text-[10px] text-rose-500 font-bold">$</span>
+                                            <span class="font-black text-rose-600 tabular-nums text-right w-20 tracking-tight bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
                                                 + {{ "{:,.2f}".format(p_actual|float) }}
-                                                {% if e.estado_pago == 'Pagado' %}<i class="bi bi-lock-fill text-[8px] text-rose-300 ml-0.5" title="Spread Congelado (Pagado)"></i>{% endif %}
+                                                {% if e.estado_pago == 'Pagado' %}<i class="bi bi-lock-fill text-[8px] text-rose-300 ml-0.5" title="Spread Congelado"></i>{% endif %}
+                                            </span>
+                                        {% elif p_actual|float < -0.001 %}
+                                            <span class="text-[10px] text-emerald-500 font-bold">$</span>
+                                            <span class="font-black text-emerald-600 tabular-nums text-right w-20 tracking-tight bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                                                {{ "{:,.2f}".format(p_actual|float) }}
+                                                {% if e.estado_pago == 'Pagado' %}<i class="bi bi-lock-fill text-[8px] text-emerald-300 ml-0.5" title="Spread Congelado"></i>{% endif %}
                                             </span>
                                         {% else %}
-                                            <span class="text-slate-300 tabular-nums text-right w-20 font-medium">
-                                                —
-                                                {% if e.estado_pago == 'Pagado' %}<i class="bi bi-lock-fill text-[8px] text-slate-300 ml-0.5" title="Spread Congelado (Pagado)"></i>{% endif %}
+                                            <span class="text-slate-400 tabular-nums text-right w-20 font-bold text-[10px]">
+                                                $0.00
+                                                {% if e.estado_pago == 'Pagado' %}<i class="bi bi-lock-fill text-slate-300 ml-0.5" title="Spread Congelado"></i>{% endif %}
                                             </span>
                                         {% endif %}
                                     </div>
                                 </td>
 
-                                <td class="px-6 py-3.5 whitespace-nowrap bg-slate-50/50">
-                                    <div class="flex items-center justify-end gap-2">
+                                <td class="px-6 py-4 whitespace-nowrap bg-slate-50/50">
+                                    <div class="flex items-center justify-end gap-1.5">
                                         <span class="text-[10px] text-slate-500 font-bold">$</span>
-                                        <span class="font-black text-slate-900 tabular-nums text-right w-24 tracking-tight">{{ "{:,.2f}".format(s_actual|float) }}</span>
+                                        <span class="font-black text-slate-900 tabular-nums text-right w-24 tracking-tight text-base">{{ "{:,.2f}".format(s_actual|float) }}</span>
                                     </div>
                                 </td>
                             </tr>
@@ -631,24 +677,34 @@
 {% endblock %}
 
 {% block scripts_extra %}
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const tblEgDiv = document.getElementById('tbl-egdiv').querySelector('tbody');
   
   document.getElementById('btn-add-egdiv').addEventListener('click', () => {
+    // Si hay un estado vacio, esconderlo
+    const emptyState = document.getElementById('empty-state-egdiv');
+    if(emptyState) emptyState.style.display = 'none';
+
     const tr = document.createElement('tr');
+    tr.className = "hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0 block sm:table-row w-full sm:w-auto p-4 sm:p-0";
     tr.innerHTML = `
-      <td class="py-2 pr-1 w-1/2"><input type="text" name="eg_div_key[]" class="fintech-input-sm" placeholder="Concepto del Gasto" required></td>
-      <td class="py-2 px-1 w-1/4"><input type="number" step="0.01" name="eg_div_monto[]" class="fintech-input-sm text-right font-semibold" placeholder="0.00" required></td>
-      <td class="py-2 px-1 w-1/4">
-        <select name="eg_div_metodo[]" class="form-select-sm">
+      <td class="py-3 pr-2 w-full sm:w-1/2 block sm:table-cell"><input type="text" name="eg_div_key[]" class="stripe-input-sm" placeholder="Concepto del Gasto" required></td>
+      <td class="py-3 px-0 sm:px-2 w-full sm:w-1/4 block sm:table-cell"><input type="number" step="0.01" name="eg_div_monto[]" class="stripe-input-sm text-right tabular-nums font-black" placeholder="0.00" required></td>
+      <td class="py-3 px-0 sm:px-2 w-full sm:w-1/4 block sm:table-cell">
+        <select name="eg_div_metodo[]" class="stripe-select-sm text-slate-600 w-full">
             <option value="USD_EFECTIVO">USD Físico</option>
             <option value="USDT_BINANCE">USDT (Cripto)</option>
             <option value="VES_BINANCE">Bs (Tasa Binance)</option>
             <option value="VES_BCV">Bs (Tasa BCV)</option>
         </select>
       </td>
-      <td class="py-2 pl-2 text-center w-8"><button type="button" class="text-slate-300 hover:text-rose-500" onclick="this.closest('tr').remove()"><i class="bi bi-dash-circle-fill text-base"></i></button></td>`;
+      <td class="py-3 pl-0 sm:pl-2 text-right block sm:table-cell">
+          <button type="button" class="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors shadow-sm ml-auto flex items-center justify-center" onclick="this.closest('tr').remove()" title="Eliminar gasto">
+              <i class="bi bi-trash3-fill text-xs"></i>
+          </button>
+      </td>`;
     tblEgDiv.appendChild(tr);
   });
 });
