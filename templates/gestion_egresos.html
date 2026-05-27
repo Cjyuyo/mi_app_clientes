@@ -22,19 +22,19 @@
         width: 100%;
         min-width: 0;
         background-color: #ffffff;
-        border: 1px solid #e2e8f0; /* border-slate-200 */
-        color: #0f172a; /* text-slate-900 */
+        border: 1px solid #e2e8f0;
+        color: #0f172a;
         font-size: 0.875rem;
         font-weight: 600;
         border-radius: 0.5rem;
         padding: 0.625rem 0.75rem;
-        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* Sombra pasiva */
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
         transition: all 0.2s ease;
     }
     .stripe-input:focus {
         outline: none;
-        border-color: #3b82f6; /* border-blue-500 */
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); /* Halo Fintech */
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
     }
     .stripe-select {
         appearance: none;
@@ -48,9 +48,9 @@
     /* Micro-Caps */
     .stripe-label {
         display: block;
-        font-size: 0.65rem; /* ~10px */
+        font-size: 0.65rem;
         font-weight: 700;
-        color: #64748b; /* slate-500 */
+        color: #64748b;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         margin-bottom: 0.375rem;
@@ -89,6 +89,7 @@
     usar_tasa_custom: false,
     mostrar_tasa: false,
     referencia: '',
+    metodoRaw_recibido: '',
 
     get opcionesCaja() {
         if (this.grupo_cajas === 'BINANCE') {
@@ -439,7 +440,7 @@
                 </div>
 
                 <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                    <div class="px-6 py-4 border-b border-slate-100 bg-white flex justify-between items-center">
                         <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-calendar2-check text-slate-400"></i> Pagos a Ejecutar (Mes Activo)</h3>
                     </div>
                     <div class="overflow-x-auto hide-scrollbar">
@@ -478,15 +479,20 @@
                                         <td class="px-4 py-4 text-right align-middle">
                                             <span class="font-bold text-slate-900 tabular-nums">${{ '%.2f'|format(o.programado) }}</span>
                                         </td>
+                                        
                                         <td class="px-4 py-4 text-center align-middle">
-                                            {% if o.estado_visual == 'Parcial' %}
-                                                <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border bg-amber-50 text-amber-700 border-amber-200">Parcial</span>
+                                            {% set ev = (o.estado_visual|default('Pendiente'))|lower %}
+                                            {% if ev == 'pagado' %}
+                                                <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border bg-emerald-50 text-emerald-700 border-emerald-200">Saldado</span>
+                                            {% elif ev == 'parcial' %}
+                                                <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border bg-blue-50 text-blue-700 border-blue-200">Parcial</span>
+                                            {% elif ev == 'atrasado' %}
+                                                <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border bg-rose-50 text-rose-700 border-rose-200">Atrasado</span>
                                             {% else %}
-                                                <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border {{ 'bg-emerald-50 text-emerald-700 border-emerald-200' if o.estado_visual == 'Pagado' else 'bg-slate-100 text-slate-700 border-slate-200' }}">
-                                                    {{ o.estado_visual|default('Pendiente') }}
-                                                </span>
+                                                <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border bg-amber-50 text-amber-700 border-amber-200">Pendiente</span>
                                             {% endif %}
                                         </td>
+
                                         <td class="px-6 py-4 text-right align-middle">
                                             {% if o.pendiente > 0.0001 %}
                                                 <button type="button" 
