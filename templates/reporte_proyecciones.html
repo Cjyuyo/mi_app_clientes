@@ -311,6 +311,7 @@
                                 <th class="py-3.5 px-5 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Pendiente</th>
                                 <th class="py-3.5 px-5 text-[9px] font-bold text-rose-500 uppercase tracking-widest text-right">Spread Live</th>
                                 <th class="py-3.5 px-6 text-[9px] font-bold text-slate-900 uppercase tracking-widest text-right bg-slate-50/50">Costo Final</th>
+                                <th class="py-3.5 px-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Acción</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
@@ -350,18 +351,9 @@
                                 <td class="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase">{{ e.metodo|replace('_', ' ') }}</td>
                                 
                                 <td class="px-4 py-3 text-center">
-                                    <div class="flex items-center justify-center gap-2">
-                                        <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border {{ e.clase_estado|default('bg-slate-50 text-slate-500 border-slate-200') }}">
-                                            {{ e.estado_pago|default('Planificado') }}
-                                        </span>
-                                        {% if e.ocurrencia_id and (e.monto|float - e.pendiente|float) > 0.001 %}
-                                        <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ e.ocurrencia_id }}', titulo: '{{ e.titulo|escape }}' })" 
-                                                class="w-6 h-6 rounded-md bg-white border border-slate-200 text-blue-500 hover:text-white hover:bg-blue-500 hover:border-blue-500 transition-colors shadow-sm inline-flex items-center justify-center" 
-                                                title="Ver historial de abonos">
-                                            <i class="bi bi-search text-[10px]"></i>
-                                        </button>
-                                        {% endif %}
-                                    </div>
+                                    <span class="px-2 py-1 text-[9px] font-bold uppercase tracking-widest rounded-md border {{ e.clase_estado|default('bg-slate-50 text-slate-500 border-slate-200') }}">
+                                        {{ e.estado_pago|default('Planificado') }}
+                                    </span>
                                 </td>
                                 
                                 <td class="px-5 py-3 whitespace-nowrap">
@@ -412,6 +404,18 @@
                                         </div>
                                         <span class="text-[8px] font-bold text-slate-400 mt-0.5">GASTO EQUIVALENTE</span>
                                     </div>
+                                </td>
+                                
+                                <td class="px-6 py-3 whitespace-nowrap text-center">
+                                    {% if e.ocurrencia_id and (e.monto|float - e.get('pendiente', e.monto)|float) > 0.001 %}
+                                        <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ e.ocurrencia_id }}', titulo: '{{ e.titulo|escape }}' })" 
+                                                class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-600 hover:text-white transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-lg active:scale-95" 
+                                                title="Ver historial de abonos">
+                                            <i class="bi bi-eye-fill"></i> Ver Abonos
+                                        </button>
+                                    {% else %}
+                                        <span class="text-slate-300">—</span>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
@@ -575,17 +579,17 @@
      class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
      x-transition.opacity>
     
-    <div @click.away="isOpen = false" class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden" x-transition.scale.origin.bottom>
+    <div @click.away="isOpen = false" class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]" x-transition.scale.origin.bottom>
         
-        <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+        <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
             <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                <i class="bi bi-receipt text-blue-500"></i> Historial de Liquidaciones
+                <i class="bi bi-receipt text-indigo-500"></i> Detalles y Análisis de Pago
             </h3>
             <button @click="isOpen = false" class="text-slate-400 hover:text-slate-700"><i class="bi bi-x-lg"></i></button>
         </div>
         
-        <div class="p-6 bg-white">
-            <h4 class="text-lg font-black text-slate-900 mb-4" x-text="titulo"></h4>
+        <div class="p-6 bg-white overflow-y-auto hide-scrollbar">
+            <h4 class="text-lg font-black text-slate-900 mb-5" x-text="titulo"></h4>
             
             <div x-show="loading" class="text-center py-8">
                 <i class="bi bi-arrow-repeat animate-spin text-3xl text-slate-300"></i>
@@ -597,6 +601,50 @@
                 <p class="text-sm font-medium text-slate-500 mt-2">No hay abonos registrados.</p>
             </div>
 
+            <div x-show="!loading && pagos.length > 0 && Math.abs(total_spread) > 0.001" class="mb-6 animate-fade-in" x-cloak>
+                <template x-if="total_spread > 0.001">
+                    <div class="p-4 bg-rose-50/60 border border-rose-100 rounded-xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div class="flex items-start sm:items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 mt-1 sm:mt-0 text-lg">
+                                <i class="bi bi-graph-down-arrow"></i>
+                            </div>
+                            <p class="text-xs font-medium text-slate-600 leading-relaxed m-0">
+                                <strong class="text-slate-800">Costo Real:</strong> Para lograr abonar <strong class="text-emerald-600">$<span x-text="total_abono.toFixed(2)"></span></strong> a esta deuda, la empresa consumió fondos equivalentes a <strong class="text-rose-600">$<span x-text="(total_abono + total_spread).toFixed(2)"></span></strong> según la tasa BCV oficial.
+                            </p>
+                        </div>
+                        <div class="text-right shrink-0 bg-white px-4 py-2 rounded-lg border border-rose-100 shadow-sm w-full sm:w-auto">
+                            <span class="block text-[9px] font-black text-rose-400 uppercase tracking-widest mb-0.5">Fuga por Spread</span>
+                            <span class="text-base font-black text-rose-600 tabular-nums">+$<span x-text="total_spread.toFixed(2)"></span></span>
+                        </div>
+                    </div>
+                </template>
+                <template x-if="total_spread < -0.001">
+                    <div class="p-4 bg-emerald-50/60 border border-emerald-100 rounded-xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div class="flex items-start sm:items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 mt-1 sm:mt-0 text-lg">
+                                <i class="bi bi-graph-up-arrow"></i>
+                            </div>
+                            <p class="text-xs font-medium text-slate-600 leading-relaxed m-0">
+                                <strong class="text-slate-800">Costo Real:</strong> Para lograr abonar <strong class="text-emerald-600">$<span x-text="total_abono.toFixed(2)"></span></strong> a esta deuda, la empresa consumió fondos equivalentes a solo <strong class="text-emerald-600">$<span x-text="(total_abono + total_spread).toFixed(2)"></span></strong> según la tasa BCV oficial.
+                            </p>
+                        </div>
+                        <div class="text-right shrink-0 bg-white px-4 py-2 rounded-lg border border-emerald-100 shadow-sm w-full sm:w-auto">
+                            <span class="block text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-0.5">Ahorro Cambiario</span>
+                            <span class="text-base font-black text-emerald-600 tabular-nums">-$<span x-text="Math.abs(total_spread).toFixed(2)"></span></span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+            
+            <div x-show="!loading && pagos.length > 0 && Math.abs(total_spread) <= 0.001" class="mb-6 p-4 bg-slate-50/60 border border-slate-200 rounded-xl shadow-sm flex items-center gap-3 animate-fade-in" x-cloak>
+                <div class="w-10 h-10 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center shrink-0">
+                    <i class="bi bi-check2-circle text-lg"></i>
+                </div>
+                <p class="text-xs font-medium text-slate-600 leading-relaxed m-0">
+                    Pago ejecutado sin variación cambiaria. Monto abonado exacto: <strong class="text-slate-800">$<span x-text="total_abono.toFixed(2)"></span></strong>.
+                </p>
+            </div>
+
             <div x-show="!loading && pagos.length > 0" class="overflow-x-auto border border-slate-200 rounded-xl">
                 <table class="w-full text-sm text-left">
                     <thead class="bg-slate-50 border-b border-slate-100">
@@ -604,8 +652,9 @@
                             <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Fecha</th>
                             <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Caja Origen</th>
                             <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Tasa FX</th>
-                            <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Debitó de Caja</th>
-                            <th class="py-3 px-4 text-[10px] font-bold text-slate-900 uppercase tracking-widest text-right bg-emerald-50">Abono (USD)</th>
+                            <th class="py-3 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-right">Debitó</th>
+                            <th class="py-3 px-4 text-[10px] font-bold text-slate-900 uppercase tracking-widest text-right bg-emerald-50">Abonó (USD)</th>
+                            <th class="py-3 px-4 text-[10px] font-bold text-rose-500 uppercase tracking-widest text-center">Acción</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
@@ -624,8 +673,13 @@
                                 </td>
                                 <td class="py-3 px-4 text-right bg-emerald-50/30">
                                     <span class="font-black text-emerald-600 tabular-nums tracking-tight" x-text="'$' + p.abono_usd.toFixed(2)"></span>
-                                    <div x-show="p.spread > 0.001" class="text-[8px] font-bold text-rose-500 uppercase tracking-widest mt-0.5">Spread: +$<span x-text="p.spread.toFixed(2)"></span></div>
-                                    <div x-show="p.spread < -0.001" class="text-[8px] font-bold text-emerald-500 uppercase tracking-widest mt-0.5">Ahorro: -$<span x-text="Math.abs(p.spread).toFixed(2)"></span></div>
+                                </td>
+                                <td class="py-3 px-4 text-center">
+                                    <form method="POST" :action="'/gestion/egresos/pago/' + p.id + '/eliminar'" onsubmit="return confirm('ALERTA: ¿Deseas ANULAR este pago específico?\nEl monto abonado se descontará de la deuda.');">
+                                        <button type="submit" class="w-6 h-6 rounded bg-white border border-slate-200 text-slate-400 hover:text-rose-500 hover:bg-rose-50 hover:border-rose-200 transition-colors flex items-center justify-center mx-auto shadow-sm" title="Borrar este abono">
+                                            <i class="bi bi-trash3-fill text-[10px]"></i>
+                                        </button>
+                                    </form>
                                 </td>
                             </tr>
                         </template>
@@ -643,6 +697,8 @@
             loading: false,
             titulo: '',
             pagos: [],
+            get total_abono() { return this.pagos.reduce((s, p) => s + parseFloat(p.abono_usd || 0), 0); },
+            get total_spread() { return this.pagos.reduce((s, p) => s + parseFloat(p.spread || 0), 0); },
             openModal(occId, tituloStr) {
                 this.titulo = tituloStr;
                 this.pagos = [];
@@ -652,7 +708,7 @@
                 fetch(`/api/egresos/ocurrencia/${occId}/pagos`)
                     .then(res => res.json())
                     .then(data => {
-                        this.pagos = data;
+                        this.pagos = Array.isArray(data) ? data : [];
                     })
                     .catch(err => console.error('Error cargando abonos:', err))
                     .finally(() => {
