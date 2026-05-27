@@ -25,7 +25,55 @@
 {% endblock %}
 
 {% block body %}
-<div class="min-h-screen bg-slate-50 -m-6 p-6 sm:p-10 font-sans">
+<div class="min-h-screen bg-slate-50 -m-6 p-6 sm:p-10 font-sans" x-data="{
+    isModalOpen: false, occ_id: null, titulo: '', monto_deuda_original: 0,
+    abono_usd: 0, grupo_cajas: 'TODAS', tipo_pago: '', moneda_simbolo: 'USD',
+    total_debitar: 0,
+    tasa_bcv: parseFloat('{{ tasas_hoy.usd if tasas_hoy else 1 }}') || 1,
+    tasa_binance: parseFloat('{{ tasas_hoy.binance if tasas_hoy else 1 }}') || 1,
+    tasa_custom: 1, usar_tasa_custom: false, mostrar_tasa: false, referencia: '',
+    
+    get opcionesCaja() {
+        if (this.grupo_cajas === 'BINANCE') return [{ value: 'BANESCO_BINANCE', label: 'Caja Banesco Bs (Tasa Binance)' }, { value: 'BINANCE_DIRECTO', label: 'Binance Directo (Saldo USDT)' }];
+        if (this.grupo_cajas === 'BCV') return [{ value: 'BANESCO_BCV', label: 'Caja Banesco Bs (Tasa BCV)' }, { value: 'BINANCE_DIRECTO', label: 'Binance Directo (Saldo USDT)' }];
+        if (this.grupo_cajas === 'EFECTIVO') return [{ value: 'EFECTIVO_USD', label: 'Caja Efectivo USD' }];
+        if (this.grupo_cajas === 'BP2P') return [{ value: 'BANESCO_BINANCE', label: 'Caja Banesco Bs (Tasa B.P2P)' }, { value: 'EFECTIVO_USD', label: 'Caja Efectivo USD' }];
+        return [{ value: '', label: '-- Seleccione Caja --' }, { value: 'BANESCO_BINANCE', label: 'Caja Banesco (Tasa Binance)' }, { value: 'BANESCO_BCV', label: 'Caja Banesco (Tasa BCV)' }, { value: 'EFECTIVO_USD', label: 'Efectivo USD' }];
+    },
+
+    abrirModal(id, tit, monto, metodoRaw) {
+        this.occ_id = id; this.titulo = tit; this.monto_deuda_original = parseFloat(monto) || 0;
+        this.abono_usd = this.monto_deuda_original.toFixed(2); this.usar_tasa_custom = false; this.referencia = '';
+        
+        let m = String(metodoRaw || '').toUpperCase().trim();
+        if (m.indexOf('BP2P') !== -1 || m.indexOf('B.P2P') !== -1) { this.grupo_cajas = 'BP2P'; this.tipo_pago = 'BANESCO_BINANCE'; }
+        else if (m.indexOf('BINANCE') !== -1 || m.indexOf('USDT') !== -1) { this.grupo_cajas = 'BINANCE'; this.tipo_pago = 'BANESCO_BINANCE'; }
+        else if (m.indexOf('BCV') !== -1 || m.indexOf('EUR') !== -1 || m.indexOf('BS') !== -1) { this.grupo_cajas = 'BCV'; this.tipo_pago = 'BANESCO_BCV'; }
+        else if (m.indexOf('EFECTIVO') !== -1 || m === 'USD') { this.grupo_cajas = 'EFECTIVO'; this.tipo_pago = 'EFECTIVO_USD'; }
+        else { this.grupo_cajas = 'TODAS'; this.tipo_pago = ''; }
+        
+        this.isModalOpen = true;
+        this.$nextTick(() => { this.cambioCaja(); });
+    },
+    
+    cambioCaja() {
+        if (!this.tipo_pago) { this.moneda_simbolo = 'USD'; this.tasa_custom = 1.0; this.mostrar_tasa = false; this.total_debitar = this.abono_usd; }
+        else if (this.tipo_pago === 'BANESCO_BCV') { this.moneda_simbolo = 'Bs'; this.tasa_custom = this.tasa_bcv; this.mostrar_tasa = true; this.total_debitar = (this.abono_usd * this.tasa_custom).toFixed(2); }
+        else if (this.tipo_pago === 'BANESCO_BINANCE') { this.moneda_simbolo = 'Bs'; this.tasa_custom = this.tasa_binance; this.mostrar_tasa = true; this.total_debitar = (this.abono_usd * this.tasa_custom).toFixed(2); }
+        else if (this.tipo_pago === 'EFECTIVO_USD' || this.tipo_pago === 'BINANCE_DIRECTO') { this.moneda_simbolo = this.tipo_pago === 'EFECTIVO_USD' ? 'USD' : 'USDT'; this.tasa_custom = 1.0; this.mostrar_tasa = false; this.total_debitar = this.abono_usd; }
+        this.usar_tasa_custom = false;
+    },
+
+    calcTotal() {
+        let abono = parseFloat(this.abono_usd) || 0; let tasa = parseFloat(this.tasa_custom) || 1;
+        this.total_debitar = (this.tipo_pago && this.tipo_pago.startsWith('BANESCO')) ? (abono * tasa).toFixed(2) : abono.toFixed(2);
+    },
+
+    calcAbono() {
+        let total = parseFloat(this.total_debitar) || 0; let tasa = parseFloat(this.tasa_custom) || 1;
+        this.abono_usd = (this.tipo_pago && this.tipo_pago.startsWith('BANESCO') && tasa > 0) ? (total / tasa).toFixed(2) : total.toFixed(2);
+    }
+}">
     <div class="max-w-[1400px] mx-auto space-y-8 mb-12">
 
         <div class="bg-slate-900 rounded-3xl shadow-sm border border-slate-800 p-8 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
@@ -36,8 +84,8 @@
                     <i class="bi bi-globe text-2xl text-indigo-400"></i>
                 </div>
                 <div>
-                    <h2 class="text-3xl font-black text-white tracking-tight">Gestión de Egresos Global</h2>
-                    <p class="text-slate-400 text-sm mt-1 font-medium">Buscador maestro, análisis de costo cambiario y auditoría de pagos.</p>
+                    <h2 class="text-3xl font-black text-white tracking-tight">Centro de Mando: Egresos</h2>
+                    <p class="text-slate-400 text-sm mt-1 font-medium">Buscador maestro, pago directo y control de desviación cambiaria.</p>
                 </div>
             </div>
             
@@ -91,31 +139,36 @@
             </form>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                <p class="stripe-label mb-2"><i class="bi bi-cash-stack mr-1"></i> Total Liquidado en USD</p>
-                <div class="flex items-baseline gap-1"><span class="text-lg font-semibold text-slate-400">$</span><h3 class="text-3xl font-black text-slate-900 tracking-tight tabular-nums">{{ "{:,.2f}".format(datos.total_abonado_usd) }}</h3></div>
-                <p class="text-[10px] text-slate-400 font-bold mt-2 uppercase tracking-wider">Suma neta del capital amortizado</p>
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <p class="stripe-label mb-1">Deuda Programada</p>
+                <div class="flex items-baseline gap-1"><span class="text-sm font-semibold text-slate-400">$</span><h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums">{{ "{:,.2f}".format(datos.total_programado) }}</h3></div>
             </div>
-            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm border-l-4 border-l-rose-500">
-                <p class="stripe-label !text-rose-500 mb-2"><i class="bi bi-graph-down-arrow mr-1"></i> Fuga por Spread</p>
-                <div class="flex items-baseline gap-1"><span class="text-lg font-semibold text-rose-400">$</span><h3 class="text-3xl font-black text-rose-600 tracking-tight tabular-nums">{{ "{:,.2f}".format(datos.total_fuga_spread_usd) }}</h3></div>
-                <p class="text-[10px] text-slate-400 font-bold mt-2 uppercase tracking-wider">Pérdida por compras indexadas</p>
+            <div class="bg-white rounded-2xl border border-emerald-200 p-5 shadow-sm bg-emerald-50/30">
+                <p class="stripe-label !text-emerald-600 mb-1">Capital Amortizado</p>
+                <div class="flex items-baseline gap-1"><span class="text-sm font-semibold text-emerald-500">$</span><h3 class="text-2xl font-black text-emerald-700 tracking-tight tabular-nums">{{ "{:,.2f}".format(datos.total_pagado) }}</h3></div>
             </div>
-            <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm border-l-4 border-l-emerald-500">
-                <p class="stripe-label !text-emerald-500 mb-2"><i class="bi bi-graph-up-arrow mr-1"></i> Ahorro Cambiario</p>
-                <div class="flex items-baseline gap-1"><span class="text-lg font-semibold text-emerald-400">$</span><h3 class="text-3xl font-black text-emerald-600 tracking-tight tabular-nums">{{ "{:,.2f}".format(datos.total_ahorro_spread_usd) }}</h3></div>
-                <p class="text-[10px] text-slate-400 font-bold mt-2 uppercase tracking-wider">Margen optimizado a favor</p>
+            <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5 shadow-md">
+                <p class="stripe-label !text-slate-400 mb-1">Balance Pendiente</p>
+                <div class="flex items-baseline gap-1"><span class="text-sm font-semibold text-rose-400">$</span><h3 class="text-2xl font-black text-white tracking-tight tabular-nums">{{ "{:,.2f}".format(datos.total_pendiente) }}</h3></div>
+            </div>
+            <div class="bg-white rounded-2xl border border-rose-200 p-5 shadow-sm bg-rose-50/30">
+                <p class="stripe-label !text-rose-600 mb-1">Fuga Spread</p>
+                <div class="flex items-baseline gap-1"><span class="text-sm font-semibold text-rose-500">$</span><h3 class="text-2xl font-black text-rose-700 tracking-tight tabular-nums">{{ "{:,.2f}".format(datos.total_fuga_spread) }}</h3></div>
+            </div>
+            <div class="bg-white rounded-2xl border border-emerald-200 p-5 shadow-sm bg-emerald-50/30">
+                <p class="stripe-label !text-emerald-600 mb-1">Ahorro Spread</p>
+                <div class="flex items-baseline gap-1"><span class="text-sm font-semibold text-emerald-500">$</span><h3 class="text-2xl font-black text-emerald-700 tracking-tight tabular-nums">{{ "{:,.2f}".format(datos.total_ahorro_spread) }}</h3></div>
             </div>
         </div>
 
         <div class="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-slate-100 bg-white flex justify-between items-center">
                 <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
-                    <i class="bi bi-journal-text text-slate-400"></i> Historial de Movimientos Reales
+                    <i class="bi bi-journal-text text-slate-400"></i> Mapa de Obligaciones
                 </h3>
                 <span class="px-2.5 py-1 bg-slate-50 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-widest rounded-md shadow-sm">
-                    {{ datos.historial|length }} Pagos Planificados
+                    {{ datos.historial|length }} Deudas Encontradas
                 </span>
             </div>
             
@@ -123,70 +176,78 @@
                 <table class="w-full text-sm text-left">
                     <thead class="bg-slate-50/50 border-b border-slate-100">
                         <tr>
-                            <th class="py-4 px-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Concepto</th>
-                            <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Fecha Pago</th>
-                            <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Abono (USD)</th>
-                            <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Salida de Caja</th>
-                            <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Spread Mvto.</th>
-                            <th class="py-4 px-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Acción</th>
+                            <th class="py-4 px-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Deuda / Concepto</th>
+                            <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">F. Programada</th>
+                            <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Estatus</th>
+                            <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Base USD</th>
+                            <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Historial Abonos</th>
+                            <th class="py-4 px-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Acción</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-50">
+                    <tbody class="divide-y divide-slate-100">
                         {% if datos.historial %}
                             {% for row in datos.historial %}
                             <tr class="hover:bg-slate-50/50 transition-colors group">
-                                <td class="py-4 px-6">
-                                    <div class="flex flex-col">
-                                        <span class="font-bold text-slate-900 tracking-tight">{{ row.titulo }}</span>
-                                        <span class="inline-flex items-center mt-1 text-[9px] font-black uppercase tracking-wider text-slate-400">
-                                            {{ row.tipo_egreso }}
-                                        </span>
+                                <td class="py-4 px-6 align-top">
+                                    <div class="font-bold text-slate-900 tracking-tight">{{ row.titulo }}</div>
+                                    <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                                        {{ row.tipo_egreso }} <span class="text-slate-300 mx-1">|</span> <span class="text-blue-500"><i class="bi bi-bank"></i> VÍA: {{ row.metodo_referencia|replace('_', ' ') }}</span>
                                     </div>
-                                </td>
-                                <td class="py-4 px-4 text-center align-middle text-xs font-semibold text-slate-700 tabular-nums">
-                                    {{ row.fecha_operacion.strftime('%d/%m/%Y %I:%M %p') if row.fecha_operacion else '—' }}
-                                </td>
-                                <td class="py-4 px-4 text-right align-middle font-bold text-slate-900 tabular-nums">
-                                    {% if row.abono_usd %}
-                                        ${{ "{:,.2f}".format(row.abono_usd|float) }}
-                                    {% else %}
-                                        $0.00
+                                    {% if row.spread_total > 0.001 %}
+                                        <div class="mt-1.5 inline-flex items-center gap-1 text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100 text-[9px] font-black uppercase tracking-widest" title="Pérdida por spread">
+                                            Spread: +${{ "{:,.2f}".format(row.spread_total) }}
+                                        </div>
+                                    {% elif row.spread_total < -0.001 %}
+                                        <div class="mt-1.5 inline-flex items-center gap-1 text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 text-[9px] font-black uppercase tracking-widest" title="Ahorro cambiario">
+                                            Ahorro: -${{ "{:,.2f}".format(row.spread_total|abs) }}
+                                        </div>
                                     {% endif %}
                                 </td>
-                                <td class="py-4 px-4 text-right align-middle font-medium text-slate-600 tabular-nums">
-                                    {% if row.debitado_real %}
-                                        {{ "{:,.2f}".format(row.debitado_real|float) }} <span class="text-[9px] text-slate-400 font-bold">{{ row.moneda_origen }}</span>
+                                
+                                <td class="py-4 px-4 text-center align-top text-xs font-semibold text-slate-600 tabular-nums">
+                                    <i class="bi bi-calendar-event text-slate-400 mr-1"></i> {{ row.fecha_programada.strftime('%d/%m/%Y') }}
+                                </td>
+                                
+                                <td class="py-4 px-4 text-center align-top">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-widest border {{ row.clase_visual }}">
+                                        {{ row.estado_visual }}
+                                    </span>
+                                </td>
+                                
+                                <td class="py-4 px-4 text-right align-top">
+                                    <div class="font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(row.programado) }}</div>
+                                </td>
+                                
+                                <td class="py-4 px-4 text-right align-top">
+                                    <div class="font-bold text-emerald-600 tabular-nums mb-2">${{ "{:,.2f}".format(row.pagado) }}</div>
+                                    
+                                    {% if row.operaciones %}
+                                    <div class="space-y-1.5 flex flex-col items-end">
+                                        {% for op in row.operaciones %}
+                                        <div class="flex items-center gap-2 bg-white border border-slate-200 px-2 py-1 rounded shadow-sm group-hover:border-slate-300 transition-colors">
+                                            <span class="text-[9px] font-bold text-slate-400">{{ op.fecha_operacion.strftime('%d/%m') if op.fecha_operacion else '' }}</span>
+                                            <span class="text-xs font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(op.abono_usd) }}</span>
+                                            <form method="POST" action="{{ url_for('revertir_pago_egreso', op_id=op.operacion_id) }}" onsubmit="return confirm('ALERTA: ¿Deseas ANULAR este pago específico?\nEl monto abonado se descontará y la deuda volverá a su estado anterior.');">
+                                                <button type="submit" class="text-slate-300 hover:text-rose-500 transition-colors" title="Borrar este abono"><i class="bi bi-trash3-fill"></i></button>
+                                            </form>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
                                     {% else %}
-                                        —
+                                        <span class="text-[9px] font-bold text-slate-300 uppercase tracking-widest">—</span>
                                     {% endif %}
                                 </td>
-                                <td class="py-4 px-4 text-right align-middle font-black tabular-nums text-xs">
-                                    {% if row.spread %}
-                                        {% set sp_val = row.spread|float %}
-                                        {% if sp_val > 0.001 %}
-                                            <span class="inline-flex items-center gap-1 text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-100" title="Pérdida por spread">
-                                                <i class="bi bi-arrow-down-right"></i> +${{ "{:,.2f}".format(sp_val) }}
-                                            </span>
-                                        {% elif sp_val < -0.001 %}
-                                            <span class="inline-flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100" title="Ahorro cambiario">
-                                                <i class="bi bi-arrow-up-right"></i> -${{ "{:,.2f}".format(sp_val|abs) }}
-                                            </span>
-                                        {% else %}
-                                            <span class="text-slate-400">$0.00</span>
-                                        {% endif %}
-                                    {% else %}
-                                        <span class="text-slate-400">—</span>
-                                    {% endif %}
-                                </td>
-                                <td class="py-4 px-6 text-center align-middle">
-                                    {% if row.operacion_id %}
-                                    <form method="POST" action="{{ url_for('revertir_pago_egreso', op_id=row.operacion_id) }}" onsubmit="return confirm('ALERTA: ¿Deseas ANULAR este pago?\n\nEl monto abonado se descontará y la deuda volverá a su estado anterior. Esta acción es irreversible.');">
-                                        <button type="submit" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-all shadow-sm active:scale-95" title="Anular este pago">
-                                            <i class="bi bi-trash3-fill"></i>
+
+                                <td class="py-4 px-6 text-right align-top">
+                                    {% if row.pendiente > 0.0001 %}
+                                        <button @click.prevent="abrirModal('{{ row.ocurrencia_id }}', '{{ row.titulo|escape }}', {{ row.pendiente }}, '{{ row.metodo_referencia }}')" 
+                                                class="inline-flex items-center justify-center gap-1.5 px-4 py-2 w-full rounded-lg bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm active:scale-95">
+                                            <i class="bi bi-wallet2 pointer-events-none"></i> Pagar
                                         </button>
-                                    </form>
                                     {% else %}
-                                    <span class="text-slate-300">—</span>
+                                        <span class="inline-flex items-center justify-center gap-1 w-full px-3 py-2 rounded-lg bg-slate-50 text-slate-400 border border-slate-200 text-[10px] font-bold uppercase tracking-widest cursor-not-allowed">
+                                            <i class="bi bi-check2-all"></i> Completo
+                                        </span>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -196,7 +257,7 @@
                                 <td class="py-16 text-center text-slate-500" colspan="6">
                                     <div class="flex flex-col items-center justify-center space-y-3">
                                         <div class="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center border border-slate-100"><i class="bi bi-inbox text-xl text-slate-400"></i></div>
-                                        <p class="font-medium text-sm text-slate-400">No hay movimientos registrados bajo estos parámetros.</p>
+                                        <p class="font-medium text-sm text-slate-400">No hay deudas planificadas bajo estos parámetros.</p>
                                     </div>
                                 </td>
                             </tr>
@@ -207,5 +268,92 @@
         </div>
 
     </div>
+
+    <div x-show="isModalOpen" style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" x-transition.opacity>
+        <div @click.away="isModalOpen = false" class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden" x-transition.scale.origin.bottom>
+            <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-shield-check text-slate-400"></i> Ejecución de Pago</h3>
+                <button @click="isModalOpen = false" type="button" class="text-slate-400 hover:text-slate-700"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="p-6 bg-white">
+                <p class="text-lg font-black text-slate-900 mb-1 leading-tight" x-text="titulo"></p>
+                <div class="flex items-center gap-2 mb-6">
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Saldo Pendiente:</p>
+                    <span class="text-sm font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200 tabular-nums">$<span x-text="monto_deuda_original.toFixed(2)"></span></span>
+                </div>
+
+                <form :action="'/gestion/egresos/ocurrencias/' + occ_id + '/procesar_pago'" method="POST" class="space-y-5">
+                    <input type="hidden" name="caja_origen" :value="tipo_pago.startsWith('BANESCO') ? 'CAJA_BS_USD' : (tipo_pago === 'BINANCE_DIRECTO' ? 'BINANCE_USDT' : 'EFECTIVO_USD')">
+                    <input type="hidden" name="moneda_origen" :value="tipo_pago.startsWith('BANESCO') ? 'VES' : (tipo_pago === 'BINANCE_DIRECTO' ? 'USDT' : 'USD')">
+                    <input type="hidden" name="tasa_aplicada" :value="tasa_custom">
+                    
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl shadow-sm">
+                        <label class="stripe-label text-slate-700"><i class="bi bi-piggy-bank"></i> Abonar a la Deuda (USD) <span class="text-rose-500">*</span></label>
+                        <div class="relative mt-1">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-black">$</span>
+                            <input type="number" step="0.01" min="0.01" name="abono_usd" x-model="abono_usd" @input="calcTotal()" required class="stripe-input pl-8 font-black text-slate-900 bg-white border-slate-300 text-lg shadow-sm" :max="monto_deuda_original">
+                        </div>
+                        <p class="text-[9px] font-semibold text-slate-500 mt-1.5 ml-1">Monto de la deuda que vas a liquidar. Puedes fraccionarlo.</p>
+                    </div>
+
+                    <div>
+                        <label class="stripe-label">Caja y Tasa a Aplicar</label>
+                        <select name="tipo_pago" x-model="tipo_pago" @change="cambioCaja()" class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300 w-full" required>
+                            <template x-for="op in opcionesCaja" :key="op.value">
+                                <option :value="op.value" x-text="op.label"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <div x-show="mostrar_tasa" x-collapse x-cloak>
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm mt-2">
+                            <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-200">
+                                <label class="stripe-label !mb-0 text-slate-700"><i class="bi bi-arrow-left-right text-slate-400"></i> Tasa de Cambio Operativa</label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <span class="text-[9px] font-bold text-slate-500 uppercase">Editar Tasa Real</span>
+                                    <input type="checkbox" x-model="usar_tasa_custom" @change="calcTotal()" class="sr-only peer">
+                                    <div class="w-7 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-slate-900 relative"></div>
+                                </label>
+                            </div>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">Bs.</span>
+                                <input type="number" step="0.0001" x-model="tasa_custom" :readonly="!usar_tasa_custom" @input="calcTotal()" class="stripe-input pl-8 text-right font-bold transition-all" :class="usar_tasa_custom ? 'bg-white text-slate-900 border-blue-500 ring-2 ring-blue-500/15' : 'bg-slate-100 text-slate-500 cursor-not-allowed border-transparent'">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+                        <div class="space-y-2">
+                            <label class="stripe-label">Total Exacto a Debitar</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-black" x-text="moneda_simbolo"></span>
+                                <input type="number" step="0.01" name="monto_origen" x-model="total_debitar" @input="calcAbono()" class="stripe-input pl-14 pr-2 font-black text-slate-900 bg-white border-slate-300 shadow-inner text-lg w-full tabular-nums" required>
+                            </div>
+                            <div x-show="tipo_pago && tipo_pago.startsWith('BANESCO')" x-collapse>
+                                <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 shadow-sm mt-1">
+                                    <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest"><i class="bi bi-calculator mr-1"></i> Eqv. USD</span>
+                                    <span class="text-xs font-black text-slate-700 tabular-nums">$<span x-text="(parseFloat(total_debitar) / (parseFloat(tasa_custom) || 1)).toFixed(2)"></span></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="stripe-label">N° Referencia / Recibo</label>
+                            <input type="text" name="referencia" x-model="referencia" class="stripe-input font-bold text-slate-900" placeholder="#000000" required>
+                            <div class="text-[9px] font-bold text-slate-400 text-right mt-3" x-show="tipo_pago && tipo_pago.startsWith('BANESCO')">
+                                Tasa Implícita: <span class="text-slate-600" x-text="(parseFloat(abono_usd) > 0 ? (parseFloat(total_debitar) / parseFloat(abono_usd)) : 0).toFixed(4)"></span> Bs/$
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full py-3.5 rounded-xl bg-slate-900 text-white text-sm font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2 mt-4 active:scale-[0.98]">
+                        <i class="bi bi-shield-lock-fill text-slate-400"></i> Procesar Pago
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 {% endblock %}

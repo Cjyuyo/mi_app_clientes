@@ -4632,7 +4632,7 @@ def procesar_pago_egreso_modal(occ_id):
     return redirect(url_for('gestion_egresos'))
 
 # =================================================================================
-# --- GESTIÓN DE EGRESOS GLOBAL (Buscador Histórico y Spread) ---
+# --- GESTIÓN DE EGRESOS GLOBAL (Centro de Mando Maestro) ---
 # =================================================================================
 @app.route('/gestion/egresos/auditoria', methods=['GET'])
 @admin_required
@@ -4646,7 +4646,8 @@ def auditoria_egresos():
     import calendar
     from decimal import Decimal
     
-    hoy = datetime.now()
+    hoy = get_venezuela_current_date()
+    hoy_date = hoy.date() if hasattr(hoy, 'date') else hoy
     primer_dia_mes = hoy.replace(day=1).strftime('%Y-%m-%d')
     ultimo_dia_mes = hoy.replace(day=calendar.monthrange(hoy.year, hoy.month)[1]).strftime('%Y-%m-%d')
 
@@ -4655,24 +4656,39 @@ def auditoria_egresos():
     estado_filtro = request.args.get('estado', '') 
     tipo_filtro = request.args.get('tipo', '') 
 
+    # EXTRAER TASAS VIVAS PARA QUE EL MODAL FUNCIONE AQUÍ TAMBIÉN
+    tasas_hoy = {'usd': 1.0, 'binance': 1.0}
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("SELECT tasa, tasa_binance_p2p FROM historial_tasas_bcv ORDER BY fecha DESC LIMIT 1")
+            trow = cur.fetchone()
+            if trow:
+                tasas_hoy = {'usd': float(trow['tasa'] or 1), 'binance': float(trow['tasa_binance_p2p'] or 1)}
+    except Exception:
+        pass
+
     datos_auditoria = {
-        'total_abonado_usd': Decimal('0.00'),
-        'total_fuga_spread_usd': Decimal('0.00'),
-        'total_ahorro_spread_usd': Decimal('0.00'),
+        'total_programado': Decimal('0.00'),
+        'total_pagado': Decimal('0.00'),
+        'total_pendiente': Decimal('0.00'),
+        'total_fuga_spread': Decimal('0.00'),
+        'total_ahorro_spread': Decimal('0.00'),
         'historial': []
     }
 
     try:
-        with conn.cursor() as cur:
-            # CORRECCIÓN CRÍTICA: Cambiado a LEFT JOIN para que liste TODO lo planificado
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             query = """
                 SELECT 
-                    ot.id as operacion_id,
                     eo.id as ocurrencia_id, 
                     ep.titulo, 
                     ep.tipo as tipo_egreso,
+                    ep.metodo_referencia,
                     eo.estado as estado_pago,
                     eo.fecha_programada,
+                    eo.monto_programado_usd as programado,
+                    eo.monto_pagado_usd as pagado,
+                    ot.id as operacion_id,
                     ot.fecha_operacion,
                     ot.monto_destino as abono_usd,
                     ot.monto_origen as debitado_real,
@@ -4697,30 +4713,88 @@ def auditoria_egresos():
             cur.execute(query, tuple(params))
             registros = cur.fetchall()
 
-            for reg in registros:
-                abono = reg['abono_usd']
-                spread = reg['spread']
+            # Agrupación por Ocurrencia (Deuda) para armar el Centro de Mando
+            ocurrencias_dict = {}
 
-                if abono:
-                    datos_auditoria['total_abonado_usd'] += Decimal(str(abono))
-                if spread:
-                    spread_val = Decimal(str(spread))
-                    if spread_val > 0:
-                        datos_auditoria['total_fuga_spread_usd'] += spread_val
-                    elif spread_val < 0:
-                        datos_auditoria['total_ahorro_spread_usd'] += abs(spread_val)
+            for row in registros:
+                occ_id = row['ocurrencia_id']
 
-                datos_auditoria['historial'].append(reg)
+                # Si la deuda no está en el mapa, la creamos y sumamos sus montos base
+                if occ_id not in ocurrencias_dict:
+                    prog = Decimal(str(row['programado'] or '0.00'))
+                    pag = Decimal(str(row['pagado'] or '0.00'))
+                    pend = max(Decimal('0.00'), prog - pag)
+
+                    datos_auditoria['total_programado'] += prog
+                    datos_auditoria['total_pagado'] += pag
+                    datos_auditoria['total_pendiente'] += pend
+
+                    # Lógica de Estatus Visual Idéntica a la principal
+                    est = (row['estado_pago'] or '').lower()
+                    if est == 'pagado' or pend <= Decimal('0.0001'):
+                        estado_visual = 'Saldado'
+                        clase_visual = 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    elif est == 'parcial':
+                        estado_visual = 'Parcial'
+                        clase_visual = 'bg-blue-50 text-blue-700 border-blue-200'
+                    elif row['fecha_programada'] < hoy_date:
+                        estado_visual = 'Atrasado'
+                        clase_visual = 'bg-rose-50 text-rose-700 border-rose-200'
+                    else:
+                        estado_visual = 'Pendiente'
+                        clase_visual = 'bg-amber-50 text-amber-700 border-amber-200'
+
+                    ocurrencias_dict[occ_id] = {
+                        'ocurrencia_id': occ_id,
+                        'titulo': row['titulo'],
+                        'tipo_egreso': row['tipo_egreso'],
+                        'metodo_referencia': row['metodo_referencia'] or 'NO DEFINIDA',
+                        'estado_visual': estado_visual,
+                        'clase_visual': clase_visual,
+                        'fecha_programada': row['fecha_programada'],
+                        'programado': prog,
+                        'pagado': pag,
+                        'pendiente': pend,
+                        'spread_total': Decimal('0.00'),
+                        'operaciones': []
+                    }
+
+                # Si esta deuda tiene un pago asociado, lo anidamos dentro de ella
+                if row['operacion_id']:
+                    abono = Decimal(str(row['abono_usd'] or '0.00'))
+                    spread = Decimal(str(row['spread'] or '0.00'))
+
+                    ocurrencias_dict[occ_id]['operaciones'].append({
+                        'operacion_id': row['operacion_id'],
+                        'fecha_operacion': row['fecha_operacion'],
+                        'abono_usd': abono,
+                        'debitado_real': Decimal(str(row['debitado_real'] or '0.00')),
+                        'moneda_origen': row['moneda_origen'],
+                        'spread': spread
+                    })
+
+                    ocurrencias_dict[occ_id]['spread_total'] += spread
+                    
+                    if spread > 0:
+                        datos_auditoria['total_fuga_spread'] += spread
+                    elif spread < 0:
+                        datos_auditoria['total_ahorro_spread'] += abs(spread)
+
+            # Convertimos el diccionario a lista para el HTML
+            datos_auditoria['historial'] = list(ocurrencias_dict.values())
 
     except Exception as e:
         flash(f"Error cargando auditoría: {e}", "danger")
+        import traceback
+        logging.error(f"Error en auditoria_egresos: {traceback.format_exc()}")
     finally:
         if conn: conn.close()
 
     return render_template(
         'auditoria_egresos.html', 
         datos=datos_auditoria,
-        filtros={'desde': fecha_desde, 'hasta': fecha_hasta, 'estado': estado_filtro, 'tipo': tipo_filtro}
+        filtros={'desde': fecha_desde, 'hasta': fecha_hasta, 'estado': estado_filtro, 'tipo': tipo_filtro},
+        tasas_hoy=tasas_hoy
     )
 
 # =================================================================================
