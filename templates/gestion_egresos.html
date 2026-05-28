@@ -1,23 +1,55 @@
 {% extends 'base_sidebar.html' %}
+
 {% block title %}Gestión de Egresos | Moto Plan Motors{% endblock %}
 {% block page_title %}Egresos Planificados{% endblock %}
+
 {% block head_extra %}
 <style>
     [x-cloak] { display: none !important; }
     .tabular-nums { font-variant-numeric: tabular-nums; }
-    .custom-scrollbar::-webkit-scrollbar { height: 6px; }
+    
+    /* Scrollbar elegante y visible para modales */
+    .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; border-radius: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
     input[type="number"]::-webkit-inner-spin-button,
     input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     input[type="number"] { -moz-appearance: textfield; }
-    .stripe-input { width: 100%; min-width: 0; background-color: #ffffff; border: 1px solid #e2e8f0; color: #0f172a; font-size: 0.875rem; font-weight: 600; border-radius: 0.5rem; padding: 0.625rem 0.75rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.2s ease; }
-    .stripe-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
-    .stripe-select { appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem; }
-    .stripe-label { display: block; font-size: 0.65rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.375rem; }
+
+    .stripe-input {
+        width: 100%; min-width: 0;
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        color: #0f172a;
+        font-size: 0.875rem;
+        font-weight: 600;
+        border-radius: 0.5rem;
+        padding: 0.625rem 0.75rem;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        transition: all 0.2s ease;
+    }
+    .stripe-input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+    .stripe-select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 0.5rem center;
+        background-repeat: no-repeat;
+        background-size: 1.5em 1.5em;
+        padding-right: 2.5rem;
+    }
+    .stripe-label {
+        display: block; font-size: 0.65rem; font-weight: 700;
+        color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.375rem;
+    }
 </style>
 {% endblock %}
+
 {% block body %}
 <script>
     window.mapaMetodosEgresos = {};
@@ -33,48 +65,57 @@
 </script>
 
 <div class="min-h-screen bg-slate-50 -m-4 sm:-m-6 p-4 sm:p-6 lg:p-10 font-sans" x-data="{
-    activeTab: 'gastos', isModalOpen: false, occ_id: null, titulo: '', monto_deuda_original: 0,
+    activeTab: 'gastos',
+    isModalOpen: false, occ_id: null, titulo: '', monto_deuda_original: 0,
     abono_usd: 0, grupo_cajas: 'TODAS', tipo_pago: '', moneda_simbolo: 'USD', total_debitar: 0,
     tasa_bcv: parseFloat('{{ tasas_hoy.usd if tasas_hoy else 1 }}') || 1,
     tasa_binance: parseFloat('{{ tasas_hoy.binance if tasas_hoy else 1 }}') || 1,
-    tasa_custom: 1, usar_tasa_custom: false, mostrar_tasa: false, referencia: '', metodoRaw_recibido: '',
+    tasa_custom: 1, usar_tasa_custom: false, mostrar_tasa: false, referencia: '',
+    
     get opcionesCaja() {
         if (this.grupo_cajas === 'BINANCE') return [{ value: 'BANESCO_BINANCE', label: 'Caja Banesco Bs (Tasa Binance)' }, { value: 'BINANCE_DIRECTO', label: 'Binance Directo (Saldo USDT)' }];
         if (this.grupo_cajas === 'BCV') return [{ value: 'BANESCO_BCV', label: 'Caja Banesco Bs (Tasa BCV)' }, { value: 'BINANCE_DIRECTO', label: 'Binance Directo (Saldo USDT)' }];
         if (this.grupo_cajas === 'EFECTIVO') return [{ value: 'EFECTIVO_USD', label: 'Caja Efectivo USD' }];
         if (this.grupo_cajas === 'BP2P') return [{ value: 'BANESCO_BINANCE', label: 'Caja Banesco Bs (Tasa B.P2P)' }, { value: 'EFECTIVO_USD', label: 'Caja Efectivo USD' }];
-        return [{ value: '', label: '-- Seleccione una Caja --' }, { value: 'BANESCO_BINANCE', label: 'Caja Banesco Bs (Tasa Binance P2P)' }, { value: 'BANESCO_BCV', label: 'Caja Banesco Bs (Tasa BCV)' }, { value: 'BINANCE_DIRECTO', label: 'Binance Directo (Saldo USDT)' }, { value: 'EFECTIVO_USD', label: 'Caja Efectivo USD' }];
+        return [{ value: '', label: '-- Seleccione Caja --' }, { value: 'BANESCO_BINANCE', label: 'Caja Banesco (Tasa Binance)' }, { value: 'BANESCO_BCV', label: 'Caja Banesco (Tasa BCV)' }, { value: 'EFECTIVO_USD', label: 'Efectivo USD' }];
     },
+
     abrirModal(id, tit, monto, metodoRaw) {
         this.occ_id = id; this.titulo = tit; this.monto_deuda_original = parseFloat(monto) || 0;
         this.abono_usd = this.monto_deuda_original.toFixed(2); this.usar_tasa_custom = false; this.referencia = '';
+        
         let m = String(metodoRaw || '').toUpperCase().trim();
         if (!m || m === 'NONE' || m === 'NULL') {
             let titLower = String(tit || '').toLowerCase().trim();
             m = String(window.mapaMetodosEgresos[titLower] || '').toUpperCase().trim();
         }
+
         if (m.indexOf('BP2P') !== -1 || m.indexOf('B.P2P') !== -1) { this.grupo_cajas = 'BP2P'; this.tipo_pago = 'BANESCO_BINANCE'; }
-        else if (m.indexOf('BINANCE') !== -1 || m.indexOf('CRIPTO') !== -1 || m.indexOf('USDT') !== -1) { this.grupo_cajas = 'BINANCE'; this.tipo_pago = 'BANESCO_BINANCE'; }
-        else if (m.indexOf('BCV') !== -1 || m.indexOf('EUR') !== -1 || m.indexOf('BS') !== -1 || m.indexOf('VES') !== -1) { this.grupo_cajas = 'BCV'; this.tipo_pago = 'BANESCO_BCV'; }
-        else if (m.indexOf('EFECTIVO') !== -1 || m === 'USD' || m === 'USD_EFECTIVO') { this.grupo_cajas = 'EFECTIVO'; this.tipo_pago = 'EFECTIVO_USD'; }
+        else if (m.indexOf('BINANCE') !== -1 || m.indexOf('USDT') !== -1) { this.grupo_cajas = 'BINANCE'; this.tipo_pago = 'BANESCO_BINANCE'; }
+        else if (m.indexOf('BCV') !== -1 || m.indexOf('EUR') !== -1 || m.indexOf('BS') !== -1) { this.grupo_cajas = 'BCV'; this.tipo_pago = 'BANESCO_BCV'; }
+        else if (m.indexOf('EFECTIVO') !== -1 || m === 'USD') { this.grupo_cajas = 'EFECTIVO'; this.tipo_pago = 'EFECTIVO_USD'; }
         else { this.grupo_cajas = 'TODAS'; this.tipo_pago = ''; }
-        this.isModalOpen = true; this.$nextTick(() => { this.cambioCaja(); });
+        
+        this.isModalOpen = true;
+        this.$nextTick(() => { this.cambioCaja(); });
     },
+    
     cambioCaja() {
         if (!this.tipo_pago) { this.moneda_simbolo = 'USD'; this.tasa_custom = 1.0; this.mostrar_tasa = false; this.total_debitar = this.abono_usd; }
         else if (this.tipo_pago === 'BANESCO_BCV') { this.moneda_simbolo = 'Bs'; this.tasa_custom = this.tasa_bcv; this.mostrar_tasa = true; this.total_debitar = (this.abono_usd * this.tasa_custom).toFixed(2); }
         else if (this.tipo_pago === 'BANESCO_BINANCE') { this.moneda_simbolo = 'Bs'; this.tasa_custom = this.tasa_binance; this.mostrar_tasa = true; this.total_debitar = (this.abono_usd * this.tasa_custom).toFixed(2); }
-        else if (this.tipo_pago === 'BINANCE_DIRECTO') { this.moneda_simbolo = 'USDT'; this.tasa_custom = 1.0; this.mostrar_tasa = false; this.total_debitar = this.abono_usd; }
-        else if (this.tipo_pago === 'EFECTIVO_USD') { this.moneda_simbolo = 'USD'; this.tasa_custom = 1.0; this.mostrar_tasa = false; this.total_debitar = this.abono_usd; }
+        else if (this.tipo_pago === 'EFECTIVO_USD' || this.tipo_pago === 'BINANCE_DIRECTO') { this.moneda_simbolo = 'USDT'; this.tasa_custom = 1.0; this.mostrar_tasa = false; this.total_debitar = this.abono_usd; }
         this.usar_tasa_custom = false;
     },
+
     calcTotal() {
         let abono = parseFloat(this.abono_usd) || 0; let tasa = parseFloat(this.tasa_custom) || 1;
-        if (this.tipo_pago && this.tipo_pago.startsWith('BANESCO')) { this.total_debitar = (abono * tasa).toFixed(2); } else { this.total_debitar = abono.toFixed(2); }
+        this.total_debitar = (this.tipo_pago && this.tipo_pago.startsWith('BANESCO')) ? (abono * tasa).toFixed(2) : abono.toFixed(2);
     },
+
     calcAbono() {
         let total = parseFloat(this.total_debitar) || 0; let tasa = parseFloat(this.tasa_custom) || 1;
-        if (this.tipo_pago && this.tipo_pago.startsWith('BANESCO') && tasa > 0) { this.abono_usd = (total / tasa).toFixed(2); } else { this.abono_usd = total.toFixed(2); }
+        this.abono_usd = (this.tipo_pago && this.tipo_pago.startsWith('BANESCO') && tasa > 0) ? (total / tasa).toFixed(2) : total.toFixed(2);
     }
 }">
 
@@ -134,59 +175,152 @@
                     <div x-show="activeTab === 'gastos'" x-cloak class="p-4 sm:p-6">
                         <form action="{{ url_for('gestion_egresos') }}" method="POST" class="space-y-4" x-data="{ tipoEgreso: '', freq: 'Mensual' }">
                             <input type="hidden" name="frecuencia" value="Unico" :disabled="tipoEgreso !== 'Variable'">
+
                             <div>
                                 <label class="stripe-label">Clasificación*</label>
-                                <select name="tipo" x-model="tipoEgreso" required class="stripe-input stripe-select"><option value="" disabled selected>-- Seleccionar --</option><option value="Fijo">Fijo (Recurrente)</option><option value="Variable">Variable (Pago Único)</option></select>
+                                <select name="tipo" x-model="tipoEgreso" required class="stripe-input stripe-select">
+                                    <option value="" disabled selected>-- Seleccionar --</option>
+                                    <option value="Fijo">Fijo (Recurrente)</option>
+                                    <option value="Variable">Variable (Pago Único)</option>
+                                </select>
                             </div>
-                            <div><label class="stripe-label">Título / Concepto*</label><input type="text" name="titulo" required class="stripe-input" placeholder="Ej: Pago de Internet"></div>
+
+                            <div>
+                                <label class="stripe-label">Título / Concepto*</label>
+                                <input type="text" name="titulo" required class="stripe-input" placeholder="Ej: Pago de Internet">
+                            </div>
+
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div class="min-w-0"><label class="stripe-label">Monto (USD)*</label><input type="number" step="0.01" name="monto_base_usd" required class="stripe-input sm:text-right tabular-nums" placeholder="0.00"></div>
+                                <div class="min-w-0">
+                                    <label class="stripe-label">Monto (USD)*</label>
+                                    <input type="number" step="0.01" name="monto_base_usd" required class="stripe-input sm:text-right tabular-nums" placeholder="0.00">
+                                </div>
                                 <div class="min-w-0">
                                     <label class="stripe-label">Moneda / Tasa*</label>
-                                    <select name="metodo_referencia" required class="stripe-input stripe-select pl-2"><option value="USD_EFECTIVO">USD Físico</option><option value="VES_BCV">Bs (BCV)</option><option value="VES_EUR">Bs (EUR)</option><option value="VES_BINANCE">Bs (Binance)</option><option value="VES_BP2P">Bs (Tasa B.P2P)</option><option value="USDT">USDT (Cripto)</option></select>
+                                    <select name="metodo_referencia" required class="stripe-input stripe-select pl-2">
+                                        <option value="USD_EFECTIVO">USD Físico</option>
+                                        <option value="VES_BCV">Bs (BCV)</option>
+                                        <option value="VES_EUR">Bs (EUR)</option>
+                                        <option value="VES_BINANCE">Bs (Binance)</option>
+                                        <option value="VES_BP2P">Bs (Tasa B.P2P)</option>
+                                        <option value="USDT">USDT (Cripto)</option>
+                                    </select>
                                 </div>
                             </div>
-                            <div><label class="stripe-label">Fecha de Inicio de Pago*</label><input type="date" name="fecha_inicio_recurrencia" required class="stripe-input"></div>
+
+                            <div>
+                                <label class="stripe-label">Fecha de Inicio de Pago*</label>
+                                <input type="date" name="fecha_inicio_recurrencia" required class="stripe-input">
+                            </div>
+
                             <div x-show="tipoEgreso === 'Fijo'" x-cloak x-transition class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-4 shadow-sm">
                                 <h4 class="text-[10px] font-bold text-slate-800 uppercase tracking-widest"><i class="bi bi-arrow-repeat text-blue-500 me-1"></i> Frecuencia de Cobro</h4>
-                                <div><label class="stripe-label">Frecuencia*</label><select name="frecuencia" x-model="freq" :disabled="tipoEgreso !== 'Fijo'" required class="stripe-input stripe-select bg-white"><option value="Mensual">Mensual</option><option value="Quincenal">Quincenal</option><option value="Semanal">Semanal</option></select></div>
-                                <div x-show="freq === 'Mensual'" x-cloak><label class="stripe-label">Día exacto del mes*</label><select name="dia_mes" :disabled="tipoEgreso !== 'Fijo' || freq !== 'Mensual'" class="stripe-input stripe-select bg-white w-full"><option value="" disabled selected>-- Elige un día --</option>{% for i in range(1, 32) %}<option value="{{ i }}">Día {{ i }} de cada mes</option>{% endfor %}</select></div>
-                                <div x-show="freq === 'Quincenal'" x-cloak><label class="stripe-label">Días de pago (Separados por coma)*</label><input type="text" name="dias_quincena" value="1,16" :disabled="tipoEgreso !== 'Fijo' || freq !== 'Quincenal'" class="stripe-input bg-white" placeholder="Ej: 1,16"></div>
+                                
+                                <div>
+                                    <label class="stripe-label">Frecuencia*</label>
+                                    <select name="frecuencia" x-model="freq" :disabled="tipoEgreso !== 'Fijo'" required class="stripe-input stripe-select bg-white">
+                                        <option value="Mensual">Mensual</option>
+                                        <option value="Quincenal">Quincenal</option>
+                                        <option value="Semanal">Semanal</option>
+                                    </select>
+                                </div>
+
+                                <div x-show="freq === 'Mensual'" x-cloak>
+                                    <label class="stripe-label">Día exacto del mes*</label>
+                                    <select name="dia_mes" :disabled="tipoEgreso !== 'Fijo' || freq !== 'Mensual'" class="stripe-input stripe-select bg-white w-full">
+                                        <option value="" disabled selected>-- Elige un día --</option>
+                                        {% for i in range(1, 32) %}
+                                        <option value="{{ i }}">Día {{ i }} de cada mes</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div x-show="freq === 'Quincenal'" x-cloak>
+                                    <label class="stripe-label">Días de pago (Separados por coma)*</label>
+                                    <input type="text" name="dias_quincena" value="1,16" :disabled="tipoEgreso !== 'Fijo' || freq !== 'Quincenal'" class="stripe-input bg-white" placeholder="Ej: 1,16">
+                                </div>
+
                                 <div x-show="freq === 'Semanal'" x-cloak>
                                     <label class="stripe-label">Días de la semana*</label>
                                     <div class="flex flex-wrap gap-2">
                                         {% set labels = {'MO':'Lu','TU':'Ma','WE':'Mi','TH':'Ju','FR':'Vi','SA':'Sa','SU':'Do'} %}
                                         {% for d in ['MO','TU','WE','TH','FR','SA','SU'] %}
-                                        <label class="relative cursor-pointer"><input type="checkbox" name="byday" value="{{ d }}" :disabled="tipoEgreso !== 'Fijo' || freq !== 'Semanal'" class="peer sr-only"><div class="w-8 h-8 rounded-lg border border-slate-300 bg-white flex items-center justify-center text-[10px] font-bold text-slate-500 transition-colors peer-checked:bg-slate-900 peer-checked:text-white peer-checked:border-slate-900 hover:bg-slate-100 shadow-sm">{{ labels[d] }}</div></label>
+                                        <label class="relative cursor-pointer">
+                                            <input type="checkbox" name="byday" value="{{ d }}" :disabled="tipoEgreso !== 'Fijo' || freq !== 'Semanal'" class="peer sr-only">
+                                            <div class="w-8 h-8 rounded-lg border border-slate-300 bg-white flex items-center justify-center text-[10px] font-bold text-slate-500 transition-colors peer-checked:bg-slate-900 peer-checked:text-white peer-checked:border-slate-900 hover:bg-slate-100 shadow-sm">
+                                                {{ labels[d] }}
+                                            </div>
+                                        </label>
                                         {% endfor %}
                                     </div>
                                 </div>
                             </div>
-                            <div><label class="stripe-label">Notas / Detalles</label><textarea name="descripcion" rows="2" class="stripe-input resize-none" placeholder="Opcional"></textarea></div>
-                            <div class="pt-2"><button type="submit" class="w-full py-3.5 sm:py-2.5 rounded-lg bg-slate-900 text-white text-sm font-bold shadow-md hover:bg-slate-800 transition-all active:scale-[0.98]">Guardar Gasto</button></div>
+
+                            <div>
+                                <label class="stripe-label">Notas / Detalles</label>
+                                <textarea name="descripcion" rows="2" class="stripe-input resize-none" placeholder="Opcional"></textarea>
+                            </div>
+
+                            <div class="pt-2">
+                                <button type="submit" class="w-full py-3.5 sm:py-2.5 rounded-lg bg-slate-900 text-white text-sm font-bold shadow-md hover:bg-slate-800 transition-all active:scale-[0.98]">
+                                    Guardar Gasto
+                                </button>
+                            </div>
                         </form>
                     </div>
 
                     <div x-show="activeTab === 'devoluciones'" x-cloak class="p-4 sm:p-6">
                         <form action="{{ url_for('gestion_egresos') }}" method="POST" class="space-y-4">
-                            <input type="hidden" name="tipo" value="Devolucion"><input type="hidden" name="frecuencia" value="Unico">
+                            <input type="hidden" name="tipo" value="Devolucion">
+                            <input type="hidden" name="frecuencia" value="Unico">
+
                             <div>
                                 <label class="stripe-label">Cliente Retirado*</label>
-                                <select name="cliente_asociado_id" required class="stripe-input stripe-select"><option value="">-- Seleccionar --</option>{% for cliente in clientes_retiro|default([]) %}<option value="{{ cliente.id }}">{{ cliente.nombre_completo }}</option>{% endfor %}</select>
+                                <select name="cliente_asociado_id" required class="stripe-input stripe-select">
+                                    <option value="">-- Seleccionar --</option>
+                                    {% for cliente in clientes_retiro|default([]) %}
+                                        <option value="{{ cliente.id }}">{{ cliente.nombre_completo }}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
+                            
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div class="min-w-0"><label class="stripe-label">Monto a devolver*</label><input type="number" step="0.01" name="monto_base_usd" required class="stripe-input sm:text-right tabular-nums" placeholder="0.00"></div>
+                                <div class="min-w-0">
+                                    <label class="stripe-label">Monto a devolver*</label>
+                                    <input type="number" step="0.01" name="monto_base_usd" required class="stripe-input sm:text-right tabular-nums" placeholder="0.00">
+                                </div>
                                 <div class="min-w-0">
                                     <label class="stripe-label">Moneda / Tasa*</label>
-                                    <select name="metodo_referencia" required class="stripe-input stripe-select pl-2"><option value="USD_EFECTIVO">USD Físico</option><option value="VES_BCV">Bs (BCV)</option><option value="VES_BINANCE">Bs (Binance)</option><option value="VES_BP2P">Bs (Tasa B.P2P)</option></select>
+                                    <select name="metodo_referencia" required class="stripe-input stripe-select pl-2">
+                                        <option value="USD_EFECTIVO">USD Físico</option>
+                                        <option value="VES_BCV">Bs (BCV)</option>
+                                        <option value="VES_BINANCE">Bs (Binance)</option>
+                                        <option value="VES_BP2P">Bs (Tasa B.P2P)</option>
+                                    </select>
                                 </div>
                             </div>
+
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div class="min-w-0"><label class="stripe-label">Cuotas de pago*</label><input type="number" name="numero_de_cuotas" value="1" min="1" required class="stripe-input text-center"></div>
-                                <div class="min-w-0"><label class="stripe-label">Fecha de Inicio*</label><input type="date" name="fecha_inicio_recurrencia" required class="stripe-input"></div>
+                                <div class="min-w-0">
+                                    <label class="stripe-label">Cuotas de pago*</label>
+                                    <input type="number" name="numero_de_cuotas" value="1" min="1" required class="stripe-input text-center">
+                                </div>
+                                <div class="min-w-0">
+                                    <label class="stripe-label">Fecha de Inicio*</label>
+                                    <input type="date" name="fecha_inicio_recurrencia" required class="stripe-input">
+                                </div>
                             </div>
-                            <div><label class="stripe-label">Motivo / Acuerdo</label><textarea name="descripcion" rows="2" class="stripe-input resize-none" placeholder="Ej: Cancelación de contrato por mutuo acuerdo"></textarea></div>
-                            <div class="pt-2"><button type="submit" class="w-full py-3.5 sm:py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-bold shadow-md hover:bg-indigo-700 transition-all active:scale-[0.98]">Procesar Devolución</button></div>
+
+                            <div>
+                                <label class="stripe-label">Motivo / Acuerdo</label>
+                                <textarea name="descripcion" rows="2" class="stripe-input resize-none" placeholder="Ej: Cancelación de contrato por mutuo acuerdo"></textarea>
+                            </div>
+
+                            <div class="pt-2">
+                                <button type="submit" class="w-full py-3.5 sm:py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-bold shadow-md hover:bg-indigo-700 transition-all active:scale-[0.98]">
+                                    Procesar Devolución
+                                </button>
+                            </div>
                         </form>
                     </div>
 
@@ -196,25 +330,45 @@
             <div class="lg:col-span-2 space-y-6">
 
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                    <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm"><p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Carga Programada</p><div class="flex items-baseline gap-1"><span class="text-sm font-semibold text-slate-400">$</span><h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight tabular-nums">{{ '%.2f'|format(resumen.totales.programado) }}</h3></div></div>
-                    <div class="bg-emerald-50 p-4 sm:p-5 rounded-2xl border border-emerald-200 shadow-sm"><p class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1">Pagado a la fecha</p><div class="flex items-baseline gap-1"><span class="text-sm font-semibold text-emerald-600">$</span><h3 class="text-xl sm:text-2xl font-black text-emerald-700 tracking-tight tabular-nums">{{ '%.2f'|format(resumen.totales.pagado) }}</h3></div></div>
-                    <div class="bg-rose-50 p-4 sm:p-5 rounded-2xl border border-rose-200 shadow-sm"><p class="text-[10px] font-bold text-rose-700 uppercase tracking-widest mb-1">Balance Pendiente</p><div class="flex items-baseline gap-1"><span class="text-sm font-semibold text-rose-600">$</span><h3 class="text-xl sm:text-2xl font-black text-rose-700 tracking-tight tabular-nums">{{ '%.2f'|format(resumen.totales.pendiente) }}</h3></div></div>
+                    <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Carga Programada</p>
+                        <div class="flex items-baseline gap-1">
+                            <span class="text-sm font-semibold text-slate-400">$</span>
+                            <h3 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight tabular-nums">{{ '%.2f'|format(resumen.totales.programado) }}</h3>
+                        </div>
+                    </div>
+                    <div class="bg-emerald-50 p-4 sm:p-5 rounded-2xl border border-emerald-200 shadow-sm">
+                        <p class="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1">Pagado a la fecha</p>
+                        <div class="flex items-baseline gap-1">
+                            <span class="text-sm font-semibold text-emerald-600">$</span>
+                            <h3 class="text-xl sm:text-2xl font-black text-emerald-700 tracking-tight tabular-nums">{{ '%.2f'|format(resumen.totales.pagado) }}</h3>
+                        </div>
+                    </div>
+                    <div class="bg-rose-50 p-4 sm:p-5 rounded-2xl border border-rose-200 shadow-sm">
+                        <p class="text-[10px] font-bold text-rose-700 uppercase tracking-widest mb-1">Balance Pendiente</p>
+                        <div class="flex items-baseline gap-1">
+                            <span class="text-sm font-semibold text-rose-600">$</span>
+                            <h3 class="text-xl sm:text-2xl font-black text-rose-700 tracking-tight tabular-nums">{{ '%.2f'|format(resumen.totales.pendiente) }}</h3>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden w-full">
                     <div class="px-4 sm:px-6 py-4 border-b border-slate-100 bg-white flex justify-between items-center">
-                        <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-calendar2-check text-slate-400"></i> Próximos Pagos</h3>
+                        <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                            <i class="bi bi-calendar2-check text-slate-400"></i> Próximos Pagos
+                        </h3>
                     </div>
                     
-                    <div class="overflow-x-auto w-full custom-scrollbar pb-2">
-                        <table class="w-full text-sm text-left table-fixed">
+                    <div class="w-full">
+                        <table class="w-full text-sm text-left table-auto">
                             <thead class="bg-slate-50/50 border-b border-slate-100">
                                 <tr>
-                                    <th class="w-[30%] sm:w-1/3 py-3 sm:py-4 px-3 sm:px-5 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">Concepto</th>
-                                    <th class="w-[20%] py-3 sm:py-4 px-2 sm:px-3 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Fecha Programada</th>
-                                    <th class="w-[15%] hidden sm:table-cell py-3 sm:py-4 px-2 sm:px-3 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Estatus</th>
-                                    <th class="w-[20%] sm:w-[15%] py-3 sm:py-4 px-2 sm:px-3 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Base USD</th>
-                                    <th class="w-[30%] sm:w-[20%] py-3 sm:py-4 px-3 sm:px-5 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Soportes y Acción</th>
+                                    <th class="py-3 sm:py-4 px-2 sm:px-4 text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">Concepto</th>
+                                    <th class="py-3 sm:py-4 px-2 font-bold text-slate-400 text-[9px] sm:text-[10px] uppercase tracking-widest text-center leading-tight">Fecha<br>Prog.</th>
+                                    <th class="hidden sm:table-cell py-3 sm:py-4 px-2 font-bold text-[9px] sm:text-[10px] text-slate-400 uppercase tracking-widest text-center">Estatus</th>
+                                    <th class="py-3 sm:py-4 px-2 font-bold text-[9px] sm:text-[10px] text-slate-400 uppercase tracking-widest text-right leading-tight">Monto<br>USD</th>
+                                    <th class="py-3 sm:py-4 px-2 sm:px-4 font-bold text-[9px] sm:text-[10px] text-slate-400 uppercase tracking-widest text-center w-[85px] sm:w-[95px] leading-tight">Soportes y<br>Acción</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
@@ -222,12 +376,13 @@
                                     {% for item in resumen.items %}
                                         {% for o in item.ocurrencias %}
                                         {% set is_dict = (o is mapping) %}
-                                        {% set o_prog = o.get('programado', 0)|float if is_dict else o.programado|default(0)|float %}
-                                        {% set o_pend = o.get('pendiente', o_prog)|float if is_dict else o.pendiente|default(o_prog)|float %}
+                                        {% set o_prog = o['programado']|float if is_dict else o.programado|default(0)|float %}
+                                        {% set o_pend = o['pendiente']|float if is_dict else o.pendiente|default(o_prog)|float %}
                                         {% set o_pag = o_prog - o_pend %}
-                                        {% set ev = (o.get('estado_visual', 'Pendiente') if is_dict else o.estado_visual|default('Pendiente'))|lower %}
-                                        {% set occ_id = o.get('ocurrencia_id') if is_dict else o.ocurrencia_id %}
-                                        {% set f_prog_obj = o.get('fecha_programada') if is_dict else o.fecha_programada %}
+                                        {% set ev = (o['estado_visual'] if is_dict else o.estado_visual|default('Pendiente'))|lower %}
+                                        {% set occ_id = o['ocurrencia_id'] if is_dict else o.ocurrencia_id %}
+                                        {% set f_prog_obj = o['fecha_programada'] if is_dict else o.fecha_programada %}
+                                        
                                         {% set titulo_escape = item.titulo|escape %}
                                         {% set i_titulo = item.get('titulo') if item is mapping else item.titulo %}
                                         {% set i_frec = item.get('frecuencia') if item is mapping else item.frecuencia %}
@@ -236,16 +391,10 @@
                                         {% set metodo_ref = i_metodo or o_metodo or '' %}
 
                                         <tr class="hover:bg-slate-50 transition-colors duration-200 group">
-                                            <td class="py-3 sm:py-4 px-3 sm:px-5 align-middle">
-                                                <div class="font-bold text-slate-900 leading-tight whitespace-normal break-words min-w-[120px]">{{ i_titulo }}</div>
-                                                <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 whitespace-nowrap"
-                                                     x-data="{ 
-                                                        metodo: '{{ metodo_ref }}', 
-                                                        init() { 
-                                                            if (!this.metodo) this.metodo = window.mapaMetodosEgresos['{{ titulo_escape|lower|trim }}'] || 'NO DEFINIDA'; 
-                                                        } 
-                                                     }">
-                                                    Frec: {{ i_frec }} <span class="text-slate-300 mx-1">|</span> <span class="text-blue-500"><i class="bi bi-bank"></i> <span x-text="metodo.replace(/_/g, ' ')"></span></span>
+                                            <td class="py-3 sm:py-4 px-2 sm:px-4 align-middle">
+                                                <div class="font-bold text-slate-900 leading-tight whitespace-normal break-words max-w-[140px] sm:max-w-[200px]">{{ i_titulo }}</div>
+                                                <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                                                    Frec: {{ i_frec }} <span class="text-slate-300 mx-1">|</span> <span class="text-blue-500 whitespace-normal break-words"><i class="bi bi-bank"></i> {{ metodo_ref|replace('_', ' ') }}</span>
                                                 </div>
                                                 <div class="sm:hidden mt-1.5">
                                                     {% if ev == 'pagado' or ev == 'saldado' %}
@@ -260,15 +409,15 @@
                                                 </div>
                                             </td>
                                             
-                                            <td class="py-3 sm:py-4 px-2 sm:px-3 align-middle text-center">
+                                            <td class="py-3 sm:py-4 px-2 align-middle text-center">
                                                 <div class="flex flex-col items-center justify-center gap-1 w-full">
                                                     <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap" title="Fecha límite programada">
-                                                        Prog: <span class="tabular-nums text-slate-700">{{ f_prog_obj.strftime('%d %b %y') if f_prog_obj else '' }}</span>
+                                                        Prog: <span class="tabular-nums text-slate-700">{% if f_prog_obj %}{{ f_prog_obj.strftime('%d %b %y') if not f_prog_obj is string else f_prog_obj }}{% else %}—{% endif %}</span>
                                                     </div>
-                                                </div>
+                                                    </div>
                                             </td>
 
-                                            <td class="hidden sm:table-cell py-3 sm:py-4 px-2 sm:px-3 text-center align-middle">
+                                            <td class="hidden sm:table-cell py-3 sm:py-4 px-2 text-center align-middle">
                                                 {% if ev == 'pagado' or ev == 'saldado' %}
                                                     <span class="inline-flex items-center px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-widest border bg-emerald-50 text-emerald-700 border-emerald-200 whitespace-nowrap">Saldado</span>
                                                 {% elif ev == 'parcial' %}
@@ -280,47 +429,48 @@
                                                 {% endif %}
                                             </td>
                                             
-                                            <td class="py-3 sm:py-4 px-2 sm:px-3 text-right align-middle">
-                                                <div class="flex flex-col items-end gap-1">
-                                                    <span class="font-black text-slate-900 text-[11px] sm:text-sm tabular-nums">${{ "{:,.2f}".format(o_prog) }}</span>
+                                            <td class="py-3 sm:py-4 px-2 text-right align-middle whitespace-nowrap">
+                                                <div class="flex flex-col items-end gap-0.5">
+                                                    <span class="font-black text-slate-900 tabular-nums" title="Base">${{ "{:,.2f}".format(o_prog) }}</span>
                                                     {% if o_pag > 0.001 %}
-                                                        <span class="text-[9px] font-bold text-emerald-600 tabular-nums leading-none" title="Abonado">Ab: ${{ "{:,.2f}".format(o_pag) }}</span>
+                                                        <span class="text-[9px] font-bold text-emerald-600 tabular-nums mt-0.5" title="Abonado">Ab: ${{ "{:,.2f}".format(o_pag) }}</span>
                                                     {% endif %}
                                                 </div>
                                             </td>
 
-                                            <td class="py-3 sm:py-4 px-3 sm:px-5 align-middle text-center">
-                                                <div class="flex flex-col lg:flex-row items-center justify-center gap-1.5 w-full mx-auto">
+                                            <td class="py-3 sm:py-4 px-2 sm:px-4 text-center align-middle w-[85px] sm:w-[95px]">
+                                                <div class="flex flex-col items-center justify-center gap-1.5 w-full mx-auto">
+                                                    
                                                     {% if o_pag > 0.001 %}
                                                         {% if o_pend <= 0.001 %}
                                                             <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ occ_id }}', titulo: '{{ titulo_escape }}' })" 
-                                                                    class="h-7 lg:h-8 w-full lg:w-auto inline-flex items-center justify-center gap-1 px-2.5 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap min-w-[75px]" 
+                                                                    class="h-7 w-full inline-flex items-center justify-center gap-1 px-2 bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap" 
                                                                     title="Ver Pago Completo">
-                                                                <i class="bi bi-check-circle text-[10px] leading-none"></i> Ver Pago
+                                                                <i class="bi bi-check-circle text-[10px] leading-none"></i> Pago
                                                             </button>
                                                         {% else %}
                                                             <button @click.prevent="$dispatch('open-historial-abonos', { occId: '{{ occ_id }}', titulo: '{{ titulo_escape }}' })" 
-                                                                    class="h-7 lg:h-8 w-full lg:w-auto inline-flex items-center justify-center gap-1 px-2.5 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-600 hover:text-white transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap min-w-[75px]" 
+                                                                    class="h-7 w-full inline-flex items-center justify-center gap-1 px-2 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-600 hover:text-white transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap" 
                                                                     title="Ver Abonos Parciales">
-                                                                <i class="bi bi-folder2-open text-[10px] leading-none"></i> Ver Abono
+                                                                <i class="bi bi-folder2-open text-[10px] leading-none"></i> Abono
                                                             </button>
                                                         {% endif %}
                                                     {% else %}
-                                                        <span class="h-7 lg:h-8 w-full lg:w-auto inline-flex items-center justify-center px-2.5 bg-slate-50 text-slate-400 border border-slate-200 text-[9px] font-bold uppercase tracking-widest rounded-md cursor-not-allowed whitespace-nowrap min-w-[75px]">
+                                                        <span class="h-7 w-full inline-flex items-center justify-center px-2 bg-slate-50 text-slate-400 border border-slate-200 text-[9px] font-bold uppercase tracking-widest rounded-md cursor-not-allowed whitespace-nowrap">
                                                             Sin registro
                                                         </span>
                                                     {% endif %}
-
+                                                    
                                                     {% if o_pend > 0.0001 %}
                                                         <button type="button" 
                                                                 data-titulo="{{ i_titulo|escape }}"
                                                                 data-metodo="{{ metodo_ref }}"
                                                                 @click.prevent="abrirModal('{{ occ_id }}', $event.currentTarget.dataset.titulo, {{ o_pend }}, $event.currentTarget.dataset.metodo)" 
-                                                                class="h-7 lg:h-8 w-full lg:w-auto inline-flex items-center justify-center gap-1.5 px-3 bg-slate-900 text-white text-[9px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all shadow-sm rounded-md active:scale-95 whitespace-nowrap min-w-[75px]">
+                                                                class="h-7 w-full inline-flex items-center justify-center gap-1.5 px-2 bg-slate-900 text-white hover:bg-slate-800 transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap">
                                                             <i class="bi bi-wallet2 text-[10px] leading-none pointer-events-none"></i> Pagar
                                                         </button>
                                                     {% else %}
-                                                        <span class="h-7 lg:h-8 w-full lg:w-auto inline-flex items-center justify-center gap-1.5 px-3 bg-emerald-50 text-emerald-600 border border-emerald-200 text-[9px] font-bold uppercase tracking-widest rounded-md cursor-not-allowed whitespace-nowrap min-w-[75px]">
+                                                        <span class="h-7 w-full inline-flex items-center justify-center gap-1.5 px-2 bg-emerald-50 text-emerald-600 border border-emerald-200 text-[9px] font-bold uppercase tracking-widest rounded-md cursor-not-allowed whitespace-nowrap">
                                                             <i class="bi bi-shield-check text-[10px] leading-none"></i> Completo
                                                         </span>
                                                     {% endif %}
@@ -611,8 +761,8 @@
         Alpine.store('paymentModal', {
             isOpen: false, occ_id: null, titulo: '', monto_deuda_original: 0,
             abono_usd: 0, grupo_cajas: 'TODAS', tipo_pago: '', moneda_simbolo: 'USD', total_debitar: 0,
-            tasa_bcv: parseFloat('{{ tasas_hoy.usd if tasas_hoy else 1 }}') || 1,
-            tasa_binance: parseFloat('{{ tasas_hoy.binance if tasas_hoy else 1 }}') || 1,
+            tasa_bcv: parseFloat('{{ tasas.bcv_now.usd if tasas and tasas.bcv_now else 1 }}') || 1,
+            tasa_binance: parseFloat('{{ tasas.bcv_now.tasa_binance if tasas and tasas.bcv_now else 1 }}') || 1,
             tasa_custom: 1, usar_tasa_custom: false, mostrar_tasa: false, referencia: '',
             get opcionesCaja() {
                 if (this.grupo_cajas === 'BINANCE') return [{ value: 'BANESCO_BINANCE', label: 'Caja Banesco Bs (Tasa Binance)' }, { value: 'BINANCE_DIRECTO', label: 'Binance Directo (Saldo USDT)' }];
