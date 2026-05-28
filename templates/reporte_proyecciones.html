@@ -17,6 +17,7 @@
 {% block body %}
 <div class="max-w-[1400px] mx-auto space-y-4 sm:space-y-5 mb-10 animate-fade-in">
     
+    <!-- HEADER COMPACTO FINTECH CON PROTECCIÓN DE CICLO -->
     <div class="bg-[#0B1121] rounded-2xl shadow-lg border border-slate-800 p-5 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-4">
         <div class="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
         
@@ -30,21 +31,22 @@
             </div>
         </div>
         
+        <!-- Controles de Período / Protección de Ciclo Activo -->
         <div class="relative z-10 w-full md:w-auto shrink-0 bg-slate-800/40 p-2 rounded-xl border border-slate-700/50 backdrop-blur-sm">
             {% if proyeccion_estado == 'Activa' %}
                 <div class="flex items-center gap-3 px-2">
                     <div class="flex items-center gap-2 bg-emerald-500/20 border border-emerald-500/50 text-emerald-400 px-3 py-1.5 rounded-lg shadow-inner">
-                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                        <span class="text-xs font-bold uppercase tracking-widest">Ciclo Oficial Activo</span>
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span class="text-[10px] font-bold uppercase tracking-widest">Ciclo Oficial Activo</span>
                     </div>
-                    <div class="text-white text-xs font-bold px-2 py-1.5 bg-slate-900 rounded-lg border border-slate-700">
+                    <div class="text-white text-[11px] font-bold px-2 py-1.5 bg-slate-900 rounded-lg border border-slate-700">
                         {{ fecha_inicio.strftime('%d/%m/%Y') }} <span class="text-slate-500 mx-1">-</span> {{ fecha_fin.strftime('%d/%m/%Y') }}
                     </div>
                     {% if is_superadmin %}
                     <form method="POST" action="{{ url_for('reporte_proyecciones') }}" onsubmit="return confirm('ATENCIÓN: ¿Estás seguro de cerrar y eliminar este ciclo activo? Esto requerirá planificar un ciclo nuevo.');" class="m-0 p-0">
                         <input type="hidden" name="action" value="reset">
                         <input type="hidden" name="start_date" value="{{ fecha_inicio.strftime('%Y-%m-%d') }}">
-                        <button type="submit" class="bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold py-1.5 px-3 rounded-lg transition-colors shadow-lg shadow-rose-500/20 flex items-center gap-1.5">
+                        <button type="submit" class="bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-bold py-1.5 px-2.5 rounded-lg transition-colors shadow-lg shadow-rose-500/20 flex items-center gap-1.5">
                             <i class="bi bi-power"></i> Cerrar
                         </button>
                     </form>
@@ -58,7 +60,7 @@
                         <span class="text-slate-500 text-xs px-1">-</span>
                         <input type="date" name="end_date" value="{{ fecha_fin.strftime('%Y-%m-%d') }}" class="bg-transparent border-none text-white text-[11px] font-bold px-3 py-1.5 focus:ring-0 outline-none w-28">
                     </div>
-                    <button type="submit" name="action" value="preview" class="bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold py-1.5 px-3 rounded-lg transition-colors shadow-lg shadow-orange-500/20">
+                    <button type="submit" name="action" value="preview" class="bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-bold py-1.5 px-3 rounded-lg transition-colors shadow-lg shadow-orange-500/20">
                         <i class="bi bi-play-fill text-sm"></i> Simular
                     </button>
                 </form>
@@ -66,9 +68,11 @@
         </div>
     </div>
 
+    <!-- PASO 2: Simulación y Activación -->
     {% if simulacion_realizada %}
     <div class="animate-fade-in space-y-4 sm:space-y-5">
         
+        <!-- Call to Action: Iniciar Ciclo (Se oculta si ya está Activo) -->
         {% if proyeccion_estado != 'Activa' %}
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-emerald-50 border border-emerald-200 py-3 px-5 rounded-2xl shadow-sm">
             <div class="flex items-center gap-3">
@@ -80,175 +84,190 @@
             </div>
             <form method="POST" action="{{ url_for('reporte_proyecciones') }}" class="shrink-0 w-full sm:w-auto">
                 <input type="hidden" name="start_date" value="{{ fecha_inicio.strftime('%Y-%m-%d') }}">
-                <button type="submit" name="action" value="activate" class="w-full px-6 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold shadow-md hover:bg-emerald-700 transition-all active:scale-95 flex items-center justify-center gap-2">
+                <button type="submit" name="action" value="activate" class="w-full px-6 py-2 rounded-lg bg-emerald-600 text-white text-[11px] font-bold shadow-md hover:bg-emerald-700 transition-all active:scale-95 flex items-center justify-center gap-2">
                     <i class="bi bi-rocket-takeoff-fill"></i> Iniciar Ciclo Oficial
                 </button>
             </form>
         </div>
         {% endif %}
 
+        <!-- KPIs PRINCIPALES UNIFICADOS (Estilo Terminal Bancaria Compacta) -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y lg:divide-y-0 lg:divide-x divide-slate-100 grid grid-cols-1 lg:grid-cols-4">
             
+            <!-- Recaudo -->
             <div class="p-4 sm:p-5 flex flex-col justify-center group hover:bg-slate-50/50 transition-colors">
                 <div class="flex justify-between items-center mb-2">
                     <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-bullseye text-blue-500"></i> Recaudo vs Meta</p>
                     <span class="text-[10px] font-bold text-blue-600">{{ "%.1f"|format(proyeccion.progreso_recaudo_pct | default(0)) }}%</span>
                 </div>
-                <div class="flex items-baseline gap-2 mt-1">
-                    <h3 class="text-3xl font-black text-slate-900 tracking-tight tabular-nums">${{ "{:,.2f}".format(proyeccion.recaudo_real_usd | default(0)) }}</h3>
-                    <span class="text-base font-bold text-slate-400">/ ${{ "{:,.0f}".format(proyeccion.recaudo_total_usd | default(0)) }}</span>
+                <div class="flex items-baseline gap-1 mt-1">
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums">${{ "{:,.2f}".format(proyeccion.recaudo_real_usd | default(0)) }}</h3>
+                    <span class="text-xs font-bold text-slate-400">/ ${{ "{:,.0f}".format(proyeccion.recaudo_total_usd | default(0)) }}</span>
                 </div>
-                <div class="w-full bg-slate-100 rounded-full h-1.5 mt-3 overflow-hidden">
-                    <div class="bg-blue-500 h-1.5 rounded-full" style="width: {{ proyeccion.progreso_recaudo_pct if (proyeccion.progreso_recaudo_pct | default(0)) <= 100 else 100 }}%"></div>
+                <div class="w-full bg-slate-100 rounded-full h-1 mt-3 overflow-hidden">
+                    <div class="bg-blue-500 h-1 rounded-full" style="width: {{ proyeccion.progreso_recaudo_pct if (proyeccion.progreso_recaudo_pct | default(0)) <= 100 else 100 }}%"></div>
                 </div>
             </div>
 
+            <!-- Breakeven -->
             <div class="p-4 sm:p-5 flex flex-col justify-center group hover:bg-slate-50/50 transition-colors">
                 <div class="flex justify-between items-center mb-2">
                     <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-calculator-fill text-orange-500"></i> Breakeven</p>
                     <span class="text-[9px] font-semibold text-slate-400">Gastos + Spread</span>
                 </div>
-                <h3 class="text-3xl font-black text-slate-900 tracking-tight mt-1 tabular-nums">${{ "{:,.2f}".format((proyeccion.egresos_total_usd | default(0)) + (proyeccion.perdida_spread_usd | default(0))) }}</h3>
+                <h3 class="text-2xl font-black text-slate-900 tracking-tight mt-1 tabular-nums">${{ "{:,.2f}".format((proyeccion.egresos_total_usd | default(0)) + (proyeccion.perdida_spread_usd | default(0))) }}</h3>
             </div>
 
+            <!-- Caja Liquida -->
             <div class="p-4 sm:p-5 flex flex-col justify-center group hover:bg-slate-50/50 transition-colors">
                 <div class="flex justify-between items-center mb-2">
                     <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-safe2-fill text-emerald-500"></i> Caja Líquida</p>
                     <span class="text-[9px] font-semibold text-slate-400">Ajustada</span>
                 </div>
-                <h3 class="text-3xl font-black text-emerald-600 tracking-tight mt-1 tabular-nums">${{ "{:,.2f}".format((proyeccion.informe_vivo | default({})).balance_ajustado | default(proyeccion.balance_neto_usd | default(0))) }}</h3>
+                <h3 class="text-2xl font-black text-emerald-600 tracking-tight mt-1 tabular-nums">${{ "{:,.2f}".format((proyeccion.informe_vivo | default({})).balance_ajustado | default(proyeccion.balance_neto_usd | default(0))) }}</h3>
             </div>
 
+            <!-- Clientes -->
             <div class="p-4 sm:p-5 flex flex-col justify-center group hover:bg-slate-50/50 transition-colors">
                 <div class="flex justify-between items-center mb-2">
                     <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-people-fill text-purple-500"></i> Clientes Proyectados</p>
                 </div>
-                <h3 class="text-3xl font-black text-slate-900 tracking-tight mt-1 tabular-nums">{{ proyeccion.clientes_activos | default(0) }}</h3>
+                <h3 class="text-2xl font-black text-slate-900 tracking-tight mt-1 tabular-nums">{{ proyeccion.clientes_activos | default(0) }}</h3>
             </div>
         </div>
 
+        <!-- METAS DE MONEDAS UNIFICADAS -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y md:divide-y-0 md:divide-x divide-slate-100 grid grid-cols-1 md:grid-cols-3">
-            <div class="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors">
+            <!-- USD -->
+            <div class="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
                 {% set pct_usd = (proyeccion.recaudo_real_desglose.USD_EFECTIVO / proyeccion.recaudo_desglose.USD_EFECTIVO * 100) if (proyeccion.recaudo_desglose.USD_EFECTIVO | default(0)) > 0 else 0 %}
                 <div class="flex justify-between items-center mb-1.5">
                     <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> USD Efectivo</p>
                     <span class="text-[10px] font-black text-emerald-600">{{ "%.1f"|format(pct_usd) }}%</span>
                 </div>
                 <div class="flex items-baseline justify-between mt-1">
-                    <p class="text-xl font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.USD_EFECTIVO | default(0)) }}</p>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Meta: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.USD_EFECTIVO | default(0)) }}</p>
+                    <p class="text-lg font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.USD_EFECTIVO | default(0)) }}</p>
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Meta: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.USD_EFECTIVO | default(0)) }}</p>
                 </div>
-                <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2.5 overflow-hidden">
-                    <div class="bg-emerald-500 h-1.5 rounded-full" style="width: {{ pct_usd if pct_usd <= 100 else 100 }}%"></div>
+                <div class="w-full bg-slate-100 rounded-full h-1 mt-2.5 overflow-hidden">
+                    <div class="bg-emerald-500 h-1 rounded-full" style="width: {{ pct_usd if pct_usd <= 100 else 100 }}%"></div>
                 </div>
             </div>
             
-            <div class="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors">
+            <!-- USDT -->
+            <div class="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
                 {% set pct_usdt = (proyeccion.recaudo_real_desglose.USDT_BINANCE / proyeccion.recaudo_desglose.USDT_BINANCE * 100) if (proyeccion.recaudo_desglose.USDT_BINANCE | default(0)) > 0 else 0 %}
                 <div class="flex justify-between items-center mb-1.5">
                     <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> USDT (P2P)</p>
                     <span class="text-[10px] font-black text-amber-600">{{ "%.1f"|format(pct_usdt) }}%</span>
                 </div>
                 <div class="flex items-baseline justify-between mt-1">
-                    <p class="text-xl font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.USDT_BINANCE | default(0)) }}</p>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Meta: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.USDT_BINANCE | default(0)) }}</p>
+                    <p class="text-lg font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.USDT_BINANCE | default(0)) }}</p>
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Meta: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.USDT_BINANCE | default(0)) }}</p>
                 </div>
-                <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2.5 overflow-hidden">
-                    <div class="bg-amber-500 h-1.5 rounded-full" style="width: {{ pct_usdt if pct_usdt <= 100 else 100 }}%"></div>
+                <div class="w-full bg-slate-100 rounded-full h-1 mt-2.5 overflow-hidden">
+                    <div class="bg-amber-500 h-1 rounded-full" style="width: {{ pct_usdt if pct_usdt <= 100 else 100 }}%"></div>
                 </div>
             </div>
             
-            <div class="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors">
+            <!-- BCV -->
+            <div class="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
                 {% set pct_bcv = (proyeccion.recaudo_real_desglose.VES_BCV / proyeccion.recaudo_desglose.VES_BCV * 100) if (proyeccion.recaudo_desglose.VES_BCV | default(0)) > 0 else 0 %}
                 <div class="flex justify-between items-center mb-1.5">
                     <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> Bolívares (BCV)</p>
                     <span class="text-[10px] font-black text-indigo-600">{{ "%.1f"|format(pct_bcv) }}%</span>
                 </div>
                 <div class="flex items-baseline justify-between mt-1">
-                    <p class="text-xl font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.VES_BCV | default(0)) }}</p>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Límite: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.VES_BCV | default(0)) }}</p>
+                    <p class="text-lg font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.VES_BCV | default(0)) }}</p>
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Límite: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.VES_BCV | default(0)) }}</p>
                 </div>
-                <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2.5 overflow-hidden">
-                    <div class="bg-indigo-500 h-1.5 rounded-full" style="width: {{ pct_bcv if pct_bcv <= 100 else 100 }}%"></div>
+                <div class="w-full bg-slate-100 rounded-full h-1 mt-2.5 overflow-hidden">
+                    <div class="bg-indigo-500 h-1 rounded-full" style="width: {{ pct_bcv if pct_bcv <= 100 else 100 }}%"></div>
                 </div>
             </div>
         </div>
 
-        {% set bcv_proyectado = proyeccion.informe_vivo.t_bcv_proj if proyeccion.informe_vivo and proyeccion.informe_vivo.t_bcv_proj else (proyeccion.tasas_proyectadas.bcv if proyeccion.tasas_proyectadas else tasas.bcv_now.usd) %}
-        {% set bcv_hoy_real = proyeccion.informe_vivo.t_bcv_hoy if proyeccion.informe_vivo and proyeccion.informe_vivo.t_bcv_hoy else tasas.bcv_now.usd %}
+        <!-- Lógica Robusta de Tasas para Evitar 0.00 -->
+        {% set bcv_proyectado = (proyeccion.informe_vivo | default({})).t_bcv_proj | default(proyeccion.tasas_proyectadas.bcv | default(tasas.bcv_now.usd)) %}
+        {% set bcv_hoy_real = (proyeccion.informe_vivo | default({})).t_bcv_hoy | default(tasas.bcv_now.usd) %}
         
-        {% set bin_proyectado = proyeccion.informe_vivo.t_bin_proj if proyeccion.informe_vivo and proyeccion.informe_vivo.t_bin_proj else (proyeccion.tasas_proyectadas.binance if proyeccion.tasas_proyectadas else tasas.bcv_now.tasa_binance) %}
-        {% set bin_hoy_real = proyeccion.informe_vivo.t_bin_hoy if proyeccion.informe_vivo and proyeccion.informe_vivo.t_bin_hoy else tasas.bcv_now.tasa_binance %}
+        {% set bin_proyectado = (proyeccion.informe_vivo | default({})).t_bin_proj | default(proyeccion.tasas_proyectadas.binance | default(tasas.bcv_now.tasa_binance)) %}
+        {% set bin_hoy_real = (proyeccion.informe_vivo | default({})).t_bin_hoy | default(tasas.bcv_now.tasa_binance) %}
 
+        <!-- ANÁLISIS ESTOCÁSTICO COMPACTO -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                <h2 class="text-xs font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-graph-up-arrow text-indigo-500"></i> Riesgo y Spread Cambiario</h2>
+            <div class="px-5 py-3 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                <h2 class="text-[10px] font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-graph-up-arrow text-indigo-500"></i> Riesgo y Spread Cambiario</h2>
             </div>
-            <div class="p-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center pb-2.5 border-b border-slate-100">
+            <div class="p-5 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Col 1: Tasas -->
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-100">
                          <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Tasa BCV (Proy &rarr; Hoy)</span>
-                         <span class="font-mono text-sm font-bold text-slate-800 tabular-nums">{{ "%.2f"|format(bcv_proyectado | default(0)) }} <i class="bi bi-arrow-right text-slate-300 mx-1"></i> {{ "%.2f"|format(bcv_hoy_real | default(0)) }}</span>
+                         <span class="font-mono text-xs font-bold text-slate-800 tabular-nums">{{ "%.2f"|format(bcv_proyectado | default(0)) }} <i class="bi bi-arrow-right text-slate-300 mx-1"></i> {{ "%.2f"|format(bcv_hoy_real | default(0)) }}</span>
                     </div>
-                    <div class="flex justify-between items-center pb-2.5 border-b border-slate-100">
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-100">
                          <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Tasa P2P (Proy &rarr; Hoy)</span>
-                         <span class="font-mono text-sm font-bold text-slate-800 tabular-nums">{{ "%.2f"|format(bin_proyectado | default(0)) }} <i class="bi bi-arrow-right text-slate-300 mx-1"></i> {{ "%.2f"|format(bin_hoy_real | default(0)) }}</span>
+                         <span class="font-mono text-xs font-bold text-slate-800 tabular-nums">{{ "%.2f"|format(bin_proyectado | default(0)) }} <i class="bi bi-arrow-right text-slate-300 mx-1"></i> {{ "%.2f"|format(bin_hoy_real | default(0)) }}</span>
                     </div>
                     <div class="pt-1">
-                         <div class="flex justify-between items-end mb-1.5">
-                             <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Volatilidad (Spread Actual)</span>
-                             <span class="text-sm font-black text-slate-900 tabular-nums">{{ "%.2f"|format((proyeccion.informe_vivo | default({})).spread_live_pct | default(0)) }}%</span>
+                         <div class="flex justify-between items-end mb-1">
+                             <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Spread Actual</span>
+                             <span class="text-[10px] font-black text-slate-900 tabular-nums">{{ "%.2f"|format((proyeccion.informe_vivo | default({})).spread_live_pct | default(0)) }}%</span>
                          </div>
-                         <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden"><div class="h-1.5 bg-slate-800 rounded-full" style="width: {{ (proyeccion.informe_vivo | default({})).spread_live_pct | default(0) }}%"></div></div>
+                         <div class="w-full h-1 bg-slate-100 rounded-full overflow-hidden"><div class="h-1 bg-slate-800 rounded-full" style="width: {{ (proyeccion.informe_vivo | default({})).spread_live_pct | default(0) }}%"></div></div>
                     </div>
                 </div>
                 
-                <div class="bg-slate-50 rounded-xl p-5 border border-slate-100 flex flex-col justify-center space-y-4">
+                <!-- Col 2: Fugas -->
+                <div class="bg-slate-50 rounded-xl p-4 border border-slate-100 flex flex-col justify-center space-y-3">
                      <div class="flex justify-between items-center">
-                         <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest"><i class="bi bi-dash-circle text-orange-500 mr-1.5"></i> Fuga Base (Proy)</span>
-                         <span class="text-sm font-black text-slate-800 tabular-nums">${{ "{:,.2f}".format(proyeccion.perdida_spread_usd | default(0)) }}</span>
+                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest"><i class="bi bi-dash-circle text-orange-500 mr-1.5"></i> Fuga Base (Proy)</span>
+                         <span class="text-[10px] font-black text-slate-800 tabular-nums">${{ "{:,.2f}".format(proyeccion.perdida_spread_usd | default(0)) }}</span>
                      </div>
                      <div class="flex justify-between items-center">
-                         <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest"><i class="bi bi-activity {% if (proyeccion.informe_vivo | default({})).impacto_positivo %}text-emerald-500{% else %}text-rose-500{% endif %} mr-1.5"></i> Desviación Live</span>
-                         <span class="text-sm font-black {% if (proyeccion.informe_vivo | default({})).impacto_positivo %}text-emerald-600{% else %}text-rose-600{% endif %} tabular-nums">±${{ "{:,.2f}".format(((proyeccion.informe_vivo | default({})).ahorro_brecha | default(0)) | abs) }}</span>
+                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest"><i class="bi bi-activity {% if (proyeccion.informe_vivo | default({})).impacto_positivo %}text-emerald-500{% else %}text-rose-500{% endif %} mr-1.5"></i> Desviación Live</span>
+                         <span class="text-[10px] font-black {% if (proyeccion.informe_vivo | default({})).impacto_positivo %}text-emerald-600{% else %}text-rose-600{% endif %} tabular-nums">±${{ "{:,.2f}".format(((proyeccion.informe_vivo | default({})).ahorro_brecha | default(0)) | abs) }}</span>
                      </div>
                 </div>
                 
-                <div class="flex flex-col justify-center lg:items-end border-t lg:border-t-0 lg:border-l border-slate-100 pt-5 lg:pt-0 lg:pl-8">
-                     <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Impacto Total en Caja</p>
-                     <h3 class="text-4xl font-black {% if ((proyeccion.informe_vivo | default({})).impacto_total | default(0)) >= 0 %}text-emerald-600{% else %}text-rose-600{% endif %} tracking-tighter tabular-nums">
+                <!-- Col 3: Impacto Neto -->
+                <div class="flex flex-col justify-center lg:items-end border-t lg:border-t-0 lg:border-l border-slate-100 pt-4 lg:pt-0 lg:pl-6">
+                     <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Impacto Total en Caja</p>
+                     <h3 class="text-2xl font-black {% if ((proyeccion.informe_vivo | default({})).impacto_total | default(0)) >= 0 %}text-emerald-600{% else %}text-rose-600{% endif %} tracking-tighter tabular-nums">
                          {% if ((proyeccion.informe_vivo | default({})).impacto_total | default(0)) > 0 %}+{% endif %}${{ "{:,.2f}".format((proyeccion.informe_vivo | default({})).impacto_total | default(0)) }}
                      </h3>
                 </div>
             </div>
         </div>
 
+        <!-- AUDITORÍA DE EGRESOS (Egresos Proyectados) -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                <h2 class="text-xs font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-journal-check text-teal-600"></i> Egresos Proyectados</h2>
-                <span class="flex items-center gap-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-white px-2 py-1 rounded border border-slate-200"><span class="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse"></span> Valores En Vivo</span>
+            <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <h2 class="text-[10px] font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-journal-check text-teal-600"></i> Egresos Proyectados</h2>
+                <span class="flex items-center gap-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-white px-2 py-1 rounded border border-slate-200"><span class="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse"></span> En Vivo</span>
             </div>
             
             <div class="overflow-x-auto custom-scrollbar">
                 <table class="w-full text-left">
                     <thead class="bg-white border-b border-slate-100">
                         <tr>
-                            <th class="py-4 px-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Concepto</th>
-                            <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Fechas</th>
-                            <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Estatus</th>
-                            <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Base USD</th>
-                            <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Pendiente</th>
-                            <th class="py-4 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Spread Est.</th>
-                            <th class="py-4 px-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Acción</th>
+                            <th class="py-3 px-5 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Concepto</th>
+                            <th class="py-3 px-3 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Fechas</th>
+                            <th class="py-3 px-3 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Estatus</th>
+                            <th class="py-3 px-3 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Base USD</th>
+                            <th class="py-3 px-3 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Pendiente</th>
+                            <th class="py-3 px-3 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Spread Est.</th>
+                            <th class="py-3 px-5 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Acción</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-50 text-sm">
+                    <tbody class="divide-y divide-slate-50 text-xs">
                         
                         {% for egreso in proyeccion.lista_egresos %}
                         <tr class="hover:bg-slate-50/80 transition-colors group">
-                            <td class="py-4 px-5 align-middle">
-                                <p class="font-bold text-slate-900">{{ egreso.titulo }}</p>
-                                <p class="text-[10px] font-semibold text-slate-500 mt-1">
+                            <td class="py-3 px-5 align-middle">
+                                <p class="text-[11px] font-bold text-slate-900">{{ egreso.titulo }}</p>
+                                <p class="text-[9px] font-semibold text-slate-500 mt-0.5">
                                     {% if 'Binance' in egreso.metodo or 'Cripto' in egreso.metodo %}
                                         <i class="bi bi-currency-bitcoin text-amber-500"></i> {{ egreso.metodo }}
                                     {% elif 'BCV' in egreso.metodo %}
@@ -259,54 +278,57 @@
                                 </p>
                             </td>
                             
-                            <td class="py-4 px-4 align-middle text-center">
-                                <p class="text-[10px] font-bold text-slate-500 tracking-widest"><span class="text-slate-400">P:</span> {{ egreso.fecha_programada or '—' }}</p>
+                            <td class="py-3 px-3 align-middle text-center">
+                                <p class="text-[9px] font-bold text-slate-500 tracking-widest"><span class="text-slate-400">P:</span> {{ egreso.fecha_programada or '—' }}</p>
                                 {% if egreso.fecha_pago_real %}
-                                    <p class="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-1">R: {{ egreso.fecha_pago_real }}</p>
+                                    <p class="text-[9px] font-black text-blue-600 uppercase tracking-widest mt-0.5">R: {{ egreso.fecha_pago_real }}</p>
                                 {% else %}
-                                    <p class="text-[10px] font-bold text-amber-500 uppercase tracking-widest mt-1">R: Pendiente</p>
+                                    <p class="text-[9px] font-bold text-amber-500 uppercase tracking-widest mt-0.5">R: Pendiente</p>
                                 {% endif %}
                             </td>
                             
-                            <td class="py-4 px-4 align-middle text-center">
-                                <span class="px-2.5 py-1 {{ egreso.clase_estado }} text-[10px] font-black uppercase tracking-widest rounded-md border border-slate-200">{{ egreso.estado_pago }}</span>
+                            <td class="py-3 px-3 align-middle text-center">
+                                <span class="px-2 py-0.5 {{ egreso.clase_estado }} text-[9px] font-black uppercase tracking-widest rounded border border-slate-200">{{ egreso.estado_pago }}</span>
                             </td>
                             
-                            <td class="py-4 px-4 align-middle text-right">
+                            <!-- Base USD Original -->
+                            <td class="py-3 px-3 align-middle text-right">
                                 <span class="font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(egreso.monto | default(0)) }}</span>
                             </td>
 
-                            <td class="py-4 px-4 align-middle text-right">
+                            <!-- Pendiente Real a pagar -->
+                            <td class="py-3 px-3 align-middle text-right">
                                 <span class="font-bold text-slate-700 tabular-nums">${{ "{:,.2f}".format(egreso.pendiente | default(0)) }}</span>
                             </td>
                             
-                            <td class="py-4 px-4 align-middle text-right">
+                            <!-- Fuga Spread del remanente -->
+                            <td class="py-3 px-3 align-middle text-right">
                                 {% if (egreso.perdida_live | default(0)) > 0.01 %}
-                                    <p class="text-xs font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(egreso.perdida_live | default(0)) }}</p>
+                                    <p class="text-[10px] font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(egreso.perdida_live | default(0)) }}</p>
                                 {% else %}
-                                    <p class="text-[10px] font-semibold text-slate-400 mt-0.5">Equivalente</p>
+                                    <p class="text-[9px] font-semibold text-slate-400 mt-0.5">Eqv.</p>
                                 {% endif %}
                             </td>
                             
-                            <td class="py-4 px-5 align-middle text-center">
-                                <div class="flex flex-col gap-2 justify-center w-full max-w-[120px] mx-auto">
+                            <td class="py-3 px-5 align-middle text-center">
+                                <div class="flex flex-col sm:flex-row gap-1.5 justify-center w-full max-w-[120px] mx-auto">
                                     {% if egreso.estado_pago == 'Pagado' %}
-                                        <span class="bg-emerald-50 border border-emerald-200 text-emerald-600 text-[10px] font-black uppercase tracking-widest py-1.5 px-3 rounded-md flex items-center justify-center gap-1.5 w-full"><i class="bi bi-check2"></i> Listo</span>
+                                        <span class="bg-emerald-50 border border-emerald-200 text-emerald-600 text-[9px] font-black uppercase tracking-widest py-1 px-2 rounded flex items-center justify-center gap-1 w-full"><i class="bi bi-check2"></i> Listo</span>
                                     {% else %}
                                         {% if egreso.estado_pago == 'Parcial' %}
-                                            <button onclick="window.location.href='{{ url_for('gestion_egresos') }}'" class="bg-white border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-widest py-1.5 px-3 rounded-md hover:bg-slate-50 transition-colors shadow-sm w-full flex items-center justify-center gap-1.5"><i class="bi bi-folder2-open"></i> Ver Abono</button>
+                                            <button onclick="window.location.href='{{ url_for('gestion_egresos') }}'" class="bg-white border border-slate-200 text-slate-700 text-[9px] font-black uppercase tracking-widest py-1 px-2 rounded hover:bg-slate-50 transition-colors shadow-sm w-full"><i class="bi bi-folder2-open"></i> Ver Abono</button>
                                         {% else %}
-                                            <span class="bg-slate-50 border border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-widest py-1.5 px-3 rounded-md flex items-center justify-center gap-1.5 w-full">Sin Registro</span>
+                                            <span class="bg-slate-50 border border-slate-200 text-slate-400 text-[9px] font-black uppercase tracking-widest py-1 px-2 rounded flex items-center justify-center w-full">Sin Registro</span>
                                         {% endif %}
-                                        <button onclick="window.location.href='{{ url_for('gestion_egresos') }}'" class="bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-1.5 px-3 rounded-md hover:bg-slate-800 transition-colors shadow-sm w-full flex items-center justify-center gap-1.5"><i class="bi bi-wallet2"></i> Pagar</button>
+                                        <button onclick="window.location.href='{{ url_for('gestion_egresos') }}'" class="bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-800 transition-colors shadow-sm w-full"><i class="bi bi-wallet2"></i> Pagar</button>
                                     {% endif %}
                                 </div>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="7" class="py-10 px-6 text-center text-slate-500">
-                                <p class="text-sm font-semibold">No se encontraron egresos en esta proyección</p>
+                            <td colspan="7" class="py-8 px-6 text-center text-slate-500">
+                                <p class="text-[10px] font-semibold">No se encontraron egresos en esta proyección</p>
                             </td>
                         </tr>
                         {% endfor %}
