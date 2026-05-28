@@ -377,6 +377,7 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
+                            
                             {% if proyeccion.get('lista_egresos', []) %}
                                 {% for e in proyeccion.get('lista_egresos', []) %}
                                     {% set programado_val = e.get('monto', 0)|float %}
@@ -943,28 +944,47 @@
                 this.titulo = tit; this.monto_deuda_original = parseFloat(monto) || 0;
                 this.abono_usd = this.monto_deuda_original.toFixed(2); this.usar_tasa_custom = false; this.referencia = '';
                 let m = String(metodoRaw || '').toUpperCase().trim();
-                if (m.indexOf('BP2P') !== -1 || m.indexOf('B.P2P') !== -1) { this.grupo_cajas = 'BP2P';
-                this.tipo_pago = 'BANESCO_BINANCE'; }
-                else if (m.indexOf('BINANCE') !== -1 || m.indexOf('USDT') !== -1) { this.grupo_cajas = 'BINANCE';
-                this.tipo_pago = 'BANESCO_BINANCE'; }
-                else if (m.indexOf('BCV') !== -1 || m.indexOf('EUR') !== -1 || m.indexOf('BS') !== -1) { this.grupo_cajas = 'BCV';
-                this.tipo_pago = 'BANESCO_BCV'; }
-                else if (m.indexOf('EFECTIVO') !== -1 || m === 'USD') { this.grupo_cajas = 'EFECTIVO';
-                this.tipo_pago = 'EFECTIVO_USD'; }
-                else { this.grupo_cajas = 'TODAS';
-                this.tipo_pago = ''; }
+                if (m.indexOf('BP2P') !== -1 || m.indexOf('B.P2P') !== -1) { this.grupo_cajas = 'BP2P'; this.tipo_pago = 'BANESCO_BINANCE'; }
+                else if (m.indexOf('BINANCE') !== -1 || m.indexOf('USDT') !== -1) { this.grupo_cajas = 'BINANCE'; this.tipo_pago = 'BANESCO_BINANCE'; }
+                else if (m.indexOf('BCV') !== -1 || m.indexOf('EUR') !== -1 || m.indexOf('BS') !== -1) { this.grupo_cajas = 'BCV'; this.tipo_pago = 'BANESCO_BCV'; }
+                else if (m.indexOf('EFECTIVO') !== -1 || m === 'USD') { this.grupo_cajas = 'EFECTIVO'; this.tipo_pago = 'EFECTIVO_USD'; }
+                else { this.grupo_cajas = 'TODAS'; this.tipo_pago = ''; }
                 this.isOpen = true;
                 setTimeout(() => this.cambioCaja(), 50);
             },
             close() { this.isOpen = false; },
             cambioCaja() {
-                if (!this.tipo_pago) { this.moneda_simbolo = 'USD';
-                this.tasa_custom = 1.0; this.mostrar_tasa = false; this.total_debitar = this.abono_usd; }
-                else if (this.tipo_pago === 'BANESCO_BCV') { this.moneda_simbolo = 'Bs';
-                this.tasa_custom = this.tasa_bcv; this.mostrar_tasa = true; this.total_debitar = (this.abono_usd * this.tasa_custom).toFixed(2);
-                }
-                else if (this.tipo_pago === 'BANESCO_BINANCE') { this.moneda_simbolo = 'Bs';
-                this.tasa_custom = this.tasa_binance; this.mostrar_tasa = true; this.total_debitar = (this.abono_usd * this.tasa_custom).toFixed(2);
-                }
-                else if (this.tipo_pago === 'EFECTIVO_USD' || this.tipo_pago === 'BINANCE_DIRECTO') { this.moneda_simbolo = 'USDT';
-                this.tasa_custom
+                if (!this.tipo_pago) { this.moneda_simbolo = 'USD'; this.tasa_custom = 1.0; this.mostrar_tasa = false; this.total_debitar = this.abono_usd; }
+                else if (this.tipo_pago === 'BANESCO_BCV') { this.moneda_simbolo = 'Bs'; this.tasa_custom = this.tasa_bcv; this.mostrar_tasa = true; this.total_debitar = (this.abono_usd * this.tasa_custom).toFixed(2); }
+                else if (this.tipo_pago === 'BANESCO_BINANCE') { this.moneda_simbolo = 'Bs'; this.tasa_custom = this.tasa_binance; this.mostrar_tasa = true; this.total_debitar = (this.abono_usd * this.tasa_custom).toFixed(2); }
+                else if (this.tipo_pago === 'EFECTIVO_USD' || this.tipo_pago === 'BINANCE_DIRECTO') { this.moneda_simbolo = 'USDT'; this.tasa_custom = 1.0; this.mostrar_tasa = false; this.total_debitar = this.abono_usd; }
+                this.usar_tasa_custom = false;
+            },
+            calcTotal() {
+                let abono = parseFloat(this.abono_usd) || 0; let tasa = parseFloat(this.tasa_custom) || 1;
+                this.total_debitar = (this.tipo_pago && this.tipo_pago.startsWith('BANESCO')) ? (abono * tasa).toFixed(2) : abono.toFixed(2);
+            },
+            calcAbono() {
+                let total = parseFloat(this.total_debitar) || 0; let tasa = parseFloat(this.tasa_custom) || 1;
+                this.abono_usd = (this.tipo_pago && this.tipo_pago.startsWith('BANESCO') && tasa > 0) ? (total / tasa).toFixed(2) : total.toFixed(2);
+            }
+        });
+
+        Alpine.data('historialAbonosModal', () => ({
+            isOpen: false, loading: false, titulo: '', pagos: [],
+            get total_abono() { return this.pagos.reduce((s, p) => s + parseFloat(p.abono_usd || 0), 0); },
+            get total_spread() { return this.pagos.reduce((s, p) => s + parseFloat(p.spread || 0), 0); },
+            openModal(occId, tituloStr) {
+                this.titulo = tituloStr; this.pagos = []; this.isOpen = true; this.loading = true;
+                fetch(`/api/egresos/ocurrencia/${occId}/pagos`)
+                    .then(res => res.json())
+                    .then(data => { this.pagos = Array.isArray(data) ? data : []; })
+                    .catch(err => console.error('Error cargando abonos:', err))
+                    .finally(() => { this.loading = false; });
+            }
+        }));
+    });
+
+    function abrirModal(id, tit, monto, metodo) { Alpine.store('paymentModal').open(id, tit, monto, metodo); }
+</script>
+{% endblock %}
