@@ -4323,9 +4323,6 @@ def eliminar_egreso(egreso_id):
         
     return redirect(request.referrer or url_for('gestion_egresos'))
 
-# =================================================================================
-# Gestión Principal de Egresos y Modal Fintech de Pagos
-# =================================================================================
 @app.route('/gestion/egresos', methods=['GET', 'POST'], endpoint='gestion_egresos')
 @admin_required
 def gestion_egresos():
@@ -4395,7 +4392,7 @@ def gestion_egresos():
             flash(f'Error al registrar el egreso: {e}', 'danger')
         return redirect(url_for('gestion_egresos'))
 
-    # --- LÓGICA GET: RENDERIZAR VISTA (Con Arrastre de Mora + 5 Próximos) ---
+    # --- LÓGICA GET: RENDERIZAR VISTA ---
     periodo_tipo = (request.args.get('periodo_tipo') or 'mensual').lower()
     periodo = request.args.get('periodo')
     if not periodo:
@@ -4411,38 +4408,35 @@ def gestion_egresos():
     generar_ocurrencias_periodo(conn, periodo_tipo, clave, start, end)
     
     # 2. Reconstrucción del Resumen: Arrastre de deuda + 5 futuros
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            hoy_str = hoy.strftime('%Y-%m-%d')
-            
-            # Esta consulta busca TODOS los pendientes de la historia y le anexa los siguientes 5 pagos
-            # CORRECCIÓN: Filtra exhaustivamente que el estado del planificado esté 'activo'
-            cur.execute("""
-                SELECT eo.id as ocurrencia_id, eo.egreso_id, eo.fecha_programada, 
-                       eo.monto_programado_usd as programado, eo.monto_pagado_usd as pagado, 
-                       eo.estado, ep.titulo, ep.frecuencia, ep.metodo_referencia
-                FROM egresos_ocurrencias eo
-                JOIN egresos_planificados ep ON ep.id = eo.egreso_id
-                WHERE LOWER(COALESCE(ep.estado, 'activo')) IN ('activo', 'activa')
-                  AND (eo.estado IN ('pendiente', 'parcial')
-                       OR eo.id IN (
-                           SELECT id FROM egresos_ocurrencias 
-                           WHERE fecha_programada >= %s 
-                           ORDER BY fecha_programada ASC 
-                           LIMIT 5
-                       ))
-                ORDER BY eo.fecha_programada ASC
-            """, (hoy_str,))
-            raw_ocurrencias = cur.fetchall()
+    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        hoy_str = hoy.strftime('%Y-%m-%d')
+        
+        # CORRECCIÓN: Filtra exhaustivamente que el estado del planificado esté 'activo'
+        cur.execute("""
+            SELECT eo.id as ocurrencia_id, eo.egreso_id, eo.fecha_programada, 
+                   eo.monto_programado_usd as programado, eo.monto_pagado_usd as pagado, 
+                   eo.estado, ep.titulo, ep.frecuencia, ep.metodo_referencia
+            FROM egresos_ocurrencias eo
+            JOIN egresos_planificados ep ON ep.id = eo.egreso_id
+            WHERE LOWER(COALESCE(ep.estado, 'activo')) IN ('activo', 'activa')
+              AND (eo.estado IN ('pendiente', 'parcial')
+                   OR eo.id IN (
+                       SELECT id FROM egresos_ocurrencias 
+                       WHERE fecha_programada >= %s 
+                       ORDER BY fecha_programada ASC 
+                       LIMIT 5
+                   ))
+            ORDER BY eo.fecha_programada ASC
+        """, (hoy_str,))
+        raw_ocurrencias = cur.fetchall()
 
         total_programado = Decimal('0.0')
         total_pagado = Decimal('0.0')
         total_pendiente = Decimal('0.0')
         items_dict = {}
 
-        # --- CORRECCIÓN: Blindaje del formato de fecha ---
         hoy_date = hoy.date() if hasattr(hoy, 'date') else hoy
 
-        # Mapeo y formateo para el HTML
         for row in raw_ocurrencias:
             prog = Decimal(str(row['programado'] or 0))
             pag = Decimal(str(row['pagado'] or 0))
@@ -4453,7 +4447,7 @@ def gestion_egresos():
                 estado_visual = 'Pagado'
             elif est == 'parcial':
                 estado_visual = 'Parcial'
-            elif row['fecha_programada'] < hoy_date:  # <-- Comparación corregida
+            elif row['fecha_programada'] < hoy_date:
                 estado_visual = 'Atrasado'
             else:
                 estado_visual = 'Pendiente'
@@ -4492,7 +4486,6 @@ def gestion_egresos():
             items=list(items_dict.values())
         )
 
-        # Extraer Historial de Egresos Fijos, Variables y Devoluciones para la tabla inferior
         cur.execute("""
             SELECT id, titulo, tipo, frecuencia, intervalo_semana, byday, dia_mes, dias_quincena,
                    monto_base_usd, metodo_referencia, estado, fecha_inicio_recurrencia, fecha_fin_recurrencia,
@@ -4640,9 +4633,6 @@ def procesar_pago_egreso_modal(occ_id):
 
     return redirect(url_for('gestion_egresos'))
 
-# =================================================================================
-# --- GESTIÓN DE EGRESOS GLOBAL (Centro de Mando Maestro) ---
-# =================================================================================
 @app.route('/gestion/egresos/auditoria', methods=['GET'])
 @admin_required
 def auditoria_egresos():
