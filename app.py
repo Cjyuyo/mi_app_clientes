@@ -4308,8 +4308,15 @@ def eliminar_egreso(egreso_id):
         with conn.cursor() as cur:
             # Borrado Lógico: Lo pasamos a 'Inactivo' para no romper el historial
             cur.execute("UPDATE egresos_planificados SET estado = 'Inactivo' WHERE id = %s", (egreso_id,))
+            
+            # NUEVO: Eliminación Física de ocurrencias PENDIENTES de este gasto para limpiar la pantalla "Próximos Pagos"
+            cur.execute("""
+                DELETE FROM egresos_ocurrencias 
+                WHERE egreso_id = %s AND (estado = 'pendiente' OR monto_pagado_usd <= 0.001)
+            """, (egreso_id,))
+            
         conn.commit()
-        flash("Gasto eliminado del sistema exitosamente.", "success")
+        flash("Gasto eliminado del sistema exitosamente. Los pagos pendientes han sido purgados.", "success")
     except Exception as e:
         conn.rollback()
         flash(f"Error al eliminar el gasto: {e}", "danger")
@@ -4404,26 +4411,28 @@ def gestion_egresos():
     generar_ocurrencias_periodo(conn, periodo_tipo, clave, start, end)
     
     # 2. Reconstrucción del Resumen: Arrastre de deuda + 5 futuros
-    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-        hoy_str = hoy.strftime('%Y-%m-%d')
-        
-        # Esta consulta busca TODOS los pendientes de la historia y le anexa los siguientes 5 pagos
-        cur.execute("""
-            SELECT eo.id as ocurrencia_id, eo.egreso_id, eo.fecha_programada, 
-                   eo.monto_programado_usd as programado, eo.monto_pagado_usd as pagado, 
-                   eo.estado, ep.titulo, ep.frecuencia, ep.metodo_referencia
-            FROM egresos_ocurrencias eo
-            JOIN egresos_planificados ep ON ep.id = eo.egreso_id
-            WHERE eo.estado IN ('pendiente', 'parcial')
-               OR eo.id IN (
-                   SELECT id FROM egresos_ocurrencias 
-                   WHERE fecha_programada >= %s 
-                   ORDER BY fecha_programada ASC 
-                   LIMIT 5
-               )
-            ORDER BY eo.fecha_programada ASC
-        """, (hoy_str,))
-        raw_ocurrencias = cur.fetchall()
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            hoy_str = hoy.strftime('%Y-%m-%d')
+            
+            # Esta consulta busca TODOS los pendientes de la historia y le anexa los siguientes 5 pagos
+            # CORRECCIÓN: Filtra exhaustivamente que el estado del planificado esté 'activo'
+            cur.execute("""
+                SELECT eo.id as ocurrencia_id, eo.egreso_id, eo.fecha_programada, 
+                       eo.monto_programado_usd as programado, eo.monto_pagado_usd as pagado, 
+                       eo.estado, ep.titulo, ep.frecuencia, ep.metodo_referencia
+                FROM egresos_ocurrencias eo
+                JOIN egresos_planificados ep ON ep.id = eo.egreso_id
+                WHERE LOWER(COALESCE(ep.estado, 'activo')) IN ('activo', 'activa')
+                  AND (eo.estado IN ('pendiente', 'parcial')
+                       OR eo.id IN (
+                           SELECT id FROM egresos_ocurrencias 
+                           WHERE fecha_programada >= %s 
+                           ORDER BY fecha_programada ASC 
+                           LIMIT 5
+                       ))
+                ORDER BY eo.fecha_programada ASC
+            """, (hoy_str,))
+            raw_ocurrencias = cur.fetchall()
 
         total_programado = Decimal('0.0')
         total_pagado = Decimal('0.0')
@@ -4698,6 +4707,7 @@ def auditoria_egresos():
                 JOIN egresos_planificados ep ON ep.id = eo.egreso_id
                 LEFT JOIN operaciones_tesoreria ot ON ot.referencia_tipo = 'EGRESO' AND ot.referencia_id = eo.id
                 WHERE eo.fecha_programada >= %s AND eo.fecha_programada <= %s
+                  AND LOWER(COALESCE(ep.estado, 'activo')) IN ('activo', 'activa')
             """
             params = [fecha_desde, fecha_hasta]
 
@@ -4798,7 +4808,7 @@ def auditoria_egresos():
     )
 
 # =================================================================================
-# --- REVERTIR Y ELIMINAR PAGO DE EGRESO (Desde Gestión Global) ---
+# --- REVERTIR Y ELIMINAR PAGO DE EGRESO (Desde Gestión Global o Modal) ---
 # =================================================================================
 @app.route('/gestion/egresos/pago/<int:op_id>/eliminar', methods=['POST'])
 @admin_required
@@ -4806,45 +4816,49 @@ def revertir_pago_egreso(op_id):
     conn = get_db()
     if not conn:
         flash("Error de conexión.", "danger")
-        return redirect(url_for('auditoria_egresos'))
+        return redirect(request.referrer or url_for('auditoria_egresos'))
         
     try:
         with conn.cursor() as cur:
-            # 1. Buscar la operación y la ocurrencia asociada
+            # 1. Buscar la operación y la ocurrencia asociada (infalible incluso si falta en egresos_pagos)
             cur.execute("""
-                SELECT ep.egreso_ocurrencia_id, ot.monto_destino as abono_usd
+                SELECT 
+                    COALESCE(ep.egreso_ocurrencia_id, ot.referencia_id) as egreso_ocurrencia_id, 
+                    ot.monto_destino as abono_usd
                 FROM operaciones_tesoreria ot
-                JOIN egresos_pagos ep ON ep.movimiento_tesoreria_id = ot.id
-                WHERE ot.id = %s
+                LEFT JOIN egresos_pagos ep ON ep.movimiento_tesoreria_id = ot.id
+                WHERE ot.id = %s AND (ot.referencia_tipo = 'EGRESO' OR ep.id IS NOT NULL)
             """, (op_id,))
             row = cur.fetchone()
             
             if not row:
-                flash("No se encontró el registro del pago.", "danger")
-                return redirect(url_for('auditoria_egresos'))
+                flash("No se encontró el registro del pago o ya fue eliminado.", "danger")
+                return redirect(request.referrer or url_for('auditoria_egresos'))
                 
             occ_id = row['egreso_ocurrencia_id']
             abono_usd = row['abono_usd']
 
-            # 2. Restar el abono a la deuda (revertir el saldo pagado)
-            cur.execute("""
-                UPDATE egresos_ocurrencias
-                SET monto_pagado_usd = GREATEST(0, COALESCE(monto_pagado_usd, 0) - %s)
-                WHERE id = %s
-                RETURNING monto_programado_usd, monto_pagado_usd
-            """, (abono_usd, occ_id))
-            occ = cur.fetchone()
+            if occ_id:
+                # 2. Restar el abono a la deuda (revertir el saldo pagado)
+                cur.execute("""
+                    UPDATE egresos_ocurrencias
+                    SET monto_pagado_usd = GREATEST(0, COALESCE(monto_pagado_usd, 0) - %s)
+                    WHERE id = %s
+                    RETURNING monto_programado_usd, monto_pagado_usd
+                """, (abono_usd, occ_id))
+                occ = cur.fetchone()
 
-            # 3. Recalcular el estado ('pendiente' o 'parcial')
-            nuevo_estado = 'pendiente' if float(occ['monto_pagado_usd']) <= 0.001 else 'parcial'
-            cur.execute("UPDATE egresos_ocurrencias SET estado=%s WHERE id=%s", (nuevo_estado, occ_id))
+                if occ:
+                    # 3. Recalcular el estado ('pendiente' o 'parcial')
+                    nuevo_estado = 'pendiente' if float(occ['monto_pagado_usd']) <= 0.001 else 'parcial'
+                    cur.execute("UPDATE egresos_ocurrencias SET estado=%s WHERE id=%s", (nuevo_estado, occ_id))
 
-            # 4. Eliminar los registros financieros
+            # 4. Eliminar los registros financieros de todos lados
             cur.execute("DELETE FROM egresos_pagos WHERE movimiento_tesoreria_id = %s", (op_id,))
             cur.execute("DELETE FROM operaciones_tesoreria WHERE id = %s", (op_id,))
 
             conn.commit()
-            flash(f"El pago por ${abono_usd} ha sido anulado. La deuda ha retornado al estado: {nuevo_estado.upper()}.", "success")
+            flash(f"El abono de ${abono_usd} ha sido anulado. La deuda y el saldo se han revertido con éxito.", "success")
             
     except Exception as e:
         if conn: conn.rollback()
@@ -4852,7 +4866,7 @@ def revertir_pago_egreso(op_id):
     finally:
         if conn: conn.close()
         
-    return redirect(url_for('auditoria_egresos'))
+    return redirect(request.referrer or url_for('auditoria_egresos'))
 
 # ====== FIN: REEMPLAZO ======
 
