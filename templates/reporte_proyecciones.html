@@ -142,7 +142,7 @@
                         <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-bullseye text-blue-500"></i> Recaudo vs Meta</p>
                         <span class="text-[10px] font-black text-blue-600">{{ "%.1f"|format(progreso_dinamico) }}%</span>
                     </div>
-                    <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-3">${{ "{:,.2f}".format(recaudo_total) }}</h3>
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight mt-0.5 mb-3">${{ "{:,.2f}".format(recaudo_total) }}</h3>
                 </div>
                 
                 <div class="flex flex-col mt-auto">
@@ -174,7 +174,7 @@
                     <div class="flex justify-between items-center mb-1.5">
                         <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-wallet2 text-rose-500"></i> Egresos Proyectados</p>
                     </div>
-                    <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-3">${{ "{:,.2f}".format(total_egresos_calc) }}</h3>
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight mt-0.5 mb-3">${{ "{:,.2f}".format(total_egresos_calc) }}</h3>
                 </div>
                 
                 <div class="flex flex-col mt-auto">
@@ -195,20 +195,48 @@
                 <div class="h-1 mt-1"></div>
             </div>
 
-            <div class="p-4 sm:p-5 flex flex-col group hover:bg-slate-50/50 transition-colors h-full">
-                <div class="flex justify-between items-center mb-1.5">
-                    <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-calculator-fill text-orange-500"></i> Breakeven</p>
-                    <span class="text-[9px] font-semibold text-slate-400">Gastos + Spread</span>
+            <div class="p-4 sm:p-5 flex flex-col justify-between group hover:bg-slate-50/50 transition-colors h-full">
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-calculator-fill text-orange-500"></i> Breakeven</p>
+                        <span class="text-[9px] font-semibold text-slate-400">Gastos + Spread</span>
+                    </div>
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight mt-0.5 mb-3">${{ "{:,.2f}".format((proyeccion.egresos_total_usd | default(0)) + fuga_base_proy) }}</h3>
                 </div>
-                <h3 class="text-2xl font-black text-slate-900 tracking-tight mt-0.5 mb-3">${{ "{:,.2f}".format((proyeccion.egresos_total_usd | default(0)) + fuga_base_proy) }}</h3>
+                
+                <div class="flex flex-col mt-auto">
+                    <div class="flex justify-between items-center border-b border-slate-100/80 pb-1 mb-1">
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Base Operativa</span>
+                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(proyeccion.egresos_total_usd | default(0)) }}</span>
+                    </div>
+                    <div class="flex justify-between items-center mb-2.5">
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Fuga Proyectada</span>
+                        <span class="text-[9px] font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(fuga_base_proy) }}</span>
+                    </div>
+                </div>
+                <div class="h-1 mt-1"></div>
             </div>
 
-            <div class="p-4 sm:p-5 flex flex-col group hover:bg-slate-50/50 transition-colors h-full">
-                <div class="flex justify-between items-center mb-1.5">
-                    <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-safe2-fill text-emerald-500"></i> Caja Líquida</p>
-                    <span class="text-[9px] font-semibold text-slate-400">Ajustada</span>
+            <div class="p-4 sm:p-5 flex flex-col justify-between group hover:bg-slate-50/50 transition-colors h-full">
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-safe2-fill text-emerald-500"></i> Caja Líquida</p>
+                        <span class="text-[9px] font-semibold text-slate-400">Ajustada</span>
+                    </div>
+                    <h3 class="text-2xl font-black text-emerald-600 tracking-tight mt-0.5 mb-3">${{ "{:,.2f}".format(balance_ajustado) }}</h3>
                 </div>
-                <h3 class="text-2xl font-black text-emerald-600 tracking-tight mt-0.5 mb-3">${{ "{:,.2f}".format(balance_ajustado) }}</h3>
+                
+                <div class="flex flex-col mt-auto">
+                    <div class="flex justify-between items-center border-b border-slate-100/80 pb-1 mb-1">
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Saldo Proy. Inicial</span>
+                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(proyeccion.balance_neto_usd | default(0)) }}</span>
+                    </div>
+                    <div class="flex justify-between items-center mb-2.5">
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Impacto en Vivo</span>
+                        <span class="text-[9px] font-black {% if impacto_total >= 0 %}text-emerald-600{% else %}text-rose-600{% endif %} tabular-nums">{% if impacto_total > 0 %}+{% endif %}${{ "{:,.2f}".format(impacto_total) }}</span>
+                    </div>
+                </div>
+                <div class="h-1 mt-1"></div>
             </div>
         </div>
 
@@ -620,3 +648,4 @@
     {% endif %}
 </div>
 {% endblock %}
+}
