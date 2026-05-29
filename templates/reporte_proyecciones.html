@@ -249,13 +249,31 @@
                 
                 <!-- Col 2: Fugas -->
                 <div class="bg-slate-50 rounded-xl p-4 border border-slate-200 flex flex-col justify-center space-y-3">
-                     <div class="flex justify-between items-center">
-                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest"><i class="bi bi-dash-circle text-orange-500 mr-1.5"></i> Fuga Base (Proyectada)</span>
-                         <span class="text-[10px] font-black text-slate-800 tabular-nums">${{ "{:,.2f}".format(fuga_base_proy) }}</span>
+                     <div class="flex justify-between items-center border-b border-slate-200/60 pb-2">
+                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Fuga Base (Inicial)</span>
+                         <span class="text-[10px] font-black text-slate-900 tabular-nums">-${{ "{:,.2f}".format(fuga_base_proy) }}</span>
                      </div>
-                     <div class="flex justify-between items-center">
-                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest"><i class="bi bi-activity {% if impacto_positivo %}text-emerald-500{% else %}text-rose-500{% endif %} mr-1.5"></i> Desviación Live</span>
-                         <span class="text-[10px] font-black {% if impacto_positivo %}text-emerald-600{% else %}text-rose-600{% endif %} tabular-nums">±${{ "{:,.2f}".format(ahorro_brecha | abs) }}</span>
+                     <div class="flex justify-between items-center pt-1">
+                         <div>
+                             <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none mb-1.5">Efecto del Mercado</p>
+                             <span class="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border shadow-sm {% if impacto_positivo %}bg-slate-200 border-slate-300 text-slate-800{% else %}bg-slate-800 border-slate-900 text-white{% endif %}">
+                                 {% if impacto_positivo %}A Favor (Ahorro){% else %}En Contra (Extra){% endif %}
+                             </span>
+                         </div>
+                         <span class="text-[10px] font-black text-slate-900 tabular-nums">
+                             {% if impacto_positivo %}+{% else %}-{% endif %}${{ "{:,.2f}".format(ahorro_brecha | abs) }}
+                         </span>
+                     </div>
+                </div>
+                
+                <div class="bg-slate-50 rounded-xl p-4 border border-slate-200 flex flex-col justify-center items-center lg:items-end">
+                     <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Impacto Final en Caja</p>
+                     <h3 class="text-3xl font-black text-slate-900 tracking-tighter tabular-nums leading-none">
+                         {% if impacto_total > 0 %}+{% endif %}${{ "{:,.2f}".format(impacto_total) }}
+                     </h3>
+                     <div class="mt-2 text-[8px] font-black uppercase tracking-widest flex items-center gap-1.5 text-slate-700 bg-white px-2.5 py-1 rounded border border-slate-200 shadow-sm">
+                         <i class="bi {% if impacto_total >= 0 %}bi-arrow-up-right{% else %}bi-arrow-down-right{% endif %} text-[9px] text-slate-500"></i>
+                         {% if impacto_total >= 0 %}Superávit Operativo{% else %}Déficit Operativo{% endif %}
                      </div>
                 </div>
                 
