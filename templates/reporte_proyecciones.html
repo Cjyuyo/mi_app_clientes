@@ -195,20 +195,20 @@
                 <div class="h-1 mt-1"></div>
             </div>
 
-            <div class="p-4 sm:p-5 flex flex-col justify-center group hover:bg-slate-50/50 transition-colors h-full">
-                <div class="flex justify-between items-center mb-2">
+            <div class="p-4 sm:p-5 flex flex-col group hover:bg-slate-50/50 transition-colors h-full">
+                <div class="flex justify-between items-center mb-1.5">
                     <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-calculator-fill text-orange-500"></i> Breakeven</p>
                     <span class="text-[9px] font-semibold text-slate-400">Gastos + Spread</span>
                 </div>
-                <h3 class="text-2xl font-black text-slate-900 tracking-tight mt-1 tabular-nums">${{ "{:,.2f}".format((proyeccion.egresos_total_usd | default(0)) + fuga_base_proy) }}</h3>
+                <h3 class="text-2xl font-black text-slate-900 tracking-tight mt-0.5 mb-3">${{ "{:,.2f}".format((proyeccion.egresos_total_usd | default(0)) + fuga_base_proy) }}</h3>
             </div>
 
-            <div class="p-4 sm:p-5 flex flex-col justify-center group hover:bg-slate-50/50 transition-colors h-full">
-                <div class="flex justify-between items-center mb-2">
+            <div class="p-4 sm:p-5 flex flex-col group hover:bg-slate-50/50 transition-colors h-full">
+                <div class="flex justify-between items-center mb-1.5">
                     <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-safe2-fill text-emerald-500"></i> Caja Líquida</p>
                     <span class="text-[9px] font-semibold text-slate-400">Ajustada</span>
                 </div>
-                <h3 class="text-2xl font-black text-emerald-600 tracking-tight mt-1 tabular-nums">${{ "{:,.2f}".format(balance_ajustado) }}</h3>
+                <h3 class="text-2xl font-black text-emerald-600 tracking-tight mt-0.5 mb-3">${{ "{:,.2f}".format(balance_ajustado) }}</h3>
             </div>
         </div>
 
@@ -485,7 +485,7 @@
                     <tbody x-show="activeTab === 'variable'" x-cloak style="display: none;" class="divide-y divide-slate-100 text-xs">
                         {% set ns_var_tab = namespace(count=0) %}
                         {% for egreso in proyeccion.lista_egresos %}
-                            {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default('variable'))) | string | lower %}
+                            {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default('fijo'))) | string | lower %}
                             {% if 'fijo' not in tipo_str and 'devolu' not in tipo_str %}
                                 {% set ns_var_tab.count = ns_var_tab.count + 1 %}
                                 {% set monto_eg = egreso.monto | default(0) %}
@@ -551,7 +551,7 @@
                     <tbody x-show="activeTab === 'devolucion'" x-cloak style="display: none;" class="divide-y divide-slate-100 text-xs">
                         {% set ns_dev_tab = namespace(count=0) %}
                         {% for egreso in proyeccion.lista_egresos %}
-                            {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default(''))) | string | lower %}
+                            {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default('fijo'))) | string | lower %}
                             {% if 'devolu' in tipo_str %}
                                 {% set ns_dev_tab.count = ns_dev_tab.count + 1 %}
                                 {% set monto_eg = egreso.monto | default(0) %}
