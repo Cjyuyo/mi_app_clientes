@@ -72,17 +72,30 @@
     {% set bin_hoy = (proyeccion.informe_vivo.t_bin_hoy if proyeccion.informe_vivo else tasas.bcv_now.tasa_binance) | default(0) %}
     {% set bcv_proy = (proyeccion.informe_vivo.t_bcv_proj if proyeccion.informe_vivo else proyeccion.tasas_proyectadas.bcv) | default(bcv_hoy) %}
     {% set bin_proy = (proyeccion.informe_vivo.t_bin_proj if proyeccion.informe_vivo else proyeccion.tasas_proyectadas.binance) | default(bin_hoy) %}
-    
     {% set spread_live = proyeccion.informe_vivo.spread_live_pct if proyeccion.informe_vivo else (((bin_hoy - bcv_hoy) / bcv_hoy * 100) if bcv_hoy > 0 else 0) %}
     
     {% set total_fuga_live = namespace(val=0) %}
+    {% set sum_fijo = namespace(val=0) %}
+    {% set sum_var = namespace(val=0) %}
+    {% set sum_dev = namespace(val=0) %}
+    
     {% for eg in proyeccion.lista_egresos %}
         {% set monto = eg.monto | default(0) %}
         {% set is_crypto = ('Binance' in eg.metodo or 'Cripto' in eg.metodo) %}
         {% set perdida = eg.perdida_live if eg.perdida_live is defined else (((monto * bin_hoy / bcv_hoy) - monto) if is_crypto and bcv_hoy > 0 else 0) %}
         {% set total_fuga_live.val = total_fuga_live.val + perdida %}
+        
+        {% set tipo_str = (eg.tipo_egreso | default(eg.tipo | default('fijo'))) | string | lower %}
+        {% if 'devolu' in tipo_str %}
+            {% set sum_dev.val = sum_dev.val + monto %}
+        {% elif 'fijo' in tipo_str %}
+            {% set sum_fijo.val = sum_fijo.val + monto %}
+        {% else %}
+            {% set sum_var.val = sum_var.val + monto %}
+        {% endif %}
     {% endfor %}
     
+    {% set total_egresos_calc = sum_fijo.val + sum_var.val + sum_dev.val %}
     {% set fuga_base_proy = proyeccion.perdida_spread_usd | default(0) %}
     {% set ahorro_brecha = proyeccion.informe_vivo.ahorro_brecha if proyeccion.informe_vivo else (fuga_base_proy - total_fuga_live.val) %}
     
@@ -90,7 +103,6 @@
     {% set real_bs = proyeccion.recaudo_real_desglose.VES_BCV | default(0) %}
     {% set exceso_bs = (real_bs - meta_bs) if real_bs > meta_bs else 0 %}
     {% set riesgo_bs = ((exceso_bs * bin_hoy / bcv_hoy) - exceso_bs) if bcv_hoy > 0 else 0 %}
-    
     {% set impacto_total = proyeccion.informe_vivo.impacto_total if proyeccion.informe_vivo else (ahorro_brecha - riesgo_bs) %}
     {% set balance_ajustado = proyeccion.informe_vivo.balance_ajustado if proyeccion.informe_vivo else (proyeccion.balance_neto_usd + impacto_total) %}
     {% set impacto_positivo = proyeccion.informe_vivo.impacto_positivo if proyeccion.informe_vivo else (ahorro_brecha >= 0) %}
@@ -115,7 +127,7 @@
         </div>
         {% endif %}
 
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y lg:divide-y-0 lg:divide-x divide-slate-100 grid grid-cols-1 lg:grid-cols-4 mb-6">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y lg:divide-y-0 lg:divide-x divide-slate-100 grid grid-cols-1 lg:grid-cols-4">
             
             {% set meta_inicial = proyeccion.recaudo_total_usd | default(0) %}
             {% set extra_adelantado = (proyeccion.informe_vivo.recaudo_adelantado if proyeccion.informe_vivo else 0) | default(0) %}
@@ -124,13 +136,13 @@
             {% set recaudo_total = proyeccion.recaudo_real_usd | default(0) %}
             {% set progreso_dinamico = (recaudo_total / meta_dinamica * 100) if meta_dinamica > 0 else 0 %}
 
-            <div class="p-4 sm:p-5 flex flex-col justify-center group hover:bg-slate-50/50 transition-colors">
-                <div class="flex justify-between items-center mb-1.5">
-                    <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-bullseye text-blue-500"></i> Recaudo vs Meta</p>
-                    <span class="text-[10px] font-black text-blue-600">{{ "%.1f"|format(progreso_dinamico) }}%</span>
-                </div>
-                <div class="flex items-baseline justify-between mt-0.5 mb-3">
-                    <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums">${{ "{:,.2f}".format(recaudo_total) }}</h3>
+            <div class="p-4 sm:p-5 flex flex-col justify-between group hover:bg-slate-50/50 transition-colors h-full">
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-bullseye text-blue-500"></i> Recaudo vs Meta</p>
+                        <span class="text-[10px] font-black text-blue-600">{{ "%.1f"|format(progreso_dinamico) }}%</span>
+                    </div>
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-3">${{ "{:,.2f}".format(recaudo_total) }}</h3>
                 </div>
                 
                 <div class="flex flex-col mt-auto">
@@ -157,7 +169,33 @@
                 </div>
             </div>
 
-            <div class="p-4 sm:p-5 flex flex-col justify-center group hover:bg-slate-50/50 transition-colors">
+            <div class="p-4 sm:p-5 flex flex-col justify-between group hover:bg-slate-50/50 transition-colors h-full">
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-wallet2 text-rose-500"></i> Egresos Proyectados</p>
+                    </div>
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-3">${{ "{:,.2f}".format(total_egresos_calc) }}</h3>
+                </div>
+                
+                <div class="flex flex-col mt-auto">
+                    <div class="flex justify-between items-center border-b border-slate-100/80 pb-1 mb-1">
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Gasto Fijo</span>
+                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(sum_fijo.val) }}</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-slate-100/80 pb-1 mb-1">
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Gasto Variable</span>
+                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(sum_var.val) }}</span>
+                    </div>
+                    <div class="flex justify-between items-center mb-2.5">
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Devoluciones</span>
+                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(sum_dev.val) }}</span>
+                    </div>
+                </div>
+                
+                <div class="h-1 mt-1"></div>
+            </div>
+
+            <div class="p-4 sm:p-5 flex flex-col justify-center group hover:bg-slate-50/50 transition-colors h-full">
                 <div class="flex justify-between items-center mb-2">
                     <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-calculator-fill text-orange-500"></i> Breakeven</p>
                     <span class="text-[9px] font-semibold text-slate-400">Gastos + Spread</span>
@@ -165,101 +203,95 @@
                 <h3 class="text-2xl font-black text-slate-900 tracking-tight mt-1 tabular-nums">${{ "{:,.2f}".format((proyeccion.egresos_total_usd | default(0)) + fuga_base_proy) }}</h3>
             </div>
 
-            <div class="p-4 sm:p-5 flex flex-col justify-center group hover:bg-slate-50/50 transition-colors">
+            <div class="p-4 sm:p-5 flex flex-col justify-center group hover:bg-slate-50/50 transition-colors h-full">
                 <div class="flex justify-between items-center mb-2">
                     <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-safe2-fill text-emerald-500"></i> Caja Líquida</p>
                     <span class="text-[9px] font-semibold text-slate-400">Ajustada</span>
                 </div>
                 <h3 class="text-2xl font-black text-emerald-600 tracking-tight mt-1 tabular-nums">${{ "{:,.2f}".format(balance_ajustado) }}</h3>
             </div>
-
-            <div class="p-4 sm:p-5 flex flex-col justify-center group hover:bg-slate-50/50 transition-colors">
-                <div class="flex justify-between items-center mb-2">
-                    <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-people-fill text-purple-500"></i> Clientes Proyectados</p>
-                </div>
-                <h3 class="text-2xl font-black text-slate-900 tracking-tight mt-1 tabular-nums">{{ proyeccion.clientes_activos | default(0) }}</h3>
-            </div>
         </div>
 
-        {% set sum_fijo = namespace(val=0) %}
-        {% set sum_var = namespace(val=0) %}
-        {% set sum_dev = namespace(val=0) %}
-        {% for eg in proyeccion.lista_egresos %}
-            {% set tipo_str = (eg.tipo_egreso | default(eg.tipo | default('fijo'))) | string | lower %}
-            {% set monto_eg = eg.monto | default(0) %}
-            {% if 'devolu' in tipo_str %}
-                {% set sum_dev.val = sum_dev.val + monto_eg %}
-            {% elif 'fijo' in tipo_str %}
-                {% set sum_fijo.val = sum_fijo.val + monto_eg %}
-            {% else %}
-                {% set sum_var.val = sum_var.val + monto_eg %}
-            {% endif %}
-        {% endfor %}
-        {% set total_egresos_calc = sum_fijo.val + sum_var.val + sum_dev.val %}
-
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y lg:divide-y-0 lg:divide-x divide-slate-200 grid grid-cols-1 lg:grid-cols-4 mb-6">
-            <div class="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
+            
+            <div class="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors flex flex-col justify-between h-full">
                 {% set pct_usd = (proyeccion.recaudo_real_desglose.USD_EFECTIVO / proyeccion.recaudo_desglose.USD_EFECTIVO * 100) if (proyeccion.recaudo_desglose.USD_EFECTIVO | default(0)) > 0 else 0 %}
-                <div class="flex justify-between items-center mb-1.5">
-                    <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> USD Efectivo</p>
-                    <span class="text-[10px] font-black text-emerald-600">{{ "%.1f"|format(pct_usd) }}%</span>
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> USD Efectivo</p>
+                        <span class="text-[10px] font-black text-emerald-600">{{ "%.1f"|format(pct_usd) }}%</span>
+                    </div>
+                    <h3 class="text-xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-2">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.USD_EFECTIVO | default(0)) }}</h3>
                 </div>
-                <div class="flex items-baseline justify-between mt-1">
-                    <p class="text-lg font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.USD_EFECTIVO | default(0)) }}</p>
-                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Meta: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.USD_EFECTIVO | default(0)) }}</p>
-                </div>
-                <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2.5 overflow-hidden">
-                    <div class="bg-emerald-500 h-1.5 rounded-full" style="width: {{ pct_usd if pct_usd <= 100 else 100 }}%"></div>
+                <div class="flex flex-col mt-auto">
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right mb-2">Meta: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.USD_EFECTIVO | default(0)) }}</p>
+                    <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                        <div class="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" style="width: {{ pct_usd if pct_usd <= 100 else 100 }}%"></div>
+                    </div>
                 </div>
             </div>
             
-            <div class="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
+            <div class="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors flex flex-col justify-between h-full">
                 {% set pct_usdt = (proyeccion.recaudo_real_desglose.USDT_BINANCE / proyeccion.recaudo_desglose.USDT_BINANCE * 100) if (proyeccion.recaudo_desglose.USDT_BINANCE | default(0)) > 0 else 0 %}
-                <div class="flex justify-between items-center mb-1.5">
-                    <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> USDT (P2P)</p>
-                    <span class="text-[10px] font-black text-amber-600">{{ "%.1f"|format(pct_usdt) }}%</span>
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> USDT (P2P)</p>
+                        <span class="text-[10px] font-black text-amber-600">{{ "%.1f"|format(pct_usdt) }}%</span>
+                    </div>
+                    <h3 class="text-xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-2">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.USDT_BINANCE | default(0)) }}</h3>
                 </div>
-                <div class="flex items-baseline justify-between mt-1">
-                    <p class="text-lg font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.USDT_BINANCE | default(0)) }}</p>
-                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Meta: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.USDT_BINANCE | default(0)) }}</p>
-                </div>
-                <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2.5 overflow-hidden">
-                    <div class="bg-amber-500 h-1.5 rounded-full" style="width: {{ pct_usdt if pct_usdt <= 100 else 100 }}%"></div>
+                <div class="flex flex-col mt-auto">
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right mb-2">Meta: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.USDT_BINANCE | default(0)) }}</p>
+                    <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                        <div class="bg-amber-500 h-1.5 rounded-full transition-all duration-500" style="width: {{ pct_usdt if pct_usdt <= 100 else 100 }}%"></div>
+                    </div>
                 </div>
             </div>
             
-            <div class="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
+            <div class="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors flex flex-col justify-between h-full">
                 {% set pct_bcv = (proyeccion.recaudo_real_desglose.VES_BCV / proyeccion.recaudo_desglose.VES_BCV * 100) if (proyeccion.recaudo_desglose.VES_BCV | default(0)) > 0 else 0 %}
-                <div class="flex justify-between items-center mb-1.5">
-                    <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> Bolívares (BCV)</p>
-                    <span class="text-[10px] font-black text-indigo-600">{{ "%.1f"|format(pct_bcv) }}%</span>
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> Bolívares (BCV)</p>
+                        <span class="text-[10px] font-black text-indigo-600">{{ "%.1f"|format(pct_bcv) }}%</span>
+                    </div>
+                    <h3 class="text-xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-2">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.VES_BCV | default(0)) }}</h3>
                 </div>
-                <div class="flex items-baseline justify-between mt-1">
-                    <p class="text-lg font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.VES_BCV | default(0)) }}</p>
-                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Límite: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.VES_BCV | default(0)) }}</p>
-                </div>
-                <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2.5 overflow-hidden">
-                    <div class="bg-indigo-500 h-1.5 rounded-full" style="width: {{ pct_bcv if pct_bcv <= 100 else 100 }}%"></div>
+                <div class="flex flex-col mt-auto">
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right mb-2">Límite: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.VES_BCV | default(0)) }}</p>
+                    <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                        <div class="bg-indigo-500 h-1.5 rounded-full transition-all duration-500" style="width: {{ pct_bcv if pct_bcv <= 100 else 100 }}%"></div>
+                    </div>
                 </div>
             </div>
 
-            <div class="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors flex flex-col justify-center">
-                <div class="flex justify-between items-center mb-1.5">
-                    <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-wallet2 text-rose-500"></i> Egresos Proyectados</p>
-                    <span class="text-[10px] font-black text-slate-900 tabular-nums">${{ "{:,.0f}".format(total_egresos_calc) }}</span>
+            <div class="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors flex flex-col justify-between h-full group">
+                {% set recaudo_total_eff = proyeccion.recaudo_real_usd | default(0) %}
+                {% set atrasado_eff = (proyeccion.informe_vivo.recaudo_atrasado if proyeccion.informe_vivo else 0) | default(0) %}
+                {% set a_tiempo_eff = recaudo_total_eff - atrasado_eff %}
+                {% set eficiencia_pct = (a_tiempo_eff / recaudo_total_eff * 100) if recaudo_total_eff > 0 else 0 %}
+
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-clock-history text-teal-500"></i> Eficiencia y Clientes</p>
+                        <span class="text-[10px] font-black {% if eficiencia_pct >= 85 %}text-teal-600{% elif eficiencia_pct >= 60 %}text-amber-500{% else %}text-rose-600{% endif %}">
+                            {{ "%.1f"|format(eficiencia_pct) }}%
+                        </span>
+                    </div>
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-2">{{ proyeccion.clientes_activos | default(0) }} <span class="text-xs font-bold text-slate-400">Activos</span></h3>
                 </div>
-                <div class="flex flex-col mt-1">
-                    <div class="flex justify-between items-center border-b border-slate-200/60 pb-1 mb-1">
-                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Fijos</span>
-                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(sum_fijo.val) }}</span>
+                
+                <div class="flex flex-col mt-auto">
+                    <div class="flex justify-between items-center border-b border-slate-100/80 pb-1 mb-1">
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">A Tiempo</span>
+                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(a_tiempo_eff) }}</span>
                     </div>
-                    <div class="flex justify-between items-center border-b border-slate-200/60 pb-1 mb-1">
-                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Variables</span>
-                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(sum_var.val) }}</span>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Con Atraso</span>
+                        <span class="text-[9px] font-black text-rose-600 tabular-nums">${{ "{:,.2f}".format(atrasado_eff) }}</span>
                     </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Devoluciones</span>
-                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(sum_dev.val) }}</span>
+                    <div class="w-full bg-rose-200/50 rounded-full h-1.5 flex overflow-hidden shadow-inner">
+                        <div class="bg-teal-500 h-1.5 transition-all duration-500" style="width: {{ eficiencia_pct }}%"></div>
                     </div>
                 </div>
             </div>
@@ -385,11 +417,11 @@
                     </thead>
                     
                     <tbody x-show="activeTab === 'fijo'" class="divide-y divide-slate-100 text-xs">
-                        {% set ns_fijo = namespace(count=0) %}
+                        {% set ns_fijo_tab = namespace(count=0) %}
                         {% for egreso in proyeccion.lista_egresos %}
                             {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default('fijo'))) | string | lower %}
                             {% if 'fijo' in tipo_str %}
-                                {% set ns_fijo.count = ns_fijo.count + 1 %}
+                                {% set ns_fijo_tab.count = ns_fijo_tab.count + 1 %}
                                 {% set monto_eg = egreso.monto | default(0) %}
                                 {% set is_crypto = ('Binance' in egreso.metodo or 'Cripto' in egreso.metodo) %}
                                 {% set pendiente_eg = egreso.pendiente if egreso.pendiente is defined else monto_eg %}
@@ -445,17 +477,17 @@
                                 </tr>
                             {% endif %}
                         {% endfor %}
-                        {% if ns_fijo.count == 0 %}
+                        {% if ns_fijo_tab.count == 0 %}
                         <tr><td colspan="7" class="py-8 px-6 text-center text-slate-500"><p class="text-[10px] font-semibold uppercase tracking-widest">No se encontraron gastos fijos</p></td></tr>
                         {% endif %}
                     </tbody>
 
                     <tbody x-show="activeTab === 'variable'" x-cloak style="display: none;" class="divide-y divide-slate-100 text-xs">
-                        {% set ns_var = namespace(count=0) %}
+                        {% set ns_var_tab = namespace(count=0) %}
                         {% for egreso in proyeccion.lista_egresos %}
                             {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default('variable'))) | string | lower %}
                             {% if 'fijo' not in tipo_str and 'devolu' not in tipo_str %}
-                                {% set ns_var.count = ns_var.count + 1 %}
+                                {% set ns_var_tab.count = ns_var_tab.count + 1 %}
                                 {% set monto_eg = egreso.monto | default(0) %}
                                 {% set is_crypto = ('Binance' in egreso.metodo or 'Cripto' in egreso.metodo) %}
                                 {% set pendiente_eg = egreso.pendiente if egreso.pendiente is defined else monto_eg %}
@@ -511,17 +543,17 @@
                                 </tr>
                             {% endif %}
                         {% endfor %}
-                        {% if ns_var.count == 0 %}
+                        {% if ns_var_tab.count == 0 %}
                         <tr><td colspan="7" class="py-8 px-6 text-center text-slate-500"><p class="text-[10px] font-semibold uppercase tracking-widest">No se encontraron gastos variables</p></td></tr>
                         {% endif %}
                     </tbody>
 
                     <tbody x-show="activeTab === 'devolucion'" x-cloak style="display: none;" class="divide-y divide-slate-100 text-xs">
-                        {% set ns_dev = namespace(count=0) %}
+                        {% set ns_dev_tab = namespace(count=0) %}
                         {% for egreso in proyeccion.lista_egresos %}
                             {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default(''))) | string | lower %}
                             {% if 'devolu' in tipo_str %}
-                                {% set ns_dev.count = ns_dev.count + 1 %}
+                                {% set ns_dev_tab.count = ns_dev_tab.count + 1 %}
                                 {% set monto_eg = egreso.monto | default(0) %}
                                 {% set is_crypto = ('Binance' in egreso.metodo or 'Cripto' in egreso.metodo) %}
                                 {% set pendiente_eg = egreso.pendiente if egreso.pendiente is defined else monto_eg %}
@@ -577,7 +609,7 @@
                                 </tr>
                             {% endif %}
                         {% endfor %}
-                        {% if ns_dev.count == 0 %}
+                        {% if ns_dev_tab.count == 0 %}
                         <tr><td colspan="7" class="py-8 px-6 text-center text-slate-500"><p class="text-[10px] font-semibold uppercase tracking-widest">No se encontraron devoluciones</p></td></tr>
                         {% endif %}
                     </tbody>
