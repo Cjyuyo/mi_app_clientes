@@ -5614,6 +5614,30 @@ def reporte_proyecciones():
                     if isinstance(data, str): data = json.loads(data)
                     for k, v in data.items():
                         if k not in ['recaudo_real_desglose', 'recaudo_real_usd', 'informe_vivo']: proyeccion[k] = v
+                    
+                    # =========================================================
+                    # FILTRO DINÁMICO DE EGRESOS ELIMINADOS (GHOST PURGE)
+                    # =========================================================
+                    cur.execute("SELECT titulo FROM egresos_planificados WHERE LOWER(COALESCE(estado, 'activo')) IN ('inactivo', 'anulado', 'eliminado')")
+                    titulos_inactivos = [r['titulo'] for r in cur.fetchall()]
+
+                    lista_limpia = []
+                    monto_descontado = 0.0
+                    fuga_descontada = 0.0
+
+                    for eg in proyeccion.get('lista_egresos', []):
+                        if eg.get('titulo') in titulos_inactivos:
+                            monto_descontado += float(eg.get('monto', 0))
+                            fuga_descontada += float(eg.get('perdida', 0))
+                        else:
+                            lista_limpia.append(eg)
+
+                    proyeccion['lista_egresos'] = lista_limpia
+                    proyeccion['egresos_total_usd'] = max(0.0, float(proyeccion.get('egresos_total_usd', 0.0)) - monto_descontado)
+                    proyeccion['perdida_spread_usd'] = max(0.0, float(proyeccion.get('perdida_spread_usd', 0.0)) - fuga_descontada)
+                    proyeccion['balance_neto_usd'] = float(proyeccion.get('balance_neto_usd', 0.0)) + monto_descontado + fuga_descontada
+                    # =========================================================
+
                     proyeccion['progreso_recaudo_pct'] = min((recaudo_real_usd / proyeccion.get('recaudo_total_usd', 1)) * 100, 100) if proyeccion.get('recaudo_total_usd', 0) > 0 else 0
                     simulacion_realizada = True
 
@@ -5663,7 +5687,7 @@ def reporte_proyecciones():
                     }
         except Exception as e:
             app.logger.error(f"Error cargando proyeccion GET: {e}")
-
+            
     # LÓGICA PREVIEW (PROYECTAR)
     if request.method == 'POST' and action in ['preview', None]:
         simulacion_realizada = True
