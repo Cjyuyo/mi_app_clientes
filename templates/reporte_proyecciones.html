@@ -259,49 +259,60 @@
                      </div>
                 </div>
                 
+                <div class="bg-slate-50 rounded-xl p-5 border border-slate-200 flex flex-col justify-center space-y-4">
+                     <div class="flex justify-between items-center border-b border-slate-200/60 pb-3">
+                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Fuga Base (Inicial)</span>
+                         <span class="text-sm font-black text-slate-900 tabular-nums">-${{ "{:,.2f}".format(fuga_base_proy) }}</span>
+                     </div>
+                     <div class="flex flex-col justify-center pt-1">
+                         <div class="flex justify-between items-end mb-2">
+                             <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Desviación Live</span>
+                             <span class="text-sm font-black {% if impacto_positivo %}text-emerald-600{% else %}text-rose-600{% endif %} tabular-nums leading-none">
+                                 {% if impacto_positivo %}+{% else %}-{% endif %}${{ "{:,.2f}".format(ahorro_brecha | abs) }}
+                             </span>
+                         </div>
+                         {% set max_desv = fuga_base_proy if fuga_base_proy > 0 else 100 %}
+                         {% set pct_desv = (ahorro_brecha | abs / max_desv * 100) %}
+                         <div class="w-full h-1.5 bg-slate-200/80 rounded-full flex overflow-hidden shadow-inner">
+                             <div class="w-1/2 h-full flex justify-end border-r border-slate-300/50">
+                                 {% if not impacto_positivo %}
+                                 <div class="h-full bg-gradient-to-l from-rose-300 to-rose-600" style="width: {{ pct_desv if pct_desv <= 100 else 100 }}%;"></div>
+                                 {% endif %}
+                             </div>
+                             <div class="w-1/2 h-full flex justify-start">
+                                 {% if impacto_positivo %}
+                                 <div class="h-full bg-gradient-to-r from-emerald-300 to-emerald-600" style="width: {{ pct_desv if pct_desv <= 100 else 100 }}%;"></div>
+                                 {% endif %}
+                             </div>
+                         </div>
+                     </div>
+                </div>
+                
                 <div class="bg-slate-50 rounded-xl p-5 border border-slate-200 flex flex-col justify-center items-center lg:items-end h-full">
                      <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2">Impacto Final en Caja</p>
                      <h3 class="text-3xl font-black text-slate-900 tracking-tighter tabular-nums leading-none mb-3">
                          {% if impacto_total > 0 %}+{% endif %}${{ "{:,.2f}".format(impacto_total) }}
                      </h3>
+                     
+                     {% set pct_imp = (impacto_total | abs / 500 * 100) %}
+                     <div class="w-full max-w-[160px] h-1.5 bg-slate-200/80 rounded-full flex overflow-hidden shadow-inner mb-4">
+                         <div class="w-1/2 h-full flex justify-end border-r border-slate-300/50">
+                             {% if impacto_total < 0 %}
+                             <div class="h-full bg-gradient-to-l from-rose-300 to-rose-600" style="width: {{ pct_imp if pct_imp <= 100 else 100 }}%;"></div>
+                             {% endif %}
+                         </div>
+                         <div class="w-1/2 h-full flex justify-start">
+                             {% if impacto_total > 0 %}
+                             <div class="h-full bg-gradient-to-r from-emerald-300 to-emerald-600" style="width: {{ pct_imp if pct_imp <= 100 else 100 }}%;"></div>
+                             {% endif %}
+                         </div>
+                     </div>
+
                      <div class="text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 px-3 py-1.5 rounded-md border shadow-sm {% if impacto_total >= 0 %}bg-emerald-50 text-emerald-700 border-emerald-200{% else %}bg-rose-50 text-rose-700 border-rose-200{% endif %}">
                          <i class="bi {% if impacto_total >= 0 %}bi-graph-up-arrow{% else %}bi-graph-down-arrow{% endif %} text-xs"></i>
                          {% if impacto_total >= 0 %}Superávit Operativo{% else %}Déficit Operativo{% endif %}
                      </div>
                 </div>
-            </div>
-        </div>
-                
-                <div class="bg-slate-50 rounded-xl p-4 border border-slate-200 flex flex-col justify-center space-y-3 h-full">
-                     <div class="flex justify-between items-center border-b border-slate-200/60 pb-2">
-                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Fuga Base (Inicial)</span>
-                         <span class="text-[10px] font-black text-slate-900 tabular-nums">-${{ "{:,.2f}".format(fuga_base_proy) }}</span>
-                     </div>
-                     <div class="flex justify-between items-center pt-1">
-                         <div>
-                             <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none mb-1.5">Efecto del Mercado</p>
-                             <span class="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shadow-sm {% if impacto_positivo %}bg-emerald-100 text-emerald-800 border border-emerald-200{% else %}bg-slate-800 text-white border border-slate-900{% endif %}">
-                                 {% if impacto_positivo %}A Favor (Ahorro){% else %}En Contra (Extra){% endif %}
-                             </span>
-                         </div>
-                         <span class="text-[11px] font-black text-slate-900 tabular-nums">
-                             {% if impacto_positivo %}+{% else %}-{% endif %}${{ "{:,.2f}".format(ahorro_brecha | abs) }}
-                         </span>
-                     </div>
-                </div>
-                
-                <div class="bg-slate-50 rounded-xl p-4 border border-slate-200 flex flex-col justify-center items-center lg:items-end h-full">
-                     <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Impacto Final en Caja</p>
-                     <h3 class="text-2xl font-black text-slate-900 tracking-tighter tabular-nums leading-none mb-3">
-                         {% if impacto_total > 0 %}+{% endif %}${{ "{:,.2f}".format(impacto_total) }}
-                     </h3>
-                     <div class="text-[8px] font-black uppercase tracking-widest flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border shadow-sm {% if impacto_total >= 0 %}bg-emerald-50 text-emerald-700 border-emerald-200{% else %}bg-rose-50 text-rose-700 border-rose-200{% endif %}">
-                         <i class="bi {% if impacto_total >= 0 %}bi-graph-up-arrow{% else %}bi-graph-down-arrow{% endif %} text-[10px]"></i>
-                         {% if impacto_total >= 0 %}Superávit Operativo{% else %}Déficit Operativo{% endif %}
-                     </div>
-                </div>
-            </div>
-        </div>
 
         <!-- AUDITORÍA DE EGRESOS (Egresos Proyectados) -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
