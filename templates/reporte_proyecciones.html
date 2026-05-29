@@ -313,6 +313,20 @@
                 <span class="flex items-center gap-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-white px-2 py-1 rounded border border-slate-200 shadow-sm"><span class="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse"></span> Valores En Vivo</span>
             </div>
             
+            <div x-data="{ activeTab: 'fijo' }" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="px-5 py-3 border-b border-slate-200 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="flex items-center gap-2">
+                    <h2 class="text-[10px] font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-journal-check text-teal-600"></i> Egresos Proyectados</h2>
+                    <span class="flex items-center gap-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-white px-2 py-1 rounded border border-slate-200 shadow-sm"><span class="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse"></span> Valores En Vivo</span>
+                </div>
+                
+                <div class="flex items-center bg-slate-200/60 p-1 rounded-lg w-full md:w-auto">
+                    <button @click.prevent="activeTab = 'fijo'" :class="activeTab === 'fijo' ? 'bg-white text-slate-900 shadow-sm border-slate-200/50' : 'text-slate-500 hover:text-slate-800'" class="flex-1 md:flex-none text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded border border-transparent transition-all">Gasto Fijo</button>
+                    <button @click.prevent="activeTab = 'variable'" :class="activeTab === 'variable' ? 'bg-white text-slate-900 shadow-sm border-slate-200/50' : 'text-slate-500 hover:text-slate-800'" class="flex-1 md:flex-none text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded border border-transparent transition-all">Gasto Variable</button>
+                    <button @click.prevent="activeTab = 'devolucion'" :class="activeTab === 'devolucion' ? 'bg-white text-slate-900 shadow-sm border-slate-200/50' : 'text-slate-500 hover:text-slate-800'" class="flex-1 md:flex-none text-[9px] font-bold uppercase tracking-widest px-3 py-1.5 rounded border border-transparent transition-all">Devoluciones</button>
+                </div>
+            </div>
+            
             <div class="overflow-x-auto custom-scrollbar">
                 <table class="w-full text-left">
                     <thead class="bg-white border-b border-slate-200">
@@ -326,103 +340,203 @@
                             <th class="py-3 px-5 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Acción</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100 text-xs">
-                        
+                    
+                    <tbody x-show="activeTab === 'fijo'" class="divide-y divide-slate-100 text-xs">
+                        {% set count_fijo = namespace(val=0) %}
                         {% for egreso in proyeccion.lista_egresos %}
-                        
-                        <!-- Lógica Jinja para conectar los valores vivos a la simulación -->
-                        {% set monto_eg = egreso.monto | default(0) %}
-                        {% set is_crypto = ('Binance' in egreso.metodo or 'Cripto' in egreso.metodo) %}
-                        {% set pendiente_eg = egreso.pendiente if egreso.pendiente is defined else monto_eg %}
-                        {% set pagado_eg = monto_eg - pendiente_eg %}
-                        
-                        {% set perdida_live_eg = egreso.perdida_live if egreso.perdida_live is defined else (((monto_eg * bin_hoy / bcv_hoy) - monto_eg) if is_crypto and bcv_hoy > 0 else 0) %}
-                        
-                        {% set estado_pago_eg = egreso.estado_pago %}
-                        {% set clase_estado_eg = egreso.clase_estado %}
-                        
-                        {% if estado_pago_eg is undefined %}
-                            {% if pagado_eg >= monto_eg - 0.001 %}
-                                {% set estado_pago_eg = 'Pagado' %}
-                                {% set clase_estado_eg = 'bg-emerald-50 border-emerald-200 text-emerald-600' %}
-                            {% elif pagado_eg > 0.001 %}
-                                {% set estado_pago_eg = 'Parcial' %}
-                                {% set clase_estado_eg = 'bg-blue-50 border-blue-200 text-blue-700' %}
-                            {% else %}
-                                {% set estado_pago_eg = 'Pendiente' %}
-                                {% set clase_estado_eg = 'bg-amber-50 border-amber-200 text-amber-600' %}
-                            {% endif %}
-                        {% endif %}
-
-                        <tr class="hover:bg-slate-50/80 transition-colors group">
-                            <td class="py-3 px-5 align-middle">
-                                <p class="text-[11px] font-bold text-slate-900">{{ egreso.titulo }}</p>
-                                <p class="text-[9px] font-semibold text-slate-500 mt-0.5">
-                                    {% if 'Binance' in egreso.metodo or 'Cripto' in egreso.metodo %}
-                                        <i class="bi bi-currency-bitcoin text-amber-500"></i> {{ egreso.metodo }}
-                                    {% elif 'BCV' in egreso.metodo %}
-                                        <i class="bi bi-bank text-indigo-500"></i> {{ egreso.metodo }}
-                                    {% else %}
-                                        <i class="bi bi-cash-stack text-emerald-500"></i> {{ egreso.metodo }}
-                                    {% endif %}
-                                </p>
-                            </td>
-                            
-                            <td class="py-3 px-3 align-middle text-center">
-                                <p class="text-[9px] font-bold text-slate-500 tracking-widest"><span class="text-slate-400">PROG:</span> {{ egreso.fecha_programada or '—' }}</p>
-                                {% if egreso.fecha_pago_real %}
-                                    <p class="text-[9px] font-black text-blue-600 uppercase tracking-widest mt-0.5">REAL: {{ egreso.fecha_pago_real }}</p>
-                                {% else %}
-                                    <p class="text-[9px] font-bold text-amber-500 uppercase tracking-widest mt-0.5">REAL: PENDIENTE</p>
+                            {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default('fijo'))) | lower %}
+                            {% if 'fijo' in tipo_str %}
+                                {% set count_fijo.val = count_fijo.val + 1 %}
+                                {% set monto_eg = egreso.monto | default(0) %}
+                                {% set is_crypto = ('Binance' in egreso.metodo or 'Cripto' in egreso.metodo) %}
+                                {% set pendiente_eg = egreso.pendiente if egreso.pendiente is defined else monto_eg %}
+                                {% set pagado_eg = monto_eg - pendiente_eg %}
+                                {% set perdida_live_eg = egreso.perdida_live if egreso.perdida_live is defined else (((monto_eg * bin_hoy / bcv_hoy) - monto_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+                                {% set estado_pago_eg = egreso.estado_pago %}
+                                {% set clase_estado_eg = egreso.clase_estado %}
+                                {% if estado_pago_eg is undefined %}
+                                    {% if pagado_eg >= monto_eg - 0.001 %}{% set estado_pago_eg = 'Pagado' %}{% set clase_estado_eg = 'bg-emerald-50 border-emerald-200 text-emerald-600' %}
+                                    {% elif pagado_eg > 0.001 %}{% set estado_pago_eg = 'Parcial' %}{% set clase_estado_eg = 'bg-blue-50 border-blue-200 text-blue-700' %}
+                                    {% else %}{% set estado_pago_eg = 'Pendiente' %}{% set clase_estado_eg = 'bg-amber-50 border-amber-200 text-amber-600' %}{% endif %}
                                 {% endif %}
-                            </td>
-                            
-                            <td class="py-3 px-3 align-middle text-center">
-                                <span class="px-2 py-0.5 {{ clase_estado_eg }} text-[9px] font-black uppercase tracking-widest rounded border">{{ estado_pago_eg }}</span>
-                            </td>
-                            
-                            <!-- Base USD Original -->
-                            <td class="py-3 px-3 align-middle text-right">
-                                <span class="font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(monto_eg) }}</span>
-                            </td>
-
-                            <!-- Pendiente Real a pagar -->
-                            <td class="py-3 px-3 align-middle text-right">
-                                <span class="font-bold text-slate-700 tabular-nums">${{ "{:,.2f}".format(pendiente_eg) }}</span>
-                            </td>
-                            
-                            <!-- Fuga Spread del remanente -->
-                            <td class="py-3 px-3 align-middle text-right">
-                                {% if perdida_live_eg > 0.01 %}
-                                    <p class="text-[10px] font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(perdida_live_eg) }}</p>
-                                {% else %}
-                                    <p class="text-[9px] font-semibold text-slate-400 mt-0.5">Eqv.</p>
-                                {% endif %}
-                            </td>
-                            
-                            <td class="py-3 px-5 align-middle text-center">
-                                <div class="flex flex-col gap-1.5 justify-center w-full max-w-[100px] mx-auto">
-                                    {% if estado_pago_eg == 'Pagado' %}
-                                        <span class="bg-emerald-50 border border-emerald-200 text-emerald-600 text-[9px] font-black uppercase tracking-widest py-1 px-2 rounded flex items-center justify-center gap-1 w-full"><i class="bi bi-check2"></i> Listo</span>
-                                    {% else %}
-                                        {% if estado_pago_eg == 'Parcial' %}
-                                            <button onclick="window.location.href='{{ url_for('gestion_egresos') }}'" class="bg-white border border-slate-200 text-slate-700 text-[9px] font-black uppercase tracking-widest py-1 px-2 rounded hover:bg-slate-50 transition-colors shadow-sm w-full"><i class="bi bi-folder2-open"></i> Ver Abono</button>
+                                <tr class="hover:bg-slate-50/80 transition-colors group">
+                                    <td class="py-3 px-5 align-middle">
+                                        <p class="text-[11px] font-bold text-slate-900">{{ egreso.titulo }}</p>
+                                        <p class="text-[9px] font-semibold text-slate-500 mt-0.5">
+                                            {% if 'Binance' in egreso.metodo or 'Cripto' in egreso.metodo %}<i class="bi bi-currency-bitcoin text-amber-500"></i> {{ egreso.metodo }}
+                                            {% elif 'BCV' in egreso.metodo %}<i class="bi bi-bank text-indigo-500"></i> {{ egreso.metodo }}
+                                            {% else %}<i class="bi bi-cash-stack text-emerald-500"></i> {{ egreso.metodo }}{% endif %}
+                                        </p>
+                                    </td>
+                                    <td class="py-3 px-3 align-middle text-center">
+                                        <p class="text-[9px] font-bold text-slate-500 tracking-widest"><span class="text-slate-400">PROG:</span> {{ egreso.fecha_programada or '—' }}</p>
+                                        {% if egreso.fecha_pago_real %}
+                                            <p class="text-[9px] font-black text-blue-600 uppercase tracking-widest mt-0.5">REAL: {{ egreso.fecha_pago_real }}</p>
                                         {% else %}
-                                            <span class="bg-slate-50 border border-slate-200 text-slate-400 text-[9px] font-black uppercase tracking-widest py-1 px-2 rounded flex items-center justify-center w-full">Sin Registro</span>
+                                            <p class="text-[9px] font-bold text-amber-500 uppercase tracking-widest mt-0.5">REAL: PENDIENTE</p>
                                         {% endif %}
-                                        <button onclick="window.location.href='{{ url_for('gestion_egresos') }}'" class="bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-800 transition-colors shadow-sm w-full"><i class="bi bi-wallet2"></i> Pagar</button>
-                                    {% endif %}
-                                </div>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="7" class="py-8 px-6 text-center text-slate-500">
-                                <p class="text-[10px] font-semibold">No se encontraron egresos en esta proyección</p>
-                            </td>
-                        </tr>
+                                    </td>
+                                    <td class="py-3 px-3 align-middle text-center">
+                                        <span class="px-2 py-0.5 {{ clase_estado_eg }} text-[9px] font-black uppercase tracking-widest rounded border">{{ estado_pago_eg }}</span>
+                                    </td>
+                                    <td class="py-3 px-3 align-middle text-right"><span class="font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(monto_eg) }}</span></td>
+                                    <td class="py-3 px-3 align-middle text-right"><span class="font-bold text-slate-700 tabular-nums">${{ "{:,.2f}".format(pendiente_eg) }}</span></td>
+                                    <td class="py-3 px-3 align-middle text-right">
+                                        {% if perdida_live_eg > 0.01 %}<p class="text-[10px] font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(perdida_live_eg) }}</p>
+                                        {% else %}<p class="text-[9px] font-semibold text-slate-400 mt-0.5">Eqv.</p>{% endif %}
+                                    </td>
+                                    <td class="py-3 px-5 align-middle text-center">
+                                        <div class="flex flex-col gap-1.5 justify-center w-full max-w-[100px] mx-auto">
+                                            {% if estado_pago_eg == 'Pagado' %}
+                                                <span class="bg-emerald-50 border border-emerald-200 text-emerald-600 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded flex items-center justify-center gap-1 w-full"><i class="bi bi-check2"></i> Listo</span>
+                                            {% else %}
+                                                {% if estado_pago_eg == 'Parcial' %}
+                                                    <button onclick="window.location.href='{{ url_for('gestion_egresos') }}'" class="bg-white border border-slate-200 text-slate-700 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-50 transition-colors shadow-sm w-full"><i class="bi bi-folder2-open"></i> Ver Abono</button>
+                                                {% else %}
+                                                    <span class="bg-slate-50 border border-slate-200 text-slate-400 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded flex items-center justify-center w-full">Sin Registro</span>
+                                                {% endif %}
+                                                <button onclick="window.location.href='{{ url_for('gestion_egresos') }}'" class="bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-800 transition-colors shadow-sm w-full"><i class="bi bi-wallet2"></i> Pagar</button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endif %}
                         {% endfor %}
-                        
+                        {% if count_fijo.val == 0 %}
+                        <tr><td colspan="7" class="py-8 px-6 text-center text-slate-500"><p class="text-[10px] font-semibold uppercase tracking-widest">No se encontraron gastos fijos</p></td></tr>
+                        {% endif %}
+                    </tbody>
+
+                    <tbody x-show="activeTab === 'variable'" x-cloak style="display: none;" class="divide-y divide-slate-100 text-xs">
+                        {% set count_var = namespace(val=0) %}
+                        {% for egreso in proyeccion.lista_egresos %}
+                            {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default('variable'))) | lower %}
+                            {% if 'fijo' not in tipo_str and 'devolu' not in tipo_str %}
+                                {% set count_var.val = count_var.val + 1 %}
+                                {% set monto_eg = egreso.monto | default(0) %}
+                                {% set is_crypto = ('Binance' in egreso.metodo or 'Cripto' in egreso.metodo) %}
+                                {% set pendiente_eg = egreso.pendiente if egreso.pendiente is defined else monto_eg %}
+                                {% set pagado_eg = monto_eg - pendiente_eg %}
+                                {% set perdida_live_eg = egreso.perdida_live if egreso.perdida_live is defined else (((monto_eg * bin_hoy / bcv_hoy) - monto_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+                                {% set estado_pago_eg = egreso.estado_pago %}
+                                {% set clase_estado_eg = egreso.clase_estado %}
+                                {% if estado_pago_eg is undefined %}
+                                    {% if pagado_eg >= monto_eg - 0.001 %}{% set estado_pago_eg = 'Pagado' %}{% set clase_estado_eg = 'bg-emerald-50 border-emerald-200 text-emerald-600' %}
+                                    {% elif pagado_eg > 0.001 %}{% set estado_pago_eg = 'Parcial' %}{% set clase_estado_eg = 'bg-blue-50 border-blue-200 text-blue-700' %}
+                                    {% else %}{% set estado_pago_eg = 'Pendiente' %}{% set clase_estado_eg = 'bg-amber-50 border-amber-200 text-amber-600' %}{% endif %}
+                                {% endif %}
+                                <tr class="hover:bg-slate-50/80 transition-colors group">
+                                    <td class="py-3 px-5 align-middle">
+                                        <p class="text-[11px] font-bold text-slate-900">{{ egreso.titulo }}</p>
+                                        <p class="text-[9px] font-semibold text-slate-500 mt-0.5">
+                                            {% if 'Binance' in egreso.metodo or 'Cripto' in egreso.metodo %}<i class="bi bi-currency-bitcoin text-amber-500"></i> {{ egreso.metodo }}
+                                            {% elif 'BCV' in egreso.metodo %}<i class="bi bi-bank text-indigo-500"></i> {{ egreso.metodo }}
+                                            {% else %}<i class="bi bi-cash-stack text-emerald-500"></i> {{ egreso.metodo }}{% endif %}
+                                        </p>
+                                    </td>
+                                    <td class="py-3 px-3 align-middle text-center">
+                                        <p class="text-[9px] font-bold text-slate-500 tracking-widest"><span class="text-slate-400">PROG:</span> {{ egreso.fecha_programada or '—' }}</p>
+                                        {% if egreso.fecha_pago_real %}
+                                            <p class="text-[9px] font-black text-blue-600 uppercase tracking-widest mt-0.5">REAL: {{ egreso.fecha_pago_real }}</p>
+                                        {% else %}
+                                            <p class="text-[9px] font-bold text-amber-500 uppercase tracking-widest mt-0.5">REAL: PENDIENTE</p>
+                                        {% endif %}
+                                    </td>
+                                    <td class="py-3 px-3 align-middle text-center">
+                                        <span class="px-2 py-0.5 {{ clase_estado_eg }} text-[9px] font-black uppercase tracking-widest rounded border">{{ estado_pago_eg }}</span>
+                                    </td>
+                                    <td class="py-3 px-3 align-middle text-right"><span class="font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(monto_eg) }}</span></td>
+                                    <td class="py-3 px-3 align-middle text-right"><span class="font-bold text-slate-700 tabular-nums">${{ "{:,.2f}".format(pendiente_eg) }}</span></td>
+                                    <td class="py-3 px-3 align-middle text-right">
+                                        {% if perdida_live_eg > 0.01 %}<p class="text-[10px] font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(perdida_live_eg) }}</p>
+                                        {% else %}<p class="text-[9px] font-semibold text-slate-400 mt-0.5">Eqv.</p>{% endif %}
+                                    </td>
+                                    <td class="py-3 px-5 align-middle text-center">
+                                        <div class="flex flex-col gap-1.5 justify-center w-full max-w-[100px] mx-auto">
+                                            {% if estado_pago_eg == 'Pagado' %}
+                                                <span class="bg-emerald-50 border border-emerald-200 text-emerald-600 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded flex items-center justify-center gap-1 w-full"><i class="bi bi-check2"></i> Listo</span>
+                                            {% else %}
+                                                {% if estado_pago_eg == 'Parcial' %}
+                                                    <button onclick="window.location.href='{{ url_for('gestion_egresos') }}'" class="bg-white border border-slate-200 text-slate-700 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-50 transition-colors shadow-sm w-full"><i class="bi bi-folder2-open"></i> Ver Abono</button>
+                                                {% else %}
+                                                    <span class="bg-slate-50 border border-slate-200 text-slate-400 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded flex items-center justify-center w-full">Sin Registro</span>
+                                                {% endif %}
+                                                <button onclick="window.location.href='{{ url_for('gestion_egresos') }}'" class="bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-800 transition-colors shadow-sm w-full"><i class="bi bi-wallet2"></i> Pagar</button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        {% endfor %}
+                        {% if count_var.val == 0 %}
+                        <tr><td colspan="7" class="py-8 px-6 text-center text-slate-500"><p class="text-[10px] font-semibold uppercase tracking-widest">No se encontraron gastos variables</p></td></tr>
+                        {% endif %}
+                    </tbody>
+
+                    <tbody x-show="activeTab === 'devolucion'" x-cloak style="display: none;" class="divide-y divide-slate-100 text-xs">
+                        {% set count_dev = namespace(val=0) %}
+                        {% for egreso in proyeccion.lista_egresos %}
+                            {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default(''))) | lower %}
+                            {% if 'devolu' in tipo_str %}
+                                {% set count_dev.val = count_dev.val + 1 %}
+                                {% set monto_eg = egreso.monto | default(0) %}
+                                {% set is_crypto = ('Binance' in egreso.metodo or 'Cripto' in egreso.metodo) %}
+                                {% set pendiente_eg = egreso.pendiente if egreso.pendiente is defined else monto_eg %}
+                                {% set pagado_eg = monto_eg - pendiente_eg %}
+                                {% set perdida_live_eg = egreso.perdida_live if egreso.perdida_live is defined else (((monto_eg * bin_hoy / bcv_hoy) - monto_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+                                {% set estado_pago_eg = egreso.estado_pago %}
+                                {% set clase_estado_eg = egreso.clase_estado %}
+                                {% if estado_pago_eg is undefined %}
+                                    {% if pagado_eg >= monto_eg - 0.001 %}{% set estado_pago_eg = 'Pagado' %}{% set clase_estado_eg = 'bg-emerald-50 border-emerald-200 text-emerald-600' %}
+                                    {% elif pagado_eg > 0.001 %}{% set estado_pago_eg = 'Parcial' %}{% set clase_estado_eg = 'bg-blue-50 border-blue-200 text-blue-700' %}
+                                    {% else %}{% set estado_pago_eg = 'Pendiente' %}{% set clase_estado_eg = 'bg-amber-50 border-amber-200 text-amber-600' %}{% endif %}
+                                {% endif %}
+                                <tr class="hover:bg-slate-50/80 transition-colors group">
+                                    <td class="py-3 px-5 align-middle">
+                                        <p class="text-[11px] font-bold text-slate-900">{{ egreso.titulo }}</p>
+                                        <p class="text-[9px] font-semibold text-slate-500 mt-0.5">
+                                            {% if 'Binance' in egreso.metodo or 'Cripto' in egreso.metodo %}<i class="bi bi-currency-bitcoin text-amber-500"></i> {{ egreso.metodo }}
+                                            {% elif 'BCV' in egreso.metodo %}<i class="bi bi-bank text-indigo-500"></i> {{ egreso.metodo }}
+                                            {% else %}<i class="bi bi-cash-stack text-emerald-500"></i> {{ egreso.metodo }}{% endif %}
+                                        </p>
+                                    </td>
+                                    <td class="py-3 px-3 align-middle text-center">
+                                        <p class="text-[9px] font-bold text-slate-500 tracking-widest"><span class="text-slate-400">PROG:</span> {{ egreso.fecha_programada or '—' }}</p>
+                                        {% if egreso.fecha_pago_real %}
+                                            <p class="text-[9px] font-black text-blue-600 uppercase tracking-widest mt-0.5">REAL: {{ egreso.fecha_pago_real }}</p>
+                                        {% else %}
+                                            <p class="text-[9px] font-bold text-amber-500 uppercase tracking-widest mt-0.5">REAL: PENDIENTE</p>
+                                        {% endif %}
+                                    </td>
+                                    <td class="py-3 px-3 align-middle text-center">
+                                        <span class="px-2 py-0.5 {{ clase_estado_eg }} text-[9px] font-black uppercase tracking-widest rounded border">{{ estado_pago_eg }}</span>
+                                    </td>
+                                    <td class="py-3 px-3 align-middle text-right"><span class="font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(monto_eg) }}</span></td>
+                                    <td class="py-3 px-3 align-middle text-right"><span class="font-bold text-slate-700 tabular-nums">${{ "{:,.2f}".format(pendiente_eg) }}</span></td>
+                                    <td class="py-3 px-3 align-middle text-right">
+                                        {% if perdida_live_eg > 0.01 %}<p class="text-[10px] font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(perdida_live_eg) }}</p>
+                                        {% else %}<p class="text-[9px] font-semibold text-slate-400 mt-0.5">Eqv.</p>{% endif %}
+                                    </td>
+                                    <td class="py-3 px-5 align-middle text-center">
+                                        <div class="flex flex-col gap-1.5 justify-center w-full max-w-[100px] mx-auto">
+                                            {% if estado_pago_eg == 'Pagado' %}
+                                                <span class="bg-emerald-50 border border-emerald-200 text-emerald-600 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded flex items-center justify-center gap-1 w-full"><i class="bi bi-check2"></i> Listo</span>
+                                            {% else %}
+                                                {% if estado_pago_eg == 'Parcial' %}
+                                                    <button onclick="window.location.href='{{ url_for('gestion_egresos') }}'" class="bg-white border border-slate-200 text-slate-700 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-50 transition-colors shadow-sm w-full"><i class="bi bi-folder2-open"></i> Ver Abono</button>
+                                                {% else %}
+                                                    <span class="bg-slate-50 border border-slate-200 text-slate-400 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded flex items-center justify-center w-full">Sin Registro</span>
+                                                {% endif %}
+                                                <button onclick="window.location.href='{{ url_for('gestion_egresos') }}'" class="bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-800 transition-colors shadow-sm w-full"><i class="bi bi-wallet2"></i> Pagar</button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        {% endfor %}
+                        {% if count_dev.val == 0 %}
+                        <tr><td colspan="7" class="py-8 px-6 text-center text-slate-500"><p class="text-[10px] font-semibold uppercase tracking-widest">No se encontraron devoluciones</p></td></tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
