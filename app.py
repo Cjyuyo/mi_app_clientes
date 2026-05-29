@@ -4082,12 +4082,11 @@ def _should_emit_weekly(d: date, inicio: date, intervalo: int, byday_set: set) -
     return weeks % max(1, intervalo) == 0
 
 def generar_ocurrencias_periodo(conn, periodo_tipo: str, clave: str, start: date, end: date):
-    """Asegura que existan egresos_ocurrencias dentro del rango [start,end]."""
+    """Asegura que existan egresos_ocurrencias dentro del rango [start,end] con fracciones calculadas."""
     if not conn:
         return
     try:
         with conn.cursor() as cur:
-            # CORREGIDO: LOWER() en el WHERE para que detecte los gastos de la base de datos
             cur.execute("""
                 SELECT id, titulo, tipo, frecuencia, intervalo_semana, byday, dia_mes, dias_quincena,
                        monto_base_usd, metodo_referencia,
@@ -4106,14 +4105,24 @@ def generar_ocurrencias_periodo(conn, periodo_tipo: str, clave: str, start: date
                     continue
 
                 freq = (e['frecuencia'] or 'Unico').capitalize()
-                monto = e['monto_base_usd'] or Decimal('0.00')
+                monto_total_mes = e['monto_base_usd'] or Decimal('0.00')
+
+                # ========================================================
+                # LÓGICA DE FRACCIONAMIENTO AUTOMÁTICO DE CUOTAS
+                # ========================================================
+                if freq == 'Semanal':
+                    monto_cuota = monto_total_mes / Decimal('4.0')
+                elif freq == 'Quincenal':
+                    monto_cuota = monto_total_mes / Decimal('2.0')
+                else:
+                    monto_cuota = monto_total_mes
+                # ========================================================
 
                 fechas_a_crear = []
 
                 if freq == 'Semanal':
                     intervalo = int(e.get('intervalo_semana') or 1)
                     byday_set = _str_to_byday_set(e.get('byday'))
-                    # iteramos los días del período y filtramos
                     for d in _dates_in_range(max(start, finicio), min(end, ffin)):
                         if _should_emit_weekly(d, finicio, intervalo, byday_set):
                             fechas_a_crear.append(d)
@@ -4124,7 +4133,6 @@ def generar_ocurrencias_periodo(conn, periodo_tipo: str, clave: str, start: date
                         dia = max(1, min(31, dia))
                     except Exception:
                         dia = 1
-                    # Solo los días que caen dentro del rango
                     mstart = date(start.year, start.month, 1)
                     mend   = date(end.year, end.month, 1)
                     curm = mstart
@@ -4134,7 +4142,6 @@ def generar_ocurrencias_periodo(conn, periodo_tipo: str, clave: str, start: date
                         d = date(curm.year, curm.month, min(dia, last_day))
                         if d >= max(start, finicio) and d <= min(end, ffin):
                             fechas_a_crear.append(d)
-                        # next month
                         if curm.month == 12:
                             curm = date(curm.year+1, 1, 1)
                         else:
@@ -4149,7 +4156,6 @@ def generar_ocurrencias_periodo(conn, periodo_tipo: str, clave: str, start: date
                             d = max(1, min(31, int(tok)))
                             if d not in tokens:
                                 tokens.append(d)
-                    # meses cubiertos por el rango
                     mstart = date(start.year, start.month, 1)
                     mend   = date(end.year, end.month, 1)
                     curm = mstart
@@ -4160,14 +4166,12 @@ def generar_ocurrencias_periodo(conn, periodo_tipo: str, clave: str, start: date
                             d = date(curm.year, curm.month, min(dnum, last_day))
                             if d >= max(start, finicio) and d <= min(end, ffin):
                                 fechas_a_crear.append(d)
-                        # next month
                         if curm.month == 12:
                             curm = date(curm.year+1, 1, 1)
                         else:
                             curm = date(curm.year, curm.month+1, 1)
 
                 elif freq == 'Anual':
-                    # mismo día/mes del inicio, si cae en el rango
                     base_d = finicio
                     for d in _dates_in_range(max(start, finicio), min(end, ffin)):
                         if d.month == base_d.month and d.day == base_d.day:
@@ -4178,7 +4182,7 @@ def generar_ocurrencias_periodo(conn, periodo_tipo: str, clave: str, start: date
                     if d >= start and d <= end:
                         fechas_a_crear.append(d)
 
-                # Insertar ocurrencias si no existen
+                # Insertar ocurrencias si no existen usando el MONTO FRACCIONADO
                 for d in fechas_a_crear:
                     cur.execute("""
                         SELECT id FROM egresos_ocurrencias
@@ -4187,12 +4191,11 @@ def generar_ocurrencias_periodo(conn, periodo_tipo: str, clave: str, start: date
                     """, (e['id'], d))
                     row = cur.fetchone()
                     if not row:
-                        # CORREGIDO: 'pendiente' en estricta minúscula para respetar la regla de la base de datos
                         cur.execute("""
                             INSERT INTO egresos_ocurrencias
                                 (egreso_id, periodo_tipo, periodo_clave, fecha_programada, monto_programado_usd, monto_pagado_usd, estado, created_at)
                             VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
-                        """, (e['id'], periodo_tipo, clave, d, monto, Decimal('0.00'), 'pendiente'))
+                        """, (e['id'], periodo_tipo, clave, d, monto_cuota, Decimal('0.00'), 'pendiente'))
         conn.commit()
     except psycopg2.Error:
         conn.rollback()
@@ -5687,7 +5690,7 @@ def reporte_proyecciones():
                     }
         except Exception as e:
             app.logger.error(f"Error cargando proyeccion GET: {e}")
-            
+
     # LÓGICA PREVIEW (PROYECTAR)
     if request.method == 'POST' and action in ['preview', None]:
         simulacion_realizada = True
