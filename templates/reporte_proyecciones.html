@@ -252,13 +252,8 @@
                          <span class="text-sm font-black text-slate-900 tabular-nums">-${{ "{:,.2f}".format(fuga_base_proy) }}</span>
                      </div>
                      <div class="flex justify-between items-center pt-1">
-                         <div>
-                             <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none mb-2">Efecto del Mercado</p>
-                             <span class="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-sm {% if impacto_positivo %}bg-emerald-100 text-emerald-800 border border-emerald-200{% else %}bg-slate-800 text-white border border-slate-900{% endif %}">
-                                 {% if impacto_positivo %}A Favor (Ahorro){% else %}En Contra (Extra){% endif %}
-                             </span>
-                         </div>
-                         <span class="text-base font-black text-slate-900 tabular-nums">
+                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Desviación Live</span>
+                         <span class="text-sm font-black {% if impacto_positivo %}text-emerald-600{% else %}text-rose-600{% endif %} tabular-nums">
                              {% if impacto_positivo %}+{% else %}-{% endif %}${{ "{:,.2f}".format(ahorro_brecha | abs) }}
                          </span>
                      </div>
