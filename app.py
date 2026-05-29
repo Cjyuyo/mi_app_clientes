@@ -4654,11 +4654,20 @@ def auditoria_egresos():
     ultimo_dia_mes = hoy.replace(day=calendar.monthrange(hoy.year, hoy.month)[1]).strftime('%Y-%m-%d')
 
     fecha_desde = request.args.get('fecha_desde', primer_dia_mes)
-    fecha_hasta = request.args.get('fecha_hasta', ultimo_dia_mes)
-    estado_filtro = request.args.get('estado', '') 
-    tipo_filtro = request.args.get('tipo', '') 
+        fecha_hasta = request.args.get('fecha_hasta', ultimo_dia_mes)
+        estado_filtro = request.args.get('estado', '') 
+        tipo_filtro = request.args.get('tipo', '') 
 
-    # EXTRAER TASAS VIVAS PARA QUE EL MODAL FUNCIONE AQUÍ TAMBIÉN
+        # --- NUEVO: ASEGURAMOS QUE LAS FRACCIONES EXISTAN PARA AUDITARLAS ---
+        try:
+            f_start = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
+            f_end = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
+            generar_ocurrencias_periodo(conn, 'mensual', 'auditoria', f_start, f_end)
+        except Exception as e:
+            app.logger.error(f"Error generando fracciones en auditoria: {e}")
+        # --------------------------------------------------------------------
+
+        # EXTRAER TASAS VIVAS PARA QUE EL MODAL FUNCIONE AQUÍ TAMBIÉN
     tasas_hoy = {'usd': 1.0, 'binance': 1.0}
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
@@ -5577,6 +5586,9 @@ def reporte_proyecciones():
 
     ocurrencias_estado = {}
     try:
+        # === MAGIA: GENERAR FRACCIONES DEL CICLO ===
+        generar_ocurrencias_periodo(conn, 'mensual', f"proy_{fecha_inicio.strftime('%m%Y')}", fecha_inicio, fecha_fin)
+
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur_occ:
             cur_occ.execute("""
                 SELECT ep.titulo, MAX(eo.id) as ocurrencia_id, MAX(eo.fecha_programada) as fecha_programada, SUM(eo.monto_programado_usd) as monto_programado_usd, SUM(eo.monto_pagado_usd) as monto_pagado_usd,
@@ -5718,13 +5730,21 @@ def reporte_proyecciones():
 
                 cur.execute("SELECT titulo, monto_base_usd, metodo_referencia FROM egresos_planificados WHERE LOWER(COALESCE(estado, 'activo')) IN ('activo', 'activa')")
                 for eg in cur.fetchall():
-                    monto, metodo = float(eg['monto_base_usd']), str(eg['metodo_referencia']).upper()
+                    occ = ocurrencias_estado.get(eg['titulo'])
+                    
+                    # IGNORAR SI NO HAY OCURRENCIA EN ESTE CICLO
+                    if not occ or float(occ.get('monto_programado_usd') or 0) <= 0:
+                        continue
+                        
+                    # USAR LA SUMA FRACCIONADA EXACTA DEL MES
+                    monto = float(occ['monto_programado_usd'])
+                    metodo = str(eg['metodo_referencia']).upper()
+                    
                     perdida, cat, label = 0.0, 'USD_EFECTIVO', 'USD Físico'
                     if metodo == 'VES_BINANCE': cat, label, perdida = 'VES_BINANCE', 'Bs (Tasa Binance)', (monto * tasa_binance / tasa_bcv) - monto
                     elif 'BCV' in metodo or 'EUR' in metodo: cat, label = 'VES_BCV', 'Bs (Tasa BCV)'
                     elif 'BINANCE' in metodo or 'USDT' in metodo: cat, label, perdida = 'USDT_BINANCE', 'USDT (Cripto)', (monto * tasa_binance / tasa_bcv) - monto
 
-                    occ = ocurrencias_estado.get(eg['titulo'])
                     proyeccion['distribucion_egresos'][cat] += monto
                     proyeccion['egresos_total_usd'] += monto
                     proyeccion['perdida_spread_usd'] += perdida
