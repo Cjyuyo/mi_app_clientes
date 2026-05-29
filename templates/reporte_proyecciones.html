@@ -280,12 +280,16 @@
                     </div>
                 </div>
                 
-                <div class="bg-slate-50 rounded-xl p-5 border border-slate-200 flex flex-col justify-center space-y-4 h-full">
-                     <div class="flex justify-between items-center border-b border-slate-200/60 pb-3">
-                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Fuga Base (Inicial)</span>
+                <div class="bg-slate-50 rounded-xl p-5 border border-slate-200 flex flex-col justify-center space-y-3.5 h-full">
+                     <div class="flex justify-between items-center border-b border-slate-200/60 pb-2.5">
+                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Fuga Base Inicial</span>
                          <span class="text-sm font-black text-slate-900 tabular-nums">-${{ "{:,.2f}".format(fuga_base_proy) }}</span>
                      </div>
-                     <div class="flex flex-col justify-center pt-1">
+                     <div class="flex justify-between items-center border-b border-slate-200/60 pb-2.5">
+                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Fuga Base Actual</span>
+                         <span class="text-sm font-black text-slate-900 tabular-nums">-${{ "{:,.2f}".format(total_fuga_live.val) }}</span>
+                     </div>
+                     <div class="flex flex-col justify-center pt-0.5">
                          <div class="flex justify-between items-end mb-2">
                              <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Desviación Live</span>
                              <span class="text-sm font-black {% if impacto_positivo %}text-emerald-600{% else %}text-rose-600{% endif %} tabular-nums leading-none">
