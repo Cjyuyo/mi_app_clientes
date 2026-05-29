@@ -341,13 +341,7 @@
         </div>
 
         <!-- AUDITORÍA DE EGRESOS (Egresos Proyectados) -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="px-5 py-3 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
-                <h2 class="text-[10px] font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-journal-check text-teal-600"></i> Egresos Proyectados</h2>
-                <span class="flex items-center gap-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-white px-2 py-1 rounded border border-slate-200 shadow-sm"><span class="w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse"></span> Valores En Vivo</span>
-            </div>
-            
-            <div x-data="{ activeTab: 'fijo' }" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div x-data="{ activeTab: 'fijo' }" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
             <div class="px-5 py-3 border-b border-slate-200 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div class="flex items-center gap-2">
                     <h2 class="text-[10px] font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-journal-check text-teal-600"></i> Egresos Proyectados</h2>
@@ -444,7 +438,7 @@
                     <tbody x-show="activeTab === 'variable'" x-cloak style="display: none;" class="divide-y divide-slate-100 text-xs">
                         {% set ns_var = namespace(count=0) %}
                         {% for egreso in proyeccion.lista_egresos %}
-                            {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default('fijo'))) | string | lower %}
+                            {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default('variable'))) | string | lower %}
                             {% if 'fijo' not in tipo_str and 'devolu' not in tipo_str %}
                                 {% set ns_var.count = ns_var.count + 1 %}
                                 {% set monto_eg = egreso.monto | default(0) %}
@@ -510,7 +504,7 @@
                     <tbody x-show="activeTab === 'devolucion'" x-cloak style="display: none;" class="divide-y divide-slate-100 text-xs">
                         {% set ns_dev = namespace(count=0) %}
                         {% for egreso in proyeccion.lista_egresos %}
-                            {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default('fijo'))) | string | lower %}
+                            {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default(''))) | string | lower %}
                             {% if 'devolu' in tipo_str %}
                                 {% set ns_dev.count = ns_dev.count + 1 %}
                                 {% set monto_eg = egreso.monto | default(0) %}
