@@ -81,8 +81,11 @@
     },
 
     abrirModal(id, tit, monto, metodoRaw) {
-        this.occ_id = id; this.titulo = tit; this.monto_deuda_original = parseFloat(monto) || 0;
-        this.abono_usd = this.monto_deuda_original.toFixed(2); this.usar_tasa_custom = false; this.referencia = '';
+        this.occ_id = id; this.titulo = tit; 
+        // BLINDAJE: Limpiamos cualquier formato o coma antes de convertir a número
+        this.monto_deuda_original = parseFloat(String(monto).replace(',', '.')) || 0;
+        this.abono_usd = this.monto_deuda_original.toFixed(2); 
+        this.usar_tasa_custom = false; this.referencia = '';
         
         let m = String(metodoRaw || '').toUpperCase().trim();
         if (!m || m === 'NONE' || m === 'NULL') {
@@ -414,7 +417,7 @@
                                                     <div class="text-[9px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap" title="Fecha límite programada">
                                                         Prog: <span class="tabular-nums text-slate-700">{% if f_prog_obj %}{{ f_prog_obj.strftime('%d %b %y') if not f_prog_obj is string else f_prog_obj }}{% else %}—{% endif %}</span>
                                                     </div>
-                                                    </div>
+                                                </div>
                                             </td>
 
                                             <td class="hidden sm:table-cell py-3 sm:py-4 px-2 text-center align-middle">
@@ -463,9 +466,11 @@
                                                     
                                                     {% if o_pend > 0.0001 %}
                                                         <button type="button" 
+                                                                data-id="{{ occ_id }}"
                                                                 data-titulo="{{ i_titulo|escape }}"
+                                                                data-monto="{{ o_pend }}"
                                                                 data-metodo="{{ metodo_ref }}"
-                                                                @click.prevent="abrirModal('{{ occ_id }}', $event.currentTarget.dataset.titulo, {{ o_pend }}, $event.currentTarget.dataset.metodo)" 
+                                                                @click.prevent="abrirModal($event.currentTarget.dataset.id, $event.currentTarget.dataset.titulo, $event.currentTarget.dataset.monto, $event.currentTarget.dataset.metodo)" 
                                                                 class="h-7 w-full inline-flex items-center justify-center gap-1.5 px-2 bg-slate-900 text-white hover:bg-slate-800 transition-all shadow-sm text-[9px] font-bold uppercase tracking-widest rounded-md active:scale-95 whitespace-nowrap">
                                                             <i class="bi bi-wallet2 text-[10px] leading-none pointer-events-none"></i> Pagar
                                                         </button>
@@ -772,7 +777,8 @@
                 return [{ value: '', label: '-- Seleccione Caja --' }, { value: 'BANESCO_BINANCE', label: 'Caja Banesco (Tasa Binance)' }, { value: 'BANESCO_BCV', label: 'Caja Banesco (Tasa BCV)' }, { value: 'EFECTIVO_USD', label: 'Efectivo USD' }];
             },
             open(id, tit, monto, metodoRaw) {
-                this.occ_id = id; this.titulo = tit; this.monto_deuda_original = parseFloat(monto) || 0;
+                this.occ_id = id; this.titulo = tit; 
+                this.monto_deuda_original = parseFloat(String(monto).replace(',', '.')) || 0;
                 this.abono_usd = this.monto_deuda_original.toFixed(2); this.usar_tasa_custom = false; this.referencia = '';
                 let m = String(metodoRaw || '').toUpperCase().trim();
                 if (m.indexOf('BP2P') !== -1 || m.indexOf('B.P2P') !== -1) { this.grupo_cajas = 'BP2P'; this.tipo_pago = 'BANESCO_BINANCE'; }
