@@ -4652,20 +4652,19 @@ def auditoria_egresos():
     hoy_date = hoy.date() if hasattr(hoy, 'date') else hoy
     primer_dia_mes = hoy.replace(day=1).strftime('%Y-%m-%d')
     ultimo_dia_mes = hoy.replace(day=calendar.monthrange(hoy.year, hoy.month)[1]).strftime('%Y-%m-%d')
-
     fecha_desde = request.args.get('fecha_desde', primer_dia_mes)
-        fecha_hasta = request.args.get('fecha_hasta', ultimo_dia_mes)
-        estado_filtro = request.args.get('estado', '') 
-        tipo_filtro = request.args.get('tipo', '') 
+    fecha_hasta = request.args.get('fecha_hasta', ultimo_dia_mes)
+    estado_filtro = request.args.get('estado', '') 
+    tipo_filtro = request.args.get('tipo', '') 
 
-        # --- NUEVO: ASEGURAMOS QUE LAS FRACCIONES EXISTAN PARA AUDITARLAS ---
-        try:
-            f_start = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
-            f_end = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
-            generar_ocurrencias_periodo(conn, 'mensual', 'auditoria', f_start, f_end)
-        except Exception as e:
-            app.logger.error(f"Error generando fracciones en auditoria: {e}")
-        # --------------------------------------------------------------------
+    # --- NUEVO: ASEGURAMOS QUE LAS FRACCIONES EXISTAN PARA AUDITARLAS ---
+    try:
+        f_start = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
+        f_end = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
+        generar_ocurrencias_periodo(conn, 'mensual', 'auditoria', f_start, f_end)
+    except Exception as e:
+        app.logger.error(f"Error generando fracciones en auditoria: {e}")
+    # --------------------------------------------------------------------
 
         # EXTRAER TASAS VIVAS PARA QUE EL MODAL FUNCIONE AQUÍ TAMBIÉN
     tasas_hoy = {'usd': 1.0, 'binance': 1.0}
