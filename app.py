@@ -5541,19 +5541,31 @@ def reporte_proyecciones():
     real_usd_efectivo = 0.0
     real_usdt_cripto = 0.0
     real_ves_banco = 0.0
+    real_base = 0.0
+    real_adelantado = 0.0
+    real_atrasado = 0.0 # Preparado estructuralmente para futuras versiones de Mora
     
     try:
         with conn.cursor() as cur:
+            # FILTRO ESTRICTO: Solo Cuotas y Pagos Adelantados (Excluye Inscripciones)
             cur.execute("""
-                SELECT COALESCE(forma_pago, '') as f_pago, COALESCE(pago_en, '') as p_en, COALESCE(moneda_referencia, '') as m_ref, COALESCE(SUM(monto), 0) as total_usd
+                SELECT COALESCE(forma_pago, '') as f_pago, COALESCE(pago_en, '') as p_en, COALESCE(moneda_referencia, '') as m_ref, COALESCE(tipo_pago, '') as t_pago, COALESCE(SUM(monto), 0) as total_usd
                 FROM pagos 
                 WHERE fecha_pago >= %s AND fecha_pago <= %s 
                 AND UPPER(TRIM(COALESCE(estado_pago, ''))) IN ('APROBADO', 'CONFIRMADO', 'VERIFICADO', 'CONCILIADO')
-                GROUP BY forma_pago, pago_en, moneda_referencia
+                AND tipo_pago IN ('Cuota', 'Pago Oferta')
+                GROUP BY forma_pago, pago_en, moneda_referencia, tipo_pago
             """, (fecha_inicio, fecha_fin))
             for row in cur.fetchall():
-                fp, pe, mr, m = str(row['f_pago']).upper(), str(row['p_en']).upper(), str(row['m_ref']).upper(), float(row['total_usd'])
+                fp, pe, mr, tp, m = str(row['f_pago']).upper(), str(row['p_en']).upper(), str(row['m_ref']).upper(), str(row['t_pago']), float(row['total_usd'])
                 recaudo_real_usd += m
+                
+                # Clasificación inteligente de Cuotas
+                if tp == 'Pago Oferta': 
+                    real_adelantado += m
+                else: 
+                    real_base += m
+                
                 if 'BINANCE' in fp or 'BINANCE' in pe or 'USDT' in mr or 'USDT' in fp or 'CRIPT' in fp: real_usdt_cripto += m
                 elif 'BS' in mr or 'BS' in pe or 'MOVIL' in fp or 'TRANSFERENCIA' in fp or 'PAGO MOVIL' in fp or 'BANCO' in pe: real_ves_banco += m
                 else: real_usd_efectivo += m
@@ -5645,7 +5657,9 @@ def reporte_proyecciones():
                     proyeccion['informe_vivo'] = {
                         'fuga_live': nueva_fuga_live, 'bs_usados_spread': nueva_fuga_live * bcv_actual, 'ahorro_brecha': ahorro_brecha, 'riesgo_bs': riesgo_bs, 'impacto_total': impacto_total,
                         'balance_ajustado': float(proyeccion.get('balance_neto_usd', 0)) + impacto_total, 't_bcv_proj': t_bcv_proj, 't_bin_proj': t_bin_proj, 't_bcv_hoy': bcv_actual, 't_bin_hoy': binance_actual,
-                        'spread_apertura_pct': spread_apertura_pct, 'spread_live_pct': spread_live_pct, 'impacto_positivo': ahorro_brecha >= 0
+                        'spread_apertura_pct': spread_apertura_pct, 'spread_live_pct': spread_live_pct, 'impacto_positivo': ahorro_brecha >= 0,
+                        # AÑADIR ESTAS 3 LÍNEAS:
+                        'recaudo_base': real_base, 'recaudo_adelantado': real_adelantado, 'recaudo_atrasado': real_atrasado
                     }
         except Exception as e:
             app.logger.error(f"Error cargando proyeccion GET: {e}")
