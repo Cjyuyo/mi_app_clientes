@@ -168,8 +168,23 @@
         </div>
 
         <!-- METAS DE MONEDAS UNIFICADAS -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y md:divide-y-0 md:divide-x divide-slate-200 grid grid-cols-1 md:grid-cols-3">
-            <!-- USD -->
+        {% set sum_fijo = namespace(val=0) %}
+        {% set sum_var = namespace(val=0) %}
+        {% set sum_dev = namespace(val=0) %}
+        {% for eg in proyeccion.lista_egresos %}
+            {% set tipo_str = (eg.tipo_egreso | default(eg.tipo | default('fijo'))) | string | lower %}
+            {% set monto_eg = eg.monto | default(0) %}
+            {% if 'devolu' in tipo_str %}
+                {% set sum_dev.val = sum_dev.val + monto_eg %}
+            {% elif 'fijo' in tipo_str %}
+                {% set sum_fijo.val = sum_fijo.val + monto_eg %}
+            {% else %}
+                {% set sum_var.val = sum_var.val + monto_eg %}
+            {% endif %}
+        {% endfor %}
+        {% set total_egresos_calc = sum_fijo.val + sum_var.val + sum_dev.val %}
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y lg:divide-y-0 lg:divide-x divide-slate-200 grid grid-cols-1 lg:grid-cols-4">
             <div class="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
                 {% set pct_usd = (proyeccion.recaudo_real_desglose.USD_EFECTIVO / proyeccion.recaudo_desglose.USD_EFECTIVO * 100) if (proyeccion.recaudo_desglose.USD_EFECTIVO | default(0)) > 0 else 0 %}
                 <div class="flex justify-between items-center mb-1.5">
@@ -185,7 +200,6 @@
                 </div>
             </div>
             
-            <!-- USDT -->
             <div class="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
                 {% set pct_usdt = (proyeccion.recaudo_real_desglose.USDT_BINANCE / proyeccion.recaudo_desglose.USDT_BINANCE * 100) if (proyeccion.recaudo_desglose.USDT_BINANCE | default(0)) > 0 else 0 %}
                 <div class="flex justify-between items-center mb-1.5">
@@ -201,7 +215,6 @@
                 </div>
             </div>
             
-            <!-- BCV -->
             <div class="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors">
                 {% set pct_bcv = (proyeccion.recaudo_real_desglose.VES_BCV / proyeccion.recaudo_desglose.VES_BCV * 100) if (proyeccion.recaudo_desglose.VES_BCV | default(0)) > 0 else 0 %}
                 <div class="flex justify-between items-center mb-1.5">
@@ -214,6 +227,27 @@
                 </div>
                 <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2.5 overflow-hidden">
                     <div class="bg-indigo-500 h-1.5 rounded-full" style="width: {{ pct_bcv if pct_bcv <= 100 else 100 }}%"></div>
+                </div>
+            </div>
+
+            <div class="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors flex flex-col justify-center">
+                <div class="flex justify-between items-center mb-1.5">
+                    <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-wallet2 text-rose-500"></i> Egresos Proyectados</p>
+                    <span class="text-[10px] font-black text-slate-900 tabular-nums">${{ "{:,.0f}".format(total_egresos_calc) }}</span>
+                </div>
+                <div class="flex flex-col mt-1">
+                    <div class="flex justify-between items-center border-b border-slate-200/60 pb-1 mb-1">
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Fijos</span>
+                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(sum_fijo.val) }}</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-slate-200/60 pb-1 mb-1">
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Variables</span>
+                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(sum_var.val) }}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Devoluciones</span>
+                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(sum_dev.val) }}</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -342,11 +376,11 @@
                     </thead>
                     
                     <tbody x-show="activeTab === 'fijo'" class="divide-y divide-slate-100 text-xs">
-                        {% set count_fijo = namespace(val=0) %}
+                        {% set ns_fijo = namespace(count=0) %}
                         {% for egreso in proyeccion.lista_egresos %}
-                            {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default('fijo'))) | lower %}
+                            {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default('fijo'))) | string | lower %}
                             {% if 'fijo' in tipo_str %}
-                                {% set count_fijo.val = count_fijo.val + 1 %}
+                                {% set ns_fijo.count = ns_fijo.count + 1 %}
                                 {% set monto_eg = egreso.monto | default(0) %}
                                 {% set is_crypto = ('Binance' in egreso.metodo or 'Cripto' in egreso.metodo) %}
                                 {% set pendiente_eg = egreso.pendiente if egreso.pendiente is defined else monto_eg %}
@@ -402,17 +436,17 @@
                                 </tr>
                             {% endif %}
                         {% endfor %}
-                        {% if count_fijo.val == 0 %}
+                        {% if ns_fijo.count == 0 %}
                         <tr><td colspan="7" class="py-8 px-6 text-center text-slate-500"><p class="text-[10px] font-semibold uppercase tracking-widest">No se encontraron gastos fijos</p></td></tr>
                         {% endif %}
                     </tbody>
 
                     <tbody x-show="activeTab === 'variable'" x-cloak style="display: none;" class="divide-y divide-slate-100 text-xs">
-                        {% set count_var = namespace(val=0) %}
+                        {% set ns_var = namespace(count=0) %}
                         {% for egreso in proyeccion.lista_egresos %}
-                            {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default('variable'))) | lower %}
+                            {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default('fijo'))) | string | lower %}
                             {% if 'fijo' not in tipo_str and 'devolu' not in tipo_str %}
-                                {% set count_var.val = count_var.val + 1 %}
+                                {% set ns_var.count = ns_var.count + 1 %}
                                 {% set monto_eg = egreso.monto | default(0) %}
                                 {% set is_crypto = ('Binance' in egreso.metodo or 'Cripto' in egreso.metodo) %}
                                 {% set pendiente_eg = egreso.pendiente if egreso.pendiente is defined else monto_eg %}
@@ -468,17 +502,17 @@
                                 </tr>
                             {% endif %}
                         {% endfor %}
-                        {% if count_var.val == 0 %}
+                        {% if ns_var.count == 0 %}
                         <tr><td colspan="7" class="py-8 px-6 text-center text-slate-500"><p class="text-[10px] font-semibold uppercase tracking-widest">No se encontraron gastos variables</p></td></tr>
                         {% endif %}
                     </tbody>
 
                     <tbody x-show="activeTab === 'devolucion'" x-cloak style="display: none;" class="divide-y divide-slate-100 text-xs">
-                        {% set count_dev = namespace(val=0) %}
+                        {% set ns_dev = namespace(count=0) %}
                         {% for egreso in proyeccion.lista_egresos %}
-                            {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default(''))) | lower %}
+                            {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default('fijo'))) | string | lower %}
                             {% if 'devolu' in tipo_str %}
-                                {% set count_dev.val = count_dev.val + 1 %}
+                                {% set ns_dev.count = ns_dev.count + 1 %}
                                 {% set monto_eg = egreso.monto | default(0) %}
                                 {% set is_crypto = ('Binance' in egreso.metodo or 'Cripto' in egreso.metodo) %}
                                 {% set pendiente_eg = egreso.pendiente if egreso.pendiente is defined else monto_eg %}
@@ -534,7 +568,7 @@
                                 </tr>
                             {% endif %}
                         {% endfor %}
-                        {% if count_dev.val == 0 %}
+                        {% if ns_dev.count == 0 %}
                         <tr><td colspan="7" class="py-8 px-6 text-center text-slate-500"><p class="text-[10px] font-semibold uppercase tracking-widest">No se encontraron devoluciones</p></td></tr>
                         {% endif %}
                     </tbody>
