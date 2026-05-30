@@ -5638,16 +5638,20 @@ def monitor_cartera():
     
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            # Extraemos a todos los clientes activos. Al usar * y agrupar en Python, 
-            # evitamos errores SQL si las columnas de tu Excel varían.
-            cur.execute("SELECT * FROM clientes WHERE LOWER(COALESCE(estado, 'activo')) IN ('activo', 'activa')")
+            # 1. BLINDAJE SQL: Pedimos todo sin condiciones para evitar "Column does not exist"
+            cur.execute("SELECT * FROM clientes")
             clientes_raw = cur.fetchall()
             
             resumen_dict = {}
             clientes_limpios = []
             
             for c in clientes_raw:
-                # Buscamos la columna de condición sin importar cómo se llame exactamente
+                # 2. BLINDAJE PYTHON: Filtramos los activos buscando cualquier variante de la palabra
+                est_cli = str(c.get('estado') or c.get('estatus') or 'activo').strip().lower()
+                if est_cli not in ['activo', 'activa']:
+                    continue
+
+                # Buscamos la columna de condición sin importar cómo se llame
                 cond = c.get('condicion') or c.get('condicion_pago') or c.get('estatus_cobranza') or 'SIN CONDICIÓN'
                 cond = str(cond).strip().upper()
                 
@@ -5676,7 +5680,8 @@ def monitor_cartera():
             resumen = sorted(resumen_dict.values(), key=lambda x: x['cantidad'], reverse=True)
             
     except Exception as e:
-        app.logger.error(f"Error en monitor de cartera: {e}")
+        import traceback
+        app.logger.error(f"Error en monitor de cartera: {e}\n{traceback.format_exc()}")
         flash("Error cargando el catálogo de condiciones.", "danger")
         resumen = []
         clientes_limpios = []
