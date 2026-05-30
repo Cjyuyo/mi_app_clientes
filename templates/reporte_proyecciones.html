@@ -5,7 +5,6 @@
 
 {% block head_extra %}
 <style>
-    /* Tipografía financiera tabular y scrollbars invisibles/fintech */
     .tabular-nums { font-variant-numeric: tabular-nums; }
     .custom-scrollbar::-webkit-scrollbar { height: 4px; width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -102,7 +101,13 @@
     {% for eg in proyeccion.lista_egresos %}
         {% set monto_eg = eg.monto | default(0) %}
         {% set is_crypto = ('Binance' in eg.metodo or 'Cripto' in eg.metodo) %}
-        {% set perdida_live_eg = eg.perdida_live if eg.perdida_live is defined else (((monto_eg * bin_hoy / bcv_hoy) - monto_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+        
+        {% if eg.estado_pago | lower == 'pagado' or eg.estado_pago | lower == 'saldado' %}
+            {% set perdida_live_eg = eg.fuga_real_pagada | default(0) %}
+        {% else %}
+            {% set perdida_live_eg = (((monto_eg * bin_hoy / bcv_hoy) - monto_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+        {% endif %}
+        
         {% set total_fuga_live.val = total_fuga_live.val + perdida_live_eg %}
         
         {% set tipo_str = (eg.tipo_egreso | default(eg.tipo | default('fijo'))) | string | lower %}
@@ -117,15 +122,16 @@
     
     {% set total_egresos_calc = sum_fijo.val + sum_var.val + sum_dev.val %}
     {% set fuga_base_proy = proyeccion.perdida_spread_usd | default(0) %}
-    {% set ahorro_brecha = proyeccion.informe_vivo.ahorro_brecha if proyeccion.informe_vivo else (fuga_base_proy - total_fuga_live.val) %}
+    {% set ahorro_brecha = (fuga_base_proy - total_fuga_live.val) %}
     
     {% set meta_bs = proyeccion.recaudo_desglose.VES_BCV | default(0) %}
     {% set real_bs = proyeccion.recaudo_real_desglose.VES_BCV | default(0) %}
     {% set exceso_bs = (real_bs - meta_bs) if real_bs > meta_bs else 0 %}
     {% set riesgo_bs = ((exceso_bs * bin_hoy / bcv_hoy) - exceso_bs) if bcv_hoy > 0 else 0 %}
-    {% set impacto_total = proyeccion.informe_vivo.impacto_total if proyeccion.informe_vivo else (ahorro_brecha - riesgo_bs) %}
-    {% set balance_ajustado = proyeccion.informe_vivo.balance_ajustado if proyeccion.informe_vivo else (proyeccion.balance_neto_usd + impacto_total) %}
-    {% set impacto_positivo = proyeccion.informe_vivo.impacto_positivo if proyeccion.informe_vivo else (ahorro_brecha >= 0) %}
+    
+    {% set impacto_total = (ahorro_brecha - riesgo_bs) %}
+    {% set balance_ajustado = (proyeccion.balance_neto_usd + impacto_total) %}
+    {% set impacto_positivo = (ahorro_brecha >= 0) %}
 
     <div class="animate-fade-in space-y-4 sm:space-y-5">
         
@@ -217,12 +223,12 @@
                         <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-calculator-fill text-orange-500"></i> Breakeven</p>
                         <span class="text-[9px] font-semibold text-slate-400">Gastos + Spread</span>
                     </div>
-                    <h3 class="text-2xl font-black text-slate-900 tracking-tight mt-0.5 mb-3">${{ "{:,.2f}".format((proyeccion.egresos_total_usd | default(0)) + fuga_base_proy) }}</h3>
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight mt-0.5 mb-3">${{ "{:,.2f}".format(total_egresos_calc + fuga_base_proy) }}</h3>
                 </div>
                 <div class="flex flex-col mt-auto">
                     <div class="flex justify-between items-center border-b border-slate-100/80 pb-1 mb-1">
                         <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Base Operativa</span>
-                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(proyeccion.egresos_total_usd | default(0)) }}</span>
+                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(total_egresos_calc) }}</span>
                     </div>
                     <div class="flex justify-between items-center border-b border-slate-100/80 pb-1 mb-1">
                         <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Fuga Proyectada</span>
@@ -472,7 +478,13 @@
                                 {% set is_crypto = ('Binance' in egreso.metodo or 'Cripto' in egreso.metodo) %}
                                 {% set pendiente_eg = egreso.pendiente if egreso.pendiente is defined else monto_eg %}
                                 {% set pagado_eg = monto_eg - pendiente_eg %}
-                                {% set perdida_live_eg = egreso.perdida_live if egreso.perdida_live is defined else (((monto_eg * bin_hoy / bcv_hoy) - monto_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+                                
+                                {% if egreso.estado_pago | lower == 'pagado' or egreso.estado_pago | lower == 'saldado' %}
+                                    {% set perdida_live_eg = egreso.fuga_real_pagada | default(0) %}
+                                {% else %}
+                                    {% set perdida_live_eg = (((monto_eg * bin_hoy / bcv_hoy) - monto_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+                                {% endif %}
+
                                 {% set estado_pago_eg = egreso.estado_pago %}
                                 {% set clase_estado_eg = egreso.clase_estado %}
                                 {% if estado_pago_eg is undefined %}
@@ -513,7 +525,7 @@
                                     </td>
                                     <td class="py-3 px-5 align-middle text-center">
                                         <div class="flex flex-col gap-1.5 justify-center w-full max-w-[100px] mx-auto">
-                                            {% if estado_pago_eg == 'Pagado' %}
+                                            {% if estado_pago_eg == 'Pagado' or estado_pago_eg == 'Saldado' %}
                                                 <span class="bg-emerald-50 border border-emerald-200 text-emerald-600 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded flex items-center justify-center gap-1 w-full"><i class="bi bi-check2"></i> Listo</span>
                                             {% else %}
                                                 {% if estado_pago_eg == 'Parcial' %}
@@ -554,7 +566,13 @@
                                 {% set is_crypto = ('Binance' in egreso.metodo or 'Cripto' in egreso.metodo) %}
                                 {% set pendiente_eg = egreso.pendiente if egreso.pendiente is defined else monto_eg %}
                                 {% set pagado_eg = monto_eg - pendiente_eg %}
-                                {% set perdida_live_eg = egreso.perdida_live if egreso.perdida_live is defined else (((monto_eg * bin_hoy / bcv_hoy) - monto_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+                                
+                                {% if egreso.estado_pago | lower == 'pagado' or egreso.estado_pago | lower == 'saldado' %}
+                                    {% set perdida_live_eg = egreso.fuga_real_pagada | default(0) %}
+                                {% else %}
+                                    {% set perdida_live_eg = (((monto_eg * bin_hoy / bcv_hoy) - monto_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+                                {% endif %}
+
                                 {% set estado_pago_eg = egreso.estado_pago %}
                                 {% set clase_estado_eg = egreso.clase_estado %}
                                 {% if estado_pago_eg is undefined %}
@@ -595,7 +613,7 @@
                                     </td>
                                     <td class="py-3 px-5 align-middle text-center">
                                         <div class="flex flex-col gap-1.5 justify-center w-full max-w-[100px] mx-auto">
-                                            {% if estado_pago_eg == 'Pagado' %}
+                                            {% if estado_pago_eg == 'Pagado' or estado_pago_eg == 'Saldado' %}
                                                 <span class="bg-emerald-50 border border-emerald-200 text-emerald-600 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded flex items-center justify-center gap-1 w-full"><i class="bi bi-check2"></i> Listo</span>
                                             {% else %}
                                                 {% if estado_pago_eg == 'Parcial' %}
@@ -636,7 +654,13 @@
                                 {% set is_crypto = ('Binance' in egreso.metodo or 'Cripto' in egreso.metodo) %}
                                 {% set pendiente_eg = egreso.pendiente if egreso.pendiente is defined else monto_eg %}
                                 {% set pagado_eg = monto_eg - pendiente_eg %}
-                                {% set perdida_live_eg = egreso.perdida_live if egreso.perdida_live is defined else (((monto_eg * bin_hoy / bcv_hoy) - monto_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+                                
+                                {% if egreso.estado_pago | lower == 'pagado' or egreso.estado_pago | lower == 'saldado' %}
+                                    {% set perdida_live_eg = egreso.fuga_real_pagada | default(0) %}
+                                {% else %}
+                                    {% set perdida_live_eg = (((monto_eg * bin_hoy / bcv_hoy) - monto_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+                                {% endif %}
+
                                 {% set estado_pago_eg = egreso.estado_pago %}
                                 {% set clase_estado_eg = egreso.clase_estado %}
                                 {% if estado_pago_eg is undefined %}
@@ -677,7 +701,7 @@
                                     </td>
                                     <td class="py-3 px-5 align-middle text-center">
                                         <div class="flex flex-col gap-1.5 justify-center w-full max-w-[100px] mx-auto">
-                                            {% if estado_pago_eg == 'Pagado' %}
+                                            {% if estado_pago_eg == 'Pagado' or estado_pago_eg == 'Saldado' %}
                                                 <span class="bg-emerald-50 border border-emerald-200 text-emerald-600 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded flex items-center justify-center gap-1 w-full"><i class="bi bi-check2"></i> Listo</span>
                                             {% else %}
                                                 {% if estado_pago_eg == 'Parcial' %}

@@ -5891,13 +5891,14 @@ def reporte_proyecciones():
                 for eg in cur.fetchall():
                     occ = ocurrencias_estado.get(eg['titulo'])
                     
-                    # IGNORAR SI NO HAY OCURRENCIA EN ESTE CICLO
                     if not occ or float(occ.get('monto_programado_usd') or 0) <= 0:
                         continue
                         
-                    # USAR LA SUMA FRACCIONADA EXACTA DEL MES
                     monto = float(occ['monto_programado_usd'])
                     metodo = str(eg['metodo_referencia']).upper()
+                    
+                    # MAGIA AQUI: Leer el spread congelado en la base de datos (si existe) en vez de recalcular
+                    perdida_real_congelada = float(occ.get('fuga_congelada') or 0) 
                     
                     perdida, cat, label = 0.0, 'USD_EFECTIVO', 'USD Físico'
                     if metodo == 'VES_BINANCE': cat, label, perdida = 'VES_BINANCE', 'Bs (Tasa Binance)', (monto * tasa_binance / tasa_bcv) - monto
@@ -5907,8 +5908,12 @@ def reporte_proyecciones():
                     proyeccion['distribucion_egresos'][cat] += monto
                     proyeccion['egresos_total_usd'] += monto
                     proyeccion['perdida_spread_usd'] += perdida
+                    
+                    # Pasarle a la plantilla tanto la 'perdida' proyectada como la 'perdida_real_congelada'
                     proyeccion['lista_egresos'].append({
                         'titulo': eg['titulo'], 'monto': monto, 'metodo': label, 'perdida': perdida, 'salida_real': monto + perdida,
+                        'fuga_real_pagada': perdida_real_congelada, # <--- ESTO SALVA LA CAJA
+                        'estado_pago': occ.get('estado', 'pendiente').capitalize(),
                         'fecha_programada': occ.get('fecha_programada').strftime('%Y-%m-%d') if occ and isinstance(occ.get('fecha_programada'), (date, datetime)) else (str(occ.get('fecha_programada')) if occ and occ.get('fecha_programada') else None),
                         'fecha_pago_real': occ.get('fecha_pago_real').strftime('%Y-%m-%d') if occ and isinstance(occ.get('fecha_pago_real'), (date, datetime)) else (str(occ.get('fecha_pago_real')) if occ and occ.get('fecha_pago_real') else None),
                         'pendiente': float(occ.get('monto_programado_usd') or 0) - float(occ.get('monto_pagado_usd') or 0) if occ else monto,
