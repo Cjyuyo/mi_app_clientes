@@ -111,6 +111,11 @@
                         {% if g.admin.rol in ['superadmin', 'gerente', 'administradora', 'asistente'] %}
                         <li><a href="{{ url_for('gestion_administrativa') }}" class="sidebar-link flex items-center gap-3.5 mx-2 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-briefcase-fill text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Gestión Administrativa</span></a></li>
                         {% endif %}
+                        
+                        {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
+                        <li><a href="{{ url_for('monitor_cartera') }}" class="sidebar-link flex items-center gap-3.5 mx-2 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-activity text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Monitor de Cartera</span></a></li>
+                        {% endif %}
+
                         {% if g.admin.rol in ['superadmin', 'gerente'] %}
                         <li><a href="{{ url_for('dashboard_comercial') }}" class="sidebar-link flex items-center gap-3.5 mx-2 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-graph-up-arrow text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Dashboard Comercial</span></a></li>
                         <li><a href="{{ url_for('upload_clientes') }}" class="sidebar-link flex items-center gap-3.5 mx-2 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-cloud-arrow-up-fill text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Cargar Clientes</span></a></li>
@@ -152,6 +157,11 @@
                             {% if g.admin.rol in ['superadmin', 'gerente', 'administradora', 'asistente'] %}
                             <li><a href="{{ url_for('gestion_administrativa') }}" class="sidebar-link flex items-center gap-3.5 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-briefcase-fill text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Gestión Administrativa</span></a></li>
                             {% endif %}
+                            
+                            {% if g.admin.rol in ['superadmin', 'gerente', 'administradora'] %}
+                            <li><a href="{{ url_for('monitor_cartera') }}" class="sidebar-link flex items-center gap-3.5 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-activity text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Monitor de Cartera</span></a></li>
+                            {% endif %}
+
                             {% if g.admin.rol in ['superadmin', 'gerente'] %}
                             <li><a href="{{ url_for('dashboard_comercial') }}" class="sidebar-link flex items-center gap-3.5 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-graph-up-arrow text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Dashboard Comercial</span></a></li>
                             <li><a href="{{ url_for('upload_clientes') }}" class="sidebar-link flex items-center gap-3.5 px-3 py-2.5 rounded-lg text-slate-400 group"><i class="bi bi-cloud-arrow-up-fill text-[1.1rem] transition-colors group-hover:text-white"></i><span class="text-sm font-medium tracking-tight">Cargar Clientes</span></a></li>

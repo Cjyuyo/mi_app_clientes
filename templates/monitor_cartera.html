@@ -1,0 +1,154 @@
+{% extends 'base_sidebar.html' %}
+
+{% block title %}Monitor de Cartera | Moto Plan Motors{% endblock %}
+{% block page_title %}Monitor de Cartera{% endblock %}
+
+{% block head_extra %}
+<style>
+    [x-cloak] { display: none !important; }
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+    .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="max-w-[1400px] mx-auto space-y-5 mb-12 animate-fade-in" x-data="{ filtroCondicion: '' }">
+    
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-black text-slate-900 tracking-tight">Monitor de Cartera</h1>
+            <p class="text-slate-500 text-xs mt-0.5 font-medium">Auditoría en tiempo real del catálogo de condiciones y riesgo de clientes activos.</p>
+        </div>
+        <div class="shrink-0 flex gap-2">
+            <button @click="filtroCondicion = ''" x-show="filtroCondicion !== ''" x-cloak class="px-4 py-2 bg-white text-slate-600 border border-slate-200 text-xs font-bold rounded-xl hover:bg-slate-50 transition-all shadow-sm active:scale-95">
+                <i class="bi bi-eraser-fill text-slate-400 mr-1"></i> Quitar Filtro
+            </button>
+            <a href="{{ url_for('hub') }}" class="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition-all flex items-center gap-2 shadow-sm active:scale-95">
+                <i class="bi bi-arrow-left"></i> Panel Principal
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+        {% for cat in resumen %}
+            {% set c_nombre = cat.condicion %}
+            
+            {% if 'SOLVENTE' in c_nombre or 'ADELANTADO' in c_nombre %}
+                {% set c_theme = 'emerald' %}
+            {% elif 'MORA' in c_nombre or 'ATRASO' in c_nombre or 'IMPUNTUAL' in c_nombre %}
+                {% set c_theme = 'rose' %}
+            {% elif 'PARCIAL' in c_nombre %}
+                {% set c_theme = 'blue' %}
+            {% else %}
+                {% set c_theme = 'amber' %}
+            {% endif %}
+
+            <button @click="filtroCondicion = '{{ c_nombre }}'" 
+                    class="p-4 sm:p-5 rounded-2xl border text-left transition-all active:scale-[0.98] group flex flex-col justify-between h-full shadow-sm"
+                    :class="filtroCondicion === '{{ c_nombre }}' ? 'bg-{{ c_theme }}-600 border-{{ c_theme }}-600 shadow-md ring-4 ring-{{ c_theme }}-600/20' : 'bg-white border-slate-200 hover:border-{{ c_theme }}-300 hover:shadow-md'">
+                
+                <div>
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest transition-colors"
+                              :class="filtroCondicion === '{{ c_nombre }}' ? 'bg-white/20 text-white border border-white/20' : 'bg-{{ c_theme }}-50 text-{{ c_theme }}-700 border border-{{ c_theme }}-200'">
+                            {{ c_nombre }}
+                        </span>
+                    </div>
+                    <div class="flex items-baseline gap-1 mt-1">
+                        <h3 class="text-3xl font-black tracking-tight transition-colors"
+                            :class="filtroCondicion === '{{ c_nombre }}' ? 'text-white' : 'text-slate-900'">
+                            {{ cat.cantidad }}
+                        </h3>
+                        <span class="text-[10px] font-bold uppercase transition-colors"
+                              :class="filtroCondicion === '{{ c_nombre }}' ? 'text-{{ c_theme }}-200' : 'text-slate-400'">Clientes</span>
+                    </div>
+                </div>
+                
+                <div class="mt-4 pt-3 border-t transition-colors space-y-1.5"
+                     :class="filtroCondicion === '{{ c_nombre }}' ? 'border-white/20' : 'border-slate-100'">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[9px] font-bold uppercase tracking-widest transition-colors"
+                              :class="filtroCondicion === '{{ c_nombre }}' ? 'text-{{ c_theme }}-100' : 'text-slate-500'">Flujo / Cuotas</span>
+                        <span class="text-[10px] font-black tabular-nums transition-colors"
+                              :class="filtroCondicion === '{{ c_nombre }}' ? 'text-white' : 'text-slate-900'">${{ "{:,.2f}".format(cat.total_cuotas) }}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-[9px] font-bold uppercase tracking-widest transition-colors"
+                              :class="filtroCondicion === '{{ c_nombre }}' ? 'text-{{ c_theme }}-100' : 'text-slate-500'">Saldos Pendientes</span>
+                        <span class="text-[10px] font-black tabular-nums transition-colors"
+                              :class="filtroCondicion === '{{ c_nombre }}' ? 'text-white' : 'text-slate-900'">${{ "{:,.2f}".format(cat.total_saldos) }}</span>
+                    </div>
+                </div>
+            </button>
+        {% endfor %}
+    </div>
+
+    <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <h2 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                <i class="bi bi-people-fill text-indigo-500"></i> Desglose de Clientes
+            </h2>
+            <span class="px-2.5 py-1 bg-white border border-slate-200 text-slate-600 text-[9px] font-bold uppercase tracking-widest rounded-md shadow-sm" x-text="filtroCondicion ? 'Filtrando: ' + filtroCondicion : 'Mostrando: Todos'"></span>
+        </div>
+        
+        <div class="w-full overflow-x-auto custom-scrollbar">
+            <table class="w-full text-sm text-left table-auto">
+                <thead class="bg-white border-b border-slate-100">
+                    <tr>
+                        <th class="py-3 px-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cliente</th>
+                        <th class="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Condición Asignada</th>
+                        <th class="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Cuota Base</th>
+                        <th class="py-3 px-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Saldo en Riesgo</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% if clientes %}
+                        {% for c in clientes %}
+                            <tr class="hover:bg-slate-50/80 transition-colors group" x-show="filtroCondicion === '' || filtroCondicion === '{{ c.condicion }}'">
+                                <td class="py-3 px-5 align-middle">
+                                    <div class="font-bold text-slate-900 tracking-tight">{{ c.nombre }}</div>
+                                    <div class="text-[9px] font-semibold text-slate-500 mt-0.5">
+                                        <i class="bi bi-person-vcard text-slate-400"></i> {{ c.cedula }} 
+                                        <span class="text-slate-300 mx-1">|</span> 
+                                        <i class="bi bi-telephone text-slate-400"></i> {{ c.telefono or 'N/A' }}
+                                    </div>
+                                </td>
+                                <td class="py-3 px-4 align-middle text-center">
+                                    {% set c_nombre_t = c.condicion %}
+                                    {% if 'SOLVENTE' in c_nombre_t or 'ADELANTADO' in c_nombre_t %}{% set t_theme = 'emerald' %}
+                                    {% elif 'MORA' in c_nombre_t or 'ATRASO' in c_nombre_t or 'IMPUNTUAL' in c_nombre_t %}{% set t_theme = 'rose' %}
+                                    {% elif 'PARCIAL' in c_nombre_t %}{% set t_theme = 'blue' %}
+                                    {% else %}{% set t_theme = 'amber' %}{% endif %}
+                                    <span class="px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest bg-{{ t_theme }}-50 text-{{ t_theme }}-700 border border-{{ t_theme }}-200">
+                                        {{ c_nombre_t }}
+                                    </span>
+                                </td>
+                                <td class="py-3 px-4 align-middle text-right">
+                                    <span class="font-black text-slate-800 tabular-nums">${{ "{:,.2f}".format(c.cuota) }}</span>
+                                </td>
+                                <td class="py-3 px-5 align-middle text-right">
+                                    <span class="font-bold {% if c.saldo > 0 %}text-rose-600{% else %}text-slate-400{% endif %} tabular-nums">${{ "{:,.2f}".format(c.saldo) }}</span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="4" class="py-16 text-center text-slate-400">
+                                <i class="bi bi-inbox text-3xl text-slate-300"></i>
+                                <p class="text-xs font-semibold uppercase tracking-widest mt-2">No hay clientes activos registrados.</p>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+{% endblock %}

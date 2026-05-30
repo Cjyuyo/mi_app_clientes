@@ -5625,6 +5625,64 @@ def _procesar_bloques(conn, bloques: list[dict], start_date: date, end_date: dat
 from datetime import date, timedelta
 import json
 
+# =========================================================================
+# MÓDULO: MONITOR DE CARTERA (AUDITORÍA DE COBRANZA)
+# =========================================================================
+@app.route('/gestion/cobranza/monitor', methods=['GET'])
+@admin_required
+def monitor_cartera():
+    conn = get_db()
+    if not conn:
+        flash("Error de conexión a la base de datos.", "danger")
+        return redirect(url_for('hub'))
+    
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            # Extraemos a todos los clientes activos. Al usar * y agrupar en Python, 
+            # evitamos errores SQL si las columnas de tu Excel varían.
+            cur.execute("SELECT * FROM clientes WHERE LOWER(COALESCE(estado, 'activo')) IN ('activo', 'activa')")
+            clientes_raw = cur.fetchall()
+            
+            resumen_dict = {}
+            clientes_limpios = []
+            
+            for c in clientes_raw:
+                # Buscamos la columna de condición sin importar cómo se llame exactamente
+                cond = c.get('condicion') or c.get('condicion_pago') or c.get('estatus_cobranza') or 'SIN CONDICIÓN'
+                cond = str(cond).strip().upper()
+                
+                # Buscamos el peso monetario (Cuota y Saldo)
+                cuota = float(c.get('cuota_mensual') or c.get('cuota') or 0.0)
+                saldo = float(c.get('saldo_pendiente') or c.get('deuda') or 0.0)
+                
+                if cond not in resumen_dict:
+                    resumen_dict[cond] = {'condicion': cond, 'cantidad': 0, 'total_cuotas': 0.0, 'total_saldos': 0.0}
+                    
+                resumen_dict[cond]['cantidad'] += 1
+                resumen_dict[cond]['total_cuotas'] += cuota
+                resumen_dict[cond]['total_saldos'] += saldo
+                
+                clientes_limpios.append({
+                    'id': c.get('id'),
+                    'nombre': c.get('nombre_completo') or c.get('nombres') or 'Cliente Desconocido',
+                    'cedula': c.get('cedula') or c.get('identificacion') or '',
+                    'telefono': c.get('telefono') or c.get('celular') or '',
+                    'condicion': cond,
+                    'cuota': cuota,
+                    'saldo': saldo
+                })
+                
+            # Convertimos el dict a lista y ordenamos por mayor cantidad de clientes
+            resumen = sorted(resumen_dict.values(), key=lambda x: x['cantidad'], reverse=True)
+            
+    except Exception as e:
+        app.logger.error(f"Error en monitor de cartera: {e}")
+        flash("Error cargando el catálogo de condiciones.", "danger")
+        resumen = []
+        clientes_limpios = []
+        
+    return render_template('monitor_cartera.html', resumen=resumen, clientes=clientes_limpios)
+
 @app.route('/reportes/proyecciones', methods=['GET', 'POST'])
 @admin_required
 @rol_requerido('superadmin', 'gerente')
