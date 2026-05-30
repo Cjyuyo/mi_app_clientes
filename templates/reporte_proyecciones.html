@@ -87,52 +87,64 @@
 
     {% if simulacion_realizada %}
     
-    {% set bcv_hoy = (proyeccion.informe_vivo.t_bcv_hoy if proyeccion.informe_vivo else tasas.bcv_now.usd) | default(0) %}
-    {% set bin_hoy = (proyeccion.informe_vivo.t_bin_hoy if proyeccion.informe_vivo else tasas.bcv_now.tasa_binance) | default(0) %}
-    {% set bcv_proy = (proyeccion.informe_vivo.t_bcv_proj if proyeccion.informe_vivo else proyeccion.tasas_proyectadas.bcv) | default(bcv_hoy) %}
-    {% set bin_proy = (proyeccion.informe_vivo.t_bin_proj if proyeccion.informe_vivo else proyeccion.tasas_proyectadas.binance) | default(bin_hoy) %}
-    {% set spread_live = proyeccion.informe_vivo.spread_live_pct if proyeccion.informe_vivo else (((bin_hoy - bcv_hoy) / bcv_hoy * 100) if bcv_hoy > 0 else 0) %}
+    {# ====== MOTOR JINJA: CÁLCULOS ROBUSTOS ====== #}
+    {% set is_active = (proyeccion_estado == 'Activa') %}
     
-    {% set total_fuga_live = namespace(val=0) %}
-    {% set sum_fijo = namespace(val=0) %}
-    {% set sum_var = namespace(val=0) %}
-    {% set sum_dev = namespace(val=0) %}
+    {% set bcv_hoy = tasas.bcv_now.usd | default(1) | float %}
+    {% set bin_hoy = tasas.bcv_now.tasa_binance | default(1) | float %}
+    {% set bcv_proy = proyeccion.tasas_proyectadas.bcv | default(bcv_hoy) | float %}
+    {% set bin_proy = proyeccion.tasas_proyectadas.binance | default(bin_hoy) | float %}
+    
+    {% set spread_live = (((bin_hoy - bcv_hoy) / bcv_hoy * 100) if bcv_hoy > 0 else 0) | float %}
+    
+    {% set ns = namespace(fuga_live=0.0, fijo=0.0, var=0.0, dev=0.0, prog=0.0, pag=0.0, pend=0.0) %}
     
     {% for eg in proyeccion.lista_egresos %}
-        {% set monto_eg = eg.monto | default(0) %}
-        {% set is_crypto = ('Binance' in eg.metodo or 'Cripto' in eg.metodo) %}
+        {% set m_eg = eg.monto | default(0) | float %}
+        {% set p_eg = eg.pendiente if eg.pendiente is defined else m_eg %}
+        {% set p_eg = p_eg | float %}
+        {% set pag_eg = m_eg - p_eg %}
         
-        {% if eg.estado_pago | lower == 'pagado' or eg.estado_pago | lower == 'saldado' %}
-            {% set perdida_live_eg = eg.fuga_real_pagada | default(0) %}
+        {% set ns.prog = ns.prog + m_eg %}
+        {% set ns.pag = ns.pag + pag_eg %}
+        {% set ns.pend = ns.pend + p_eg %}
+        
+        {% set is_crypto = ('Binance' in (eg.metodo|default('')) or 'Cripto' in (eg.metodo|default(''))) %}
+        
+        {% if eg.perdida_live is defined %}
+            {% set f_total = eg.perdida_live | float %}
         {% else %}
-            {% set perdida_live_eg = (((monto_eg * bin_hoy / bcv_hoy) - monto_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+            {% set f_pagada = eg.fuga_real_pagada | default(0) | float %}
+            {% set f_pendiente = (((p_eg * bin_hoy / bcv_hoy) - p_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+            {% set f_total = f_pagada + f_pendiente %}
         {% endif %}
         
-        {% set total_fuga_live.val = total_fuga_live.val + perdida_live_eg %}
+        {% set ns.fuga_live = ns.fuga_live + f_total %}
         
         {% set tipo_str = (eg.tipo_egreso | default(eg.tipo | default('fijo'))) | string | lower %}
         {% if 'devolu' in tipo_str %}
-            {% set sum_dev.val = sum_dev.val + monto_eg %}
+            {% set ns.dev = ns.dev + m_eg %}
         {% elif 'fijo' in tipo_str %}
-            {% set sum_fijo.val = sum_fijo.val + monto_eg %}
+            {% set ns.fijo = ns.fijo + m_eg %}
         {% else %}
-            {% set sum_var.val = sum_var.val + monto_eg %}
+            {% set ns.var = ns.var + m_eg %}
         {% endif %}
     {% endfor %}
     
-    {% set total_egresos_calc = sum_fijo.val + sum_var.val + sum_dev.val %}
-    {% set fuga_base_proy = proyeccion.perdida_spread_usd | default(0) %}
-    {% set ahorro_brecha = (fuga_base_proy - total_fuga_live.val) %}
+    {% set total_egresos_calc = ns.fijo + ns.var + ns.dev %}
+    {% set fuga_base_proy = proyeccion.perdida_spread_usd | default(0) | float %}
     
-    {% set meta_bs = proyeccion.recaudo_desglose.VES_BCV | default(0) %}
-    {% set real_bs = proyeccion.recaudo_real_desglose.VES_BCV | default(0) %}
+    {# CÁLCULO DE DESVIACIÓN Y RIESGO #}
+    {% set ahorro_brecha = fuga_base_proy - ns.fuga_live %}
+    {% set meta_bs = proyeccion.recaudo_desglose.VES_BCV | default(0) | float %}
+    {% set real_bs = proyeccion.recaudo_real_desglose.VES_BCV | default(0) | float %}
     {% set exceso_bs = (real_bs - meta_bs) if real_bs > meta_bs else 0 %}
     {% set riesgo_bs = ((exceso_bs * bin_hoy / bcv_hoy) - exceso_bs) if bcv_hoy > 0 else 0 %}
     
-    {% set impacto_total = (ahorro_brecha - riesgo_bs) %}
-    {% set balance_ajustado = (proyeccion.balance_neto_usd + impacto_total) %}
-    {% set impacto_positivo = (ahorro_brecha >= 0) %}
-
+    {% set impacto_total = ahorro_brecha - riesgo_bs %}
+    {% set balance_base = proyeccion.balance_neto_usd | default(0) | float %}
+    {% set balance_ajustado = balance_base + impacto_total %}
+    
     <div class="animate-fade-in space-y-4 sm:space-y-5">
         
         {% if proyeccion_estado != 'Activa' %}
@@ -153,13 +165,36 @@
         </div>
         {% endif %}
 
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Carga Programada</p>
+                <h3 class="text-lg font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(ns.prog) }}</h3>
+            </div>
+            <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-200 shadow-sm">
+                <p class="text-[9px] font-bold text-emerald-700 uppercase tracking-widest mb-1">Total Liquidado</p>
+                <h3 class="text-lg font-black text-emerald-700 tabular-nums">${{ "{:,.2f}".format(ns.pag) }}</h3>
+            </div>
+            <div class="bg-amber-50 p-4 rounded-xl border border-amber-200 shadow-sm">
+                <p class="text-[9px] font-bold text-amber-700 uppercase tracking-widest mb-1">Saldo Pendiente</p>
+                <h3 class="text-lg font-black text-amber-700 tabular-nums">${{ "{:,.2f}".format(ns.pend) }}</h3>
+            </div>
+            <div class="bg-rose-50 p-4 rounded-xl border border-rose-200 shadow-sm">
+                <p class="text-[9px] font-bold text-rose-700 uppercase tracking-widest mb-1">Fuga por Spread</p>
+                <h3 class="text-lg font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(ns.fuga_live) }}</h3>
+            </div>
+            <div class="bg-teal-50 p-4 rounded-xl border border-teal-200 shadow-sm col-span-2 md:col-span-1">
+                <p class="text-[9px] font-bold text-teal-700 uppercase tracking-widest mb-1" title="Ahorros conseguidos sobre el presupuesto inicial">Ahorro Cambiario</p>
+                <h3 class="text-lg font-black text-teal-600 tabular-nums">{% if ahorro_brecha > 0 %}+{% endif %}${{ "{:,.2f}".format(ahorro_brecha) }}</h3>
+            </div>
+        </div>
+
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y lg:divide-y-0 lg:divide-x divide-slate-100 grid grid-cols-1 lg:grid-cols-4">
             
-            {% set meta_inicial = proyeccion.recaudo_total_usd | default(0) %}
-            {% set extra_adelantado = (proyeccion.informe_vivo.recaudo_adelantado if proyeccion.informe_vivo else 0) | default(0) %}
-            {% set extra_atrasado = (proyeccion.informe_vivo.recaudo_atrasado if proyeccion.informe_vivo else 0) | default(0) %}
+            {% set meta_inicial = proyeccion.recaudo_total_usd | default(0) | float %}
+            {% set extra_adelantado = proyeccion.informe_vivo.recaudo_adelantado | default(0) | float if proyeccion.informe_vivo is defined else 0.0 %}
+            {% set extra_atrasado = proyeccion.informe_vivo.recaudo_atrasado | default(0) | float if proyeccion.informe_vivo is defined else 0.0 %}
             {% set meta_dinamica = meta_inicial + extra_adelantado + extra_atrasado %}
-            {% set recaudo_total = proyeccion.recaudo_real_usd | default(0) %}
+            {% set recaudo_total = proyeccion.recaudo_real_usd | default(0) | float %}
             {% set progreso_dinamico = (recaudo_total / meta_dinamica * 100) if meta_dinamica > 0 else 0 %}
 
             <div class="p-4 sm:p-5 flex flex-col justify-between group hover:bg-slate-50/50 transition-colors h-full">
@@ -203,15 +238,15 @@
                 <div class="flex flex-col mt-auto">
                     <div class="flex justify-between items-center border-b border-slate-100/80 pb-1 mb-1">
                         <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Gasto Fijo</span>
-                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(sum_fijo.val) }}</span>
+                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(ns.fijo) }}</span>
                     </div>
                     <div class="flex justify-between items-center border-b border-slate-100/80 pb-1 mb-1">
                         <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Gasto Variable</span>
-                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(sum_var.val) }}</span>
+                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(ns.var) }}</span>
                     </div>
                     <div class="flex justify-between items-center mb-2.5">
                         <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Devoluciones</span>
-                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(sum_dev.val) }}</span>
+                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(ns.dev) }}</span>
                     </div>
                 </div>
                 <div class="h-1 mt-1"></div>
@@ -231,12 +266,12 @@
                         <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(total_egresos_calc) }}</span>
                     </div>
                     <div class="flex justify-between items-center border-b border-slate-100/80 pb-1 mb-1">
-                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Fuga Proyectada</span>
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Spread Proyectado</span>
                         <span class="text-[9px] font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(fuga_base_proy) }}</span>
                     </div>
                     <div class="flex justify-between items-center mb-2.5">
-                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Fuga Hoy</span>
-                        <span class="text-[9px] font-black {% if total_fuga_live.val > 0 %}text-rose-600{% else %}text-teal-600{% endif %} tabular-nums">{% if total_fuga_live.val > 0 %}+{% else %}-{% endif %}${{ "{:,.2f}".format(total_fuga_live.val|abs) }}</span>
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Spread Real</span>
+                        <span class="text-[9px] font-black {% if ns.fuga_live > 0 %}text-rose-600{% else %}text-teal-600{% endif %} tabular-nums">{% if ns.fuga_live > 0 %}+{% else %}-{% endif %}${{ "{:,.2f}".format(ns.fuga_live|abs) }}</span>
                     </div>
                 </div>
                 <div class="h-1 mt-1"></div>
@@ -252,31 +287,111 @@
                 </div>
                 <div class="flex flex-col mt-auto">
                     <div class="flex justify-between items-center border-b border-slate-100/80 pb-1 mb-1">
-                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Saldo Proy. Inicial</span>
-                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(proyeccion.balance_neto_usd | default(0)) }}</span>
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Saldo Inicial C/Spread</span>
+                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(balance_base) }}</span>
                     </div>
                     <div class="flex justify-between items-center mb-2.5">
-                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Impacto en Vivo</span>
-                        <span class="text-[9px] font-black {% if impacto_total >= 0 %}text-emerald-600{% else %}text-rose-600{% endif %} tabular-nums">{% if impacto_total > 0 %}+{% endif %}${{ "{:,.2f}".format(impacto_total) }}</span>
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Ahorro Aplicado</span>
+                        <span class="text-[9px] font-black {% if impacto_total > 0 %}text-emerald-600{% elif impacto_total < 0 %}text-rose-600{% else %}text-slate-500{% endif %} tabular-nums">{% if impacto_total > 0 %}+{% endif %}${{ "{:,.2f}".format(impacto_total) }}</span>
                     </div>
                 </div>
                 <div class="h-1 mt-1"></div>
             </div>
         </div>
 
+        <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-6">
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <h2 class="text-[10px] font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-graph-up-arrow text-indigo-500"></i> Riesgo y Desviación de Spread Cambiario</h2>
+            </div>
+            
+            <div class="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+                <div class="space-y-5 flex flex-col justify-center h-full">
+                    <div class="flex justify-between items-center pb-3 border-b border-slate-100 gap-2">
+                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Tasa BCV (Proyectada &rarr; Hoy)</span>
+                         <span class="font-mono text-sm font-bold text-slate-900 tabular-nums whitespace-nowrap shrink-0">{{ "%.2f"|format(bcv_proy) }} <i class="bi bi-arrow-right text-slate-300 mx-1"></i> {{ "%.2f"|format(bcv_hoy) }}</span>
+                    </div>
+                    <div class="flex justify-between items-center pb-3 border-b border-slate-100 gap-2">
+                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Tasa P2P (Proyectada &rarr; Hoy)</span>
+                         <span class="font-mono text-sm font-bold text-slate-900 tabular-nums whitespace-nowrap shrink-0">{{ "%.2f"|format(bin_proy) }} <i class="bi bi-arrow-right text-slate-300 mx-1"></i> {{ "%.2f"|format(bin_hoy) }}</span>
+                    </div>
+                    <div class="pt-1">
+                         <div class="flex justify-between items-end mb-2">
+                             <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Brecha Actual (P2P vs BCV)</span>
+                             <span class="text-sm font-black text-slate-900 tabular-nums">{{ "%.2f"|format(spread_live) }}%</span>
+                         </div>
+                         <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden relative shadow-inner">
+                             <div class="absolute top-0 left-0 h-full w-full bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-500"></div>
+                             <div class="absolute top-0 right-0 h-full bg-slate-100 transition-all duration-500" style="width: {{ 100 - spread_live }}%"></div>
+                         </div>
+                    </div>
+                </div>
+                
+                <div class="bg-slate-50 rounded-xl p-5 border border-slate-200 flex flex-col justify-center space-y-3.5 h-full">
+                     <div class="flex justify-between items-center border-b border-slate-200/60 pb-2.5">
+                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Costo Spread Proyectado</span>
+                         <span class="text-sm font-black text-slate-900 tabular-nums">-${{ "{:,.2f}".format(fuga_base_proy) }}</span>
+                     </div>
+                     <div class="flex justify-between items-center border-b border-slate-200/60 pb-2.5">
+                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Costo Spread Real (En Vivo)</span>
+                         <span class="text-sm font-black {% if ns.fuga_live > 0 %}text-rose-600{% else %}text-teal-600{% endif %} tabular-nums">{% if ns.fuga_live > 0 %}-{% else %}+{% endif %}${{ "{:,.2f}".format(ns.fuga_live|abs) }}</span>
+                     </div>
+                     <div class="flex flex-col justify-center pt-0.5">
+                         <div class="flex justify-between items-end mb-2">
+                             <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Variación Neta vs Proyección</span>
+                             <span class="text-sm font-black {% if ahorro_brecha > 0 %}text-emerald-600{% elif ahorro_brecha < 0 %}text-rose-600{% else %}text-slate-500{% endif %} tabular-nums leading-none">
+                                 {% if ahorro_brecha > 0 %}+{% elif ahorro_brecha < 0 %}-{% endif %}${{ "{:,.2f}".format(ahorro_brecha | abs) }}
+                             </span>
+                         </div>
+                         {% set max_desv = fuga_base_proy if fuga_base_proy > 0 else 100 %}
+                         {% set pct_desv = (ahorro_brecha | abs / max_desv * 100) %}
+                         <div class="w-full h-1.5 bg-slate-200/80 rounded-full flex overflow-hidden shadow-inner">
+                             <div class="w-1/2 h-full flex justify-end border-r border-slate-300/50">
+                                 {% if ahorro_brecha < 0 %}
+                                 <div class="h-full bg-gradient-to-l from-rose-300 to-rose-600" style="width: {{ pct_desv if pct_desv <= 100 else 100 }}%;"></div>
+                                 {% endif %}
+                             </div>
+                             <div class="w-1/2 h-full flex justify-start">
+                                 {% if ahorro_brecha > 0 %}
+                                 <div class="h-full bg-gradient-to-r from-emerald-300 to-emerald-600" style="width: {{ pct_desv if pct_desv <= 100 else 100 }}%;"></div>
+                                 {% endif %}
+                             </div>
+                         </div>
+                     </div>
+                </div>
+                
+                <div class="bg-slate-50 rounded-xl p-5 border border-slate-200 flex flex-col justify-between items-center lg:items-end h-full">
+                     <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">Costo Fuga Cambiaria Total</p>
+                     
+                     <div class="flex flex-col items-center lg:items-end w-full my-auto">
+                         <h3 class="text-4xl font-black text-rose-600 tracking-tighter tabular-nums leading-none mb-3">
+                             -${{ "{:,.2f}".format(ns.fuga_live) }}
+                         </h3>
+                         <p class="text-[10px] text-slate-400 font-medium text-center lg:text-right w-full">Dinero total que el spread cambiario le ha costado a la operación en este ciclo.</p>
+                     </div>
+
+                     <div class="text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 px-3 py-1.5 rounded-md border shadow-sm mt-3 {% if ahorro_brecha > 0 %}bg-emerald-50 text-emerald-700 border-emerald-200{% elif ahorro_brecha < 0 %}bg-rose-50 text-rose-700 border-rose-200{% else %}bg-slate-100 text-slate-600 border-slate-200{% endif %}">
+                         <i class="bi {% if ahorro_brecha > 0 %}bi-graph-up-arrow{% elif ahorro_brecha < 0 %}bi-graph-down-arrow{% else %}bi-dash-lg{% endif %} text-xs"></i>
+                         {% if ahorro_brecha > 0 %}Ahorraste +${{ "{:,.2f}".format(ahorro_brecha) }} frente al plan{% elif ahorro_brecha < 0 %}Déficit Extra de -${{ "{:,.2f}".format(ahorro_brecha|abs) }}{% else %}Impacto Exacto a lo Presupuestado{% endif %}
+                     </div>
+                </div>
+            </div>
+        </div>
+
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y lg:divide-y-0 lg:divide-x divide-slate-200 grid grid-cols-1 lg:grid-cols-4">
             
             <div class="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors flex flex-col justify-between h-full">
-                {% set pct_usd = (proyeccion.recaudo_real_desglose.USD_EFECTIVO / proyeccion.recaudo_desglose.USD_EFECTIVO * 100) if (proyeccion.recaudo_desglose.USD_EFECTIVO | default(0)) > 0 else 0 %}
+                {% set recaudo_usd_efectivo = proyeccion.recaudo_desglose.USD_EFECTIVO | default(0) | float %}
+                {% set recaudo_usd_real = proyeccion.recaudo_real_desglose.USD_EFECTIVO | default(0) | float %}
+                {% set pct_usd = (recaudo_usd_real / recaudo_usd_efectivo * 100) if recaudo_usd_efectivo > 0 else 0 %}
                 <div>
                     <div class="flex justify-between items-center mb-1.5">
                         <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> USD Efectivo</p>
                         <span class="text-[10px] font-black text-emerald-600">{{ "%.1f"|format(pct_usd) }}%</span>
                     </div>
-                    <h3 class="text-xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-2">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.USD_EFECTIVO | default(0)) }}</h3>
+                    <h3 class="text-xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-2">${{ "{:,.2f}".format(recaudo_usd_real) }}</h3>
                 </div>
                 <div class="flex flex-col mt-auto">
-                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right mb-2">Meta: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.USD_EFECTIVO | default(0)) }}</p>
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right mb-2">Meta: ${{ "{:,.0f}".format(recaudo_usd_efectivo) }}</p>
                     <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                         <div class="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" style="width: {{ pct_usd if pct_usd <= 100 else 100 }}%"></div>
                     </div>
@@ -284,16 +399,18 @@
             </div>
             
             <div class="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors flex flex-col justify-between h-full">
-                {% set pct_usdt = (proyeccion.recaudo_real_desglose.USDT_BINANCE / proyeccion.recaudo_desglose.USDT_BINANCE * 100) if (proyeccion.recaudo_desglose.USDT_BINANCE | default(0)) > 0 else 0 %}
+                {% set recaudo_usdt_binance = proyeccion.recaudo_desglose.USDT_BINANCE | default(0) | float %}
+                {% set recaudo_usdt_real = proyeccion.recaudo_real_desglose.USDT_BINANCE | default(0) | float %}
+                {% set pct_usdt = (recaudo_usdt_real / recaudo_usdt_binance * 100) if recaudo_usdt_binance > 0 else 0 %}
                 <div>
                     <div class="flex justify-between items-center mb-1.5">
                         <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> USDT (P2P)</p>
                         <span class="text-[10px] font-black text-amber-600">{{ "%.1f"|format(pct_usdt) }}%</span>
                     </div>
-                    <h3 class="text-xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-2">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.USDT_BINANCE | default(0)) }}</h3>
+                    <h3 class="text-xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-2">${{ "{:,.2f}".format(recaudo_usdt_real) }}</h3>
                 </div>
                 <div class="flex flex-col mt-auto">
-                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right mb-2">Meta: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.USDT_BINANCE | default(0)) }}</p>
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right mb-2">Meta: ${{ "{:,.0f}".format(recaudo_usdt_binance) }}</p>
                     <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                         <div class="bg-amber-500 h-1.5 rounded-full transition-all duration-500" style="width: {{ pct_usdt if pct_usdt <= 100 else 100 }}%"></div>
                     </div>
@@ -301,16 +418,18 @@
             </div>
             
             <div class="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors flex flex-col justify-between h-full">
-                {% set pct_bcv = (proyeccion.recaudo_real_desglose.VES_BCV / proyeccion.recaudo_desglose.VES_BCV * 100) if (proyeccion.recaudo_desglose.VES_BCV | default(0)) > 0 else 0 %}
+                {% set recaudo_ves_bcv = proyeccion.recaudo_desglose.VES_BCV | default(0) | float %}
+                {% set recaudo_ves_real = proyeccion.recaudo_real_desglose.VES_BCV | default(0) | float %}
+                {% set pct_bcv = (recaudo_ves_real / recaudo_ves_bcv * 100) if recaudo_ves_bcv > 0 else 0 %}
                 <div>
                     <div class="flex justify-between items-center mb-1.5">
                         <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> Bolívares (BCV)</p>
                         <span class="text-[10px] font-black text-indigo-600">{{ "%.1f"|format(pct_bcv) }}%</span>
                     </div>
-                    <h3 class="text-xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-2">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.VES_BCV | default(0)) }}</h3>
+                    <h3 class="text-xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-2">${{ "{:,.2f}".format(recaudo_ves_real) }}</h3>
                 </div>
                 <div class="flex flex-col mt-auto">
-                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right mb-2">Límite: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.VES_BCV | default(0)) }}</p>
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right mb-2">Límite: ${{ "{:,.0f}".format(recaudo_ves_bcv) }}</p>
                     <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                         <div class="bg-indigo-500 h-1.5 rounded-full transition-all duration-500" style="width: {{ pct_bcv if pct_bcv <= 100 else 100 }}%"></div>
                     </div>
@@ -318,10 +437,8 @@
             </div>
 
             <div class="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors flex flex-col justify-between h-full group">
-                {% set recaudo_total_eff = proyeccion.recaudo_real_usd | default(0) %}
-                {% set atrasado_eff = (proyeccion.informe_vivo.recaudo_atrasado if proyeccion.informe_vivo else 0) | default(0) %}
-                {% set a_tiempo_eff = recaudo_total_eff - atrasado_eff %}
-                {% set eficiencia_pct = (a_tiempo_eff / recaudo_total_eff * 100) if recaudo_total_eff > 0 else 0 %}
+                {% set a_tiempo_eff = recaudo_total - extra_atrasado %}
+                {% set eficiencia_pct = (a_tiempo_eff / recaudo_total * 100) if recaudo_total > 0 else 0 %}
 
                 <div>
                     <div class="flex justify-between items-center mb-1.5">
@@ -340,102 +457,11 @@
                     </div>
                     <div class="flex justify-between items-center mb-2">
                         <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Con Atraso</span>
-                        <span class="text-[9px] font-black text-rose-600 tabular-nums">${{ "{:,.2f}".format(atrasado_eff) }}</span>
+                        <span class="text-[9px] font-black text-rose-600 tabular-nums">${{ "{:,.2f}".format(extra_atrasado) }}</span>
                     </div>
                     <div class="w-full bg-rose-200/50 rounded-full h-1.5 flex overflow-hidden shadow-inner">
                         <div class="bg-teal-500 h-1.5 transition-all duration-500" style="width: {{ eficiencia_pct }}%"></div>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
-            <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                <h2 class="text-[10px] font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-graph-up-arrow text-indigo-500"></i> Riesgo y Spread Cambiario</h2>
-            </div>
-            
-            <div class="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-                <div class="space-y-5 flex flex-col justify-center h-full">
-                    <div class="flex justify-between items-center pb-3 border-b border-slate-100 gap-2">
-                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Tasa BCV (Proyectada &rarr; Hoy)</span>
-                         <span class="font-mono text-sm font-bold text-slate-900 tabular-nums whitespace-nowrap shrink-0">{{ "%.2f"|format(bcv_proy) }} <i class="bi bi-arrow-right text-slate-300 mx-1"></i> {{ "%.2f"|format(bcv_hoy) }}</span>
-                    </div>
-                    <div class="flex justify-between items-center pb-3 border-b border-slate-100 gap-2">
-                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Tasa P2P (Proyectada &rarr; Hoy)</span>
-                         <span class="font-mono text-sm font-bold text-slate-900 tabular-nums whitespace-nowrap shrink-0">{{ "%.2f"|format(bin_proy) }} <i class="bi bi-arrow-right text-slate-300 mx-1"></i> {{ "%.2f"|format(bin_hoy) }}</span>
-                    </div>
-                    <div class="pt-1">
-                         <div class="flex justify-between items-end mb-2">
-                             <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Spread Actual</span>
-                             <span class="text-sm font-black text-slate-900 tabular-nums">{{ "%.2f"|format(spread_live) }}%</span>
-                         </div>
-                         <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden relative shadow-inner">
-                             <div class="absolute top-0 left-0 h-full w-full bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-500"></div>
-                             <div class="absolute top-0 right-0 h-full bg-slate-100 transition-all duration-500" style="width: {{ 100 - spread_live }}%"></div>
-                         </div>
-                    </div>
-                </div>
-                
-                <div class="bg-slate-50 rounded-xl p-5 border border-slate-200 flex flex-col justify-center space-y-3.5 h-full">
-                     <div class="flex justify-between items-center border-b border-slate-200/60 pb-2.5">
-                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Fuga Base Inicial</span>
-                         <span class="text-sm font-black text-slate-900 tabular-nums">-${{ "{:,.2f}".format(fuga_base_proy) }}</span>
-                     </div>
-                     <div class="flex justify-between items-center border-b border-slate-200/60 pb-2.5">
-                         <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Fuga Base Actual</span>
-                         <span class="text-sm font-black {% if total_fuga_live.val > 0 %}text-slate-900{% else %}text-teal-600{% endif %} tabular-nums">{% if total_fuga_live.val > 0 %}-{% else %}+{% endif %}${{ "{:,.2f}".format(total_fuga_live.val|abs) }}</span>
-                     </div>
-                     <div class="flex flex-col justify-center pt-0.5">
-                         <div class="flex justify-between items-end mb-2">
-                             <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Desviación Live</span>
-                             <span class="text-sm font-black {% if impacto_positivo %}text-emerald-600{% else %}text-rose-600{% endif %} tabular-nums leading-none">
-                                 {% if impacto_positivo %}+{% else %}-{% endif %}${{ "{:,.2f}".format(ahorro_brecha | abs) }}
-                             </span>
-                         </div>
-                         {% set max_desv = fuga_base_proy if fuga_base_proy > 0 else 100 %}
-                         {% set pct_desv = (ahorro_brecha | abs / max_desv * 100) %}
-                         <div class="w-full h-1.5 bg-slate-200/80 rounded-full flex overflow-hidden shadow-inner">
-                             <div class="w-1/2 h-full flex justify-end border-r border-slate-300/50">
-                                 {% if not impacto_positivo %}
-                                 <div class="h-full bg-gradient-to-l from-rose-300 to-rose-600" style="width: {{ pct_desv if pct_desv <= 100 else 100 }}%;"></div>
-                                 {% endif %}
-                             </div>
-                             <div class="w-1/2 h-full flex justify-start">
-                                 {% if impacto_positivo %}
-                                 <div class="h-full bg-gradient-to-r from-emerald-300 to-emerald-600" style="width: {{ pct_desv if pct_desv <= 100 else 100 }}%;"></div>
-                                 {% endif %}
-                             </div>
-                         </div>
-                     </div>
-                </div>
-                
-                <div class="bg-slate-50 rounded-xl p-5 border border-slate-200 flex flex-col justify-between items-center lg:items-end h-full">
-                     <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-1">Impacto Final en Caja</p>
-                     
-                     <div class="flex flex-col items-center lg:items-end w-full my-auto">
-                         <h3 class="text-3xl font-black text-slate-900 tracking-tighter tabular-nums leading-none mb-3">
-                             {% if impacto_total > 0 %}+{% endif %}${{ "{:,.2f}".format(impacto_total) }}
-                         </h3>
-                         
-                         {% set pct_imp = (impacto_total | abs / 500 * 100) %}
-                         <div class="w-full max-w-[160px] h-1.5 bg-slate-200/80 rounded-full flex overflow-hidden shadow-inner mb-2">
-                             <div class="w-1/2 h-full flex justify-end border-r border-slate-300/50">
-                                 {% if impacto_total < 0 %}
-                                 <div class="h-full bg-gradient-to-l from-rose-300 to-rose-600" style="width: {{ pct_imp if pct_imp <= 100 else 100 }}%;"></div>
-                                 {% endif %}
-                             </div>
-                             <div class="w-1/2 h-full flex justify-start">
-                                 {% if impacto_total > 0 %}
-                                 <div class="h-full bg-gradient-to-r from-emerald-300 to-emerald-600" style="width: {{ pct_imp if pct_imp <= 100 else 100 }}%;"></div>
-                                 {% endif %}
-                             </div>
-                         </div>
-                     </div>
-
-                     <div class="text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 px-3 py-1.5 rounded-md border shadow-sm mt-2 {% if impacto_total >= 0 %}bg-emerald-50 text-emerald-700 border-emerald-200{% else %}bg-rose-50 text-rose-700 border-rose-200{% endif %}">
-                         <i class="bi {% if impacto_total >= 0 %}bi-graph-up-arrow{% else %}bi-graph-down-arrow{% endif %} text-xs"></i>
-                         {% if impacto_total >= 0 %}Superávit Operativo{% else %}Déficit Operativo{% endif %}
-                     </div>
                 </div>
             </div>
         </div>
@@ -474,46 +500,57 @@
                             {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default('fijo'))) | string | lower %}
                             {% if 'fijo' in tipo_str %}
                                 {% set ns_fijo_tab.count = ns_fijo_tab.count + 1 %}
-                                {% set monto_eg = egreso.monto | default(0) %}
-                                {% set is_crypto = ('Binance' in egreso.metodo or 'Cripto' in egreso.metodo) %}
-                                {% set pendiente_eg = egreso.pendiente if egreso.pendiente is defined else monto_eg %}
-                                {% set pagado_eg = monto_eg - pendiente_eg %}
                                 
-                                {% if egreso.estado_pago | lower == 'pagado' or egreso.estado_pago | lower == 'saldado' %}
-                                    {% set perdida_live_eg = egreso.fuga_real_pagada | default(0) %}
+                                {% set m_eg = egreso.monto | default(0) | float %}
+                                {% set p_eg = egreso.pendiente if egreso.pendiente is defined else m_eg %}
+                                {% set p_eg = p_eg | float %}
+                                {% set pag_eg = m_eg - p_eg %}
+                                {% set is_crypto = ('Binance' in (egreso.metodo|default('')) or 'Cripto' in (egreso.metodo|default(''))) %}
+                                
+                                {% if egreso.perdida_live is defined %}
+                                    {% set perdida_live_eg = egreso.perdida_live | float %}
                                 {% else %}
-                                    {% set perdida_live_eg = (((monto_eg * bin_hoy / bcv_hoy) - monto_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+                                    {% set f_pagada = egreso.fuga_real_pagada | default(0) | float %}
+                                    {% set f_pendiente = (((p_eg * bin_hoy / bcv_hoy) - p_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+                                    {% set perdida_live_eg = f_pagada + f_pendiente %}
                                 {% endif %}
 
-                                {% set estado_pago_eg = egreso.estado_pago %}
-                                {% set clase_estado_eg = egreso.clase_estado %}
-                                {% if estado_pago_eg is undefined %}
-                                    {% if pagado_eg >= monto_eg - 0.001 %}{% set estado_pago_eg = 'Pagado' %}{% set clase_estado_eg = 'bg-emerald-50 border-emerald-200 text-emerald-600' %}
-                                    {% elif pagado_eg > 0.001 %}{% set estado_pago_eg = 'Parcial' %}{% set clase_estado_eg = 'bg-blue-50 border-blue-200 text-blue-700' %}
-                                    {% else %}{% set estado_pago_eg = 'Pendiente' %}{% set clase_estado_eg = 'bg-amber-50 border-amber-200 text-amber-600' %}{% endif %}
+                                {% set estado_pago_eg = egreso.estado_pago|default('')|lower %}
+                                {% if not estado_pago_eg %}
+                                    {% if pag_eg >= m_eg - 0.001 %}{% set estado_pago_eg = 'pagado' %}
+                                    {% elif pag_eg > 0.001 %}{% set estado_pago_eg = 'parcial' %}
+                                    {% else %}{% set estado_pago_eg = 'pendiente' %}{% endif %}
                                 {% endif %}
+
+                                {% set clase_estado_eg = egreso.clase_estado|default('') %}
+                                {% if not clase_estado_eg %}
+                                    {% if estado_pago_eg == 'pagado' %}{% set clase_estado_eg = 'bg-emerald-50 border-emerald-200 text-emerald-600' %}
+                                    {% elif estado_pago_eg == 'parcial' %}{% set clase_estado_eg = 'bg-blue-50 border-blue-200 text-blue-700' %}
+                                    {% else %}{% set clase_estado_eg = 'bg-amber-50 border-amber-200 text-amber-600' %}{% endif %}
+                                {% endif %}
+                                
                                 <tr class="hover:bg-slate-50/80 transition-colors group">
                                     <td class="py-3 px-5 align-middle">
                                         <p class="text-[11px] font-bold text-slate-900">{{ egreso.titulo }}</p>
                                         <p class="text-[9px] font-semibold text-slate-500 mt-0.5">
-                                            {% if 'Binance' in egreso.metodo or 'Cripto' in egreso.metodo %}<i class="bi bi-currency-bitcoin text-amber-500"></i> {{ egreso.metodo }}
-                                            {% elif 'BCV' in egreso.metodo %}<i class="bi bi-bank text-indigo-500"></i> {{ egreso.metodo }}
+                                            {% if 'Binance' in (egreso.metodo|default('')) or 'Cripto' in (egreso.metodo|default('')) %}<i class="bi bi-currency-bitcoin text-amber-500"></i> {{ egreso.metodo }}
+                                            {% elif 'BCV' in (egreso.metodo|default('')) %}<i class="bi bi-bank text-indigo-500"></i> {{ egreso.metodo }}
                                             {% else %}<i class="bi bi-cash-stack text-emerald-500"></i> {{ egreso.metodo }}{% endif %}
                                         </p>
                                     </td>
                                     <td class="py-3 px-3 align-middle text-center">
                                         <p class="text-[9px] font-bold text-slate-500 tracking-widest"><span class="text-slate-400">PROG:</span> {{ egreso.fecha_programada or '—' }}</p>
-                                        {% if egreso.fecha_pago_real %}
+                                        {% if egreso.fecha_pago_real and egreso.fecha_pago_real != 'None' %}
                                             <p class="text-[9px] font-black text-blue-600 uppercase tracking-widest mt-0.5">REAL: {{ egreso.fecha_pago_real }}</p>
                                         {% else %}
                                             <p class="text-[9px] font-bold text-amber-500 uppercase tracking-widest mt-0.5">REAL: PENDIENTE</p>
                                         {% endif %}
                                     </td>
                                     <td class="py-3 px-3 align-middle text-center">
-                                        <span class="px-2 py-0.5 {{ clase_estado_eg }} text-[9px] font-black uppercase tracking-widest rounded border">{{ estado_pago_eg }}</span>
+                                        <span class="px-2 py-0.5 {{ clase_estado_eg }} text-[9px] font-black uppercase tracking-widest rounded border">{{ estado_pago_eg|capitalize }}</span>
                                     </td>
-                                    <td class="py-3 px-3 align-middle text-right"><span class="font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(monto_eg) }}</span></td>
-                                    <td class="py-3 px-3 align-middle text-right"><span class="font-bold text-slate-700 tabular-nums">${{ "{:,.2f}".format(pendiente_eg) }}</span></td>
+                                    <td class="py-3 px-3 align-middle text-right"><span class="font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(m_eg) }}</span></td>
+                                    <td class="py-3 px-3 align-middle text-right"><span class="font-bold text-slate-700 tabular-nums">${{ "{:,.2f}".format(p_eg) }}</span></td>
                                     <td class="py-3 px-3 align-middle text-right">
                                         {% if perdida_live_eg > 0.01 %}
                                             <p class="text-[10px] font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(perdida_live_eg) }}</p>
@@ -525,10 +562,10 @@
                                     </td>
                                     <td class="py-3 px-5 align-middle text-center">
                                         <div class="flex flex-col gap-1.5 justify-center w-full max-w-[100px] mx-auto">
-                                            {% if estado_pago_eg == 'Pagado' or estado_pago_eg == 'Saldado' %}
+                                            {% if estado_pago_eg == 'pagado' or estado_pago_eg == 'saldado' %}
                                                 <span class="bg-emerald-50 border border-emerald-200 text-emerald-600 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded flex items-center justify-center gap-1 w-full"><i class="bi bi-check2"></i> Listo</span>
                                             {% else %}
-                                                {% if estado_pago_eg == 'Parcial' %}
+                                                {% if estado_pago_eg == 'parcial' %}
                                                     <button onclick="window.location.href='{{ url_for('gestion_egresos') }}'" class="bg-white border border-slate-200 text-slate-700 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-50 transition-colors shadow-sm w-full"><i class="bi bi-folder2-open"></i> Ver Abono</button>
                                                 {% else %}
                                                     <span class="bg-slate-50 border border-slate-200 text-slate-400 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded flex items-center justify-center w-full">Sin Registro</span>
@@ -539,7 +576,7 @@
                                                 <button type="button"
                                                         data-id="{{ occ_id_str }}"
                                                         data-titulo="{{ titulo_esc }}"
-                                                        data-monto="{{ pendiente_eg }}"
+                                                        data-monto="{{ p_eg }}"
                                                         data-metodo="{{ metodo_esc }}"
                                                         @click.prevent="$store.paymentModal.open($el.dataset.id, $el.dataset.titulo, $el.dataset.monto, $el.dataset.metodo)"
                                                         class="bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-800 transition-colors shadow-sm w-full flex items-center justify-center gap-1">
@@ -562,46 +599,57 @@
                             {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default('fijo'))) | string | lower %}
                             {% if 'fijo' not in tipo_str and 'devolu' not in tipo_str %}
                                 {% set ns_var_tab.count = ns_var_tab.count + 1 %}
-                                {% set monto_eg = egreso.monto | default(0) %}
-                                {% set is_crypto = ('Binance' in egreso.metodo or 'Cripto' in egreso.metodo) %}
-                                {% set pendiente_eg = egreso.pendiente if egreso.pendiente is defined else monto_eg %}
-                                {% set pagado_eg = monto_eg - pendiente_eg %}
                                 
-                                {% if egreso.estado_pago | lower == 'pagado' or egreso.estado_pago | lower == 'saldado' %}
-                                    {% set perdida_live_eg = egreso.fuga_real_pagada | default(0) %}
+                                {% set m_eg = egreso.monto | default(0) | float %}
+                                {% set p_eg = egreso.pendiente if egreso.pendiente is defined else m_eg %}
+                                {% set p_eg = p_eg | float %}
+                                {% set pag_eg = m_eg - p_eg %}
+                                {% set is_crypto = ('Binance' in (egreso.metodo|default('')) or 'Cripto' in (egreso.metodo|default(''))) %}
+                                
+                                {% if egreso.perdida_live is defined %}
+                                    {% set perdida_live_eg = egreso.perdida_live | float %}
                                 {% else %}
-                                    {% set perdida_live_eg = (((monto_eg * bin_hoy / bcv_hoy) - monto_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+                                    {% set f_pagada = egreso.fuga_real_pagada | default(0) | float %}
+                                    {% set f_pendiente = (((p_eg * bin_hoy / bcv_hoy) - p_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+                                    {% set perdida_live_eg = f_pagada + f_pendiente %}
                                 {% endif %}
 
-                                {% set estado_pago_eg = egreso.estado_pago %}
-                                {% set clase_estado_eg = egreso.clase_estado %}
-                                {% if estado_pago_eg is undefined %}
-                                    {% if pagado_eg >= monto_eg - 0.001 %}{% set estado_pago_eg = 'Pagado' %}{% set clase_estado_eg = 'bg-emerald-50 border-emerald-200 text-emerald-600' %}
-                                    {% elif pagado_eg > 0.001 %}{% set estado_pago_eg = 'Parcial' %}{% set clase_estado_eg = 'bg-blue-50 border-blue-200 text-blue-700' %}
-                                    {% else %}{% set estado_pago_eg = 'Pendiente' %}{% set clase_estado_eg = 'bg-amber-50 border-amber-200 text-amber-600' %}{% endif %}
+                                {% set estado_pago_eg = egreso.estado_pago|default('')|lower %}
+                                {% if not estado_pago_eg %}
+                                    {% if pag_eg >= m_eg - 0.001 %}{% set estado_pago_eg = 'pagado' %}
+                                    {% elif pag_eg > 0.001 %}{% set estado_pago_eg = 'parcial' %}
+                                    {% else %}{% set estado_pago_eg = 'pendiente' %}{% endif %}
                                 {% endif %}
+
+                                {% set clase_estado_eg = egreso.clase_estado|default('') %}
+                                {% if not clase_estado_eg %}
+                                    {% if estado_pago_eg == 'pagado' %}{% set clase_estado_eg = 'bg-emerald-50 border-emerald-200 text-emerald-600' %}
+                                    {% elif estado_pago_eg == 'parcial' %}{% set clase_estado_eg = 'bg-blue-50 border-blue-200 text-blue-700' %}
+                                    {% else %}{% set clase_estado_eg = 'bg-amber-50 border-amber-200 text-amber-600' %}{% endif %}
+                                {% endif %}
+                                
                                 <tr class="hover:bg-slate-50/80 transition-colors group">
                                     <td class="py-3 px-5 align-middle">
                                         <p class="text-[11px] font-bold text-slate-900">{{ egreso.titulo }}</p>
                                         <p class="text-[9px] font-semibold text-slate-500 mt-0.5">
-                                            {% if 'Binance' in egreso.metodo or 'Cripto' in egreso.metodo %}<i class="bi bi-currency-bitcoin text-amber-500"></i> {{ egreso.metodo }}
-                                            {% elif 'BCV' in egreso.metodo %}<i class="bi bi-bank text-indigo-500"></i> {{ egreso.metodo }}
+                                            {% if 'Binance' in (egreso.metodo|default('')) or 'Cripto' in (egreso.metodo|default('')) %}<i class="bi bi-currency-bitcoin text-amber-500"></i> {{ egreso.metodo }}
+                                            {% elif 'BCV' in (egreso.metodo|default('')) %}<i class="bi bi-bank text-indigo-500"></i> {{ egreso.metodo }}
                                             {% else %}<i class="bi bi-cash-stack text-emerald-500"></i> {{ egreso.metodo }}{% endif %}
                                         </p>
                                     </td>
                                     <td class="py-3 px-3 align-middle text-center">
                                         <p class="text-[9px] font-bold text-slate-500 tracking-widest"><span class="text-slate-400">PROG:</span> {{ egreso.fecha_programada or '—' }}</p>
-                                        {% if egreso.fecha_pago_real %}
+                                        {% if egreso.fecha_pago_real and egreso.fecha_pago_real != 'None' %}
                                             <p class="text-[9px] font-black text-blue-600 uppercase tracking-widest mt-0.5">REAL: {{ egreso.fecha_pago_real }}</p>
                                         {% else %}
                                             <p class="text-[9px] font-bold text-amber-500 uppercase tracking-widest mt-0.5">REAL: PENDIENTE</p>
                                         {% endif %}
                                     </td>
                                     <td class="py-3 px-3 align-middle text-center">
-                                        <span class="px-2 py-0.5 {{ clase_estado_eg }} text-[9px] font-black uppercase tracking-widest rounded border">{{ estado_pago_eg }}</span>
+                                        <span class="px-2 py-0.5 {{ clase_estado_eg }} text-[9px] font-black uppercase tracking-widest rounded border">{{ estado_pago_eg|capitalize }}</span>
                                     </td>
-                                    <td class="py-3 px-3 align-middle text-right"><span class="font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(monto_eg) }}</span></td>
-                                    <td class="py-3 px-3 align-middle text-right"><span class="font-bold text-slate-700 tabular-nums">${{ "{:,.2f}".format(pendiente_eg) }}</span></td>
+                                    <td class="py-3 px-3 align-middle text-right"><span class="font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(m_eg) }}</span></td>
+                                    <td class="py-3 px-3 align-middle text-right"><span class="font-bold text-slate-700 tabular-nums">${{ "{:,.2f}".format(p_eg) }}</span></td>
                                     <td class="py-3 px-3 align-middle text-right">
                                         {% if perdida_live_eg > 0.01 %}
                                             <p class="text-[10px] font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(perdida_live_eg) }}</p>
@@ -613,10 +661,10 @@
                                     </td>
                                     <td class="py-3 px-5 align-middle text-center">
                                         <div class="flex flex-col gap-1.5 justify-center w-full max-w-[100px] mx-auto">
-                                            {% if estado_pago_eg == 'Pagado' or estado_pago_eg == 'Saldado' %}
+                                            {% if estado_pago_eg == 'pagado' or estado_pago_eg == 'saldado' %}
                                                 <span class="bg-emerald-50 border border-emerald-200 text-emerald-600 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded flex items-center justify-center gap-1 w-full"><i class="bi bi-check2"></i> Listo</span>
                                             {% else %}
-                                                {% if estado_pago_eg == 'Parcial' %}
+                                                {% if estado_pago_eg == 'parcial' %}
                                                     <button onclick="window.location.href='{{ url_for('gestion_egresos') }}'" class="bg-white border border-slate-200 text-slate-700 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-50 transition-colors shadow-sm w-full"><i class="bi bi-folder2-open"></i> Ver Abono</button>
                                                 {% else %}
                                                     <span class="bg-slate-50 border border-slate-200 text-slate-400 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded flex items-center justify-center w-full">Sin Registro</span>
@@ -627,7 +675,7 @@
                                                 <button type="button"
                                                         data-id="{{ occ_id_str }}"
                                                         data-titulo="{{ titulo_esc }}"
-                                                        data-monto="{{ pendiente_eg }}"
+                                                        data-monto="{{ p_eg }}"
                                                         data-metodo="{{ metodo_esc }}"
                                                         @click.prevent="$store.paymentModal.open($el.dataset.id, $el.dataset.titulo, $el.dataset.monto, $el.dataset.metodo)"
                                                         class="bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-800 transition-colors shadow-sm w-full flex items-center justify-center gap-1">
@@ -650,46 +698,57 @@
                             {% set tipo_str = (egreso.tipo_egreso | default(egreso.tipo | default('fijo'))) | string | lower %}
                             {% if 'devolu' in tipo_str %}
                                 {% set ns_dev_tab.count = ns_dev_tab.count + 1 %}
-                                {% set monto_eg = egreso.monto | default(0) %}
-                                {% set is_crypto = ('Binance' in egreso.metodo or 'Cripto' in egreso.metodo) %}
-                                {% set pendiente_eg = egreso.pendiente if egreso.pendiente is defined else monto_eg %}
-                                {% set pagado_eg = monto_eg - pendiente_eg %}
                                 
-                                {% if egreso.estado_pago | lower == 'pagado' or egreso.estado_pago | lower == 'saldado' %}
-                                    {% set perdida_live_eg = egreso.fuga_real_pagada | default(0) %}
+                                {% set m_eg = egreso.monto | default(0) | float %}
+                                {% set p_eg = egreso.pendiente if egreso.pendiente is defined else m_eg %}
+                                {% set p_eg = p_eg | float %}
+                                {% set pag_eg = m_eg - p_eg %}
+                                {% set is_crypto = ('Binance' in (egreso.metodo|default('')) or 'Cripto' in (egreso.metodo|default(''))) %}
+                                
+                                {% if egreso.perdida_live is defined %}
+                                    {% set perdida_live_eg = egreso.perdida_live | float %}
                                 {% else %}
-                                    {% set perdida_live_eg = (((monto_eg * bin_hoy / bcv_hoy) - monto_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+                                    {% set f_pagada = egreso.fuga_real_pagada | default(0) | float %}
+                                    {% set f_pendiente = (((p_eg * bin_hoy / bcv_hoy) - p_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+                                    {% set perdida_live_eg = f_pagada + f_pendiente %}
                                 {% endif %}
 
-                                {% set estado_pago_eg = egreso.estado_pago %}
-                                {% set clase_estado_eg = egreso.clase_estado %}
-                                {% if estado_pago_eg is undefined %}
-                                    {% if pagado_eg >= monto_eg - 0.001 %}{% set estado_pago_eg = 'Pagado' %}{% set clase_estado_eg = 'bg-emerald-50 border-emerald-200 text-emerald-600' %}
-                                    {% elif pagado_eg > 0.001 %}{% set estado_pago_eg = 'Parcial' %}{% set clase_estado_eg = 'bg-blue-50 border-blue-200 text-blue-700' %}
-                                    {% else %}{% set estado_pago_eg = 'Pendiente' %}{% set clase_estado_eg = 'bg-amber-50 border-amber-200 text-amber-600' %}{% endif %}
+                                {% set estado_pago_eg = egreso.estado_pago|default('')|lower %}
+                                {% if not estado_pago_eg %}
+                                    {% if pag_eg >= m_eg - 0.001 %}{% set estado_pago_eg = 'pagado' %}
+                                    {% elif pag_eg > 0.001 %}{% set estado_pago_eg = 'parcial' %}
+                                    {% else %}{% set estado_pago_eg = 'pendiente' %}{% endif %}
                                 {% endif %}
+
+                                {% set clase_estado_eg = egreso.clase_estado|default('') %}
+                                {% if not clase_estado_eg %}
+                                    {% if estado_pago_eg == 'pagado' %}{% set clase_estado_eg = 'bg-emerald-50 border-emerald-200 text-emerald-600' %}
+                                    {% elif estado_pago_eg == 'parcial' %}{% set clase_estado_eg = 'bg-blue-50 border-blue-200 text-blue-700' %}
+                                    {% else %}{% set clase_estado_eg = 'bg-amber-50 border-amber-200 text-amber-600' %}{% endif %}
+                                {% endif %}
+                                
                                 <tr class="hover:bg-slate-50/80 transition-colors group">
                                     <td class="py-3 px-5 align-middle">
                                         <p class="text-[11px] font-bold text-slate-900">{{ egreso.titulo }}</p>
                                         <p class="text-[9px] font-semibold text-slate-500 mt-0.5">
-                                            {% if 'Binance' in egreso.metodo or 'Cripto' in egreso.metodo %}<i class="bi bi-currency-bitcoin text-amber-500"></i> {{ egreso.metodo }}
-                                            {% elif 'BCV' in egreso.metodo %}<i class="bi bi-bank text-indigo-500"></i> {{ egreso.metodo }}
+                                            {% if 'Binance' in (egreso.metodo|default('')) or 'Cripto' in (egreso.metodo|default('')) %}<i class="bi bi-currency-bitcoin text-amber-500"></i> {{ egreso.metodo }}
+                                            {% elif 'BCV' in (egreso.metodo|default('')) %}<i class="bi bi-bank text-indigo-500"></i> {{ egreso.metodo }}
                                             {% else %}<i class="bi bi-cash-stack text-emerald-500"></i> {{ egreso.metodo }}{% endif %}
                                         </p>
                                     </td>
                                     <td class="py-3 px-3 align-middle text-center">
                                         <p class="text-[9px] font-bold text-slate-500 tracking-widest"><span class="text-slate-400">PROG:</span> {{ egreso.fecha_programada or '—' }}</p>
-                                        {% if egreso.fecha_pago_real %}
+                                        {% if egreso.fecha_pago_real and egreso.fecha_pago_real != 'None' %}
                                             <p class="text-[9px] font-black text-blue-600 uppercase tracking-widest mt-0.5">REAL: {{ egreso.fecha_pago_real }}</p>
                                         {% else %}
                                             <p class="text-[9px] font-bold text-amber-500 uppercase tracking-widest mt-0.5">REAL: PENDIENTE</p>
                                         {% endif %}
                                     </td>
                                     <td class="py-3 px-3 align-middle text-center">
-                                        <span class="px-2 py-0.5 {{ clase_estado_eg }} text-[9px] font-black uppercase tracking-widest rounded border">{{ estado_pago_eg }}</span>
+                                        <span class="px-2 py-0.5 {{ clase_estado_eg }} text-[9px] font-black uppercase tracking-widest rounded border">{{ estado_pago_eg|capitalize }}</span>
                                     </td>
-                                    <td class="py-3 px-3 align-middle text-right"><span class="font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(monto_eg) }}</span></td>
-                                    <td class="py-3 px-3 align-middle text-right"><span class="font-bold text-slate-700 tabular-nums">${{ "{:,.2f}".format(pendiente_eg) }}</span></td>
+                                    <td class="py-3 px-3 align-middle text-right"><span class="font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(m_eg) }}</span></td>
+                                    <td class="py-3 px-3 align-middle text-right"><span class="font-bold text-slate-700 tabular-nums">${{ "{:,.2f}".format(p_eg) }}</span></td>
                                     <td class="py-3 px-3 align-middle text-right">
                                         {% if perdida_live_eg > 0.01 %}
                                             <p class="text-[10px] font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(perdida_live_eg) }}</p>
@@ -701,10 +760,10 @@
                                     </td>
                                     <td class="py-3 px-5 align-middle text-center">
                                         <div class="flex flex-col gap-1.5 justify-center w-full max-w-[100px] mx-auto">
-                                            {% if estado_pago_eg == 'Pagado' or estado_pago_eg == 'Saldado' %}
+                                            {% if estado_pago_eg == 'pagado' or estado_pago_eg == 'saldado' %}
                                                 <span class="bg-emerald-50 border border-emerald-200 text-emerald-600 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded flex items-center justify-center gap-1 w-full"><i class="bi bi-check2"></i> Listo</span>
                                             {% else %}
-                                                {% if estado_pago_eg == 'Parcial' %}
+                                                {% if estado_pago_eg == 'parcial' %}
                                                     <button onclick="window.location.href='{{ url_for('gestion_egresos') }}'" class="bg-white border border-slate-200 text-slate-700 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-50 transition-colors shadow-sm w-full"><i class="bi bi-folder2-open"></i> Ver Abono</button>
                                                 {% else %}
                                                     <span class="bg-slate-50 border border-slate-200 text-slate-400 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded flex items-center justify-center w-full">Sin Registro</span>
@@ -715,7 +774,7 @@
                                                 <button type="button"
                                                         data-id="{{ occ_id_str }}"
                                                         data-titulo="{{ titulo_esc }}"
-                                                        data-monto="{{ pendiente_eg }}"
+                                                        data-monto="{{ p_eg }}"
                                                         data-metodo="{{ metodo_esc }}"
                                                         @click.prevent="$store.paymentModal.open($el.dataset.id, $el.dataset.titulo, $el.dataset.monto, $el.dataset.metodo)"
                                                         class="bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-800 transition-colors shadow-sm w-full flex items-center justify-center gap-1">
