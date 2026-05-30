@@ -11,6 +11,26 @@
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type="number"] { -moz-appearance: textfield; }
+
+    .stripe-input {
+        width: 100%; min-width: 0; background-color: #ffffff; border: 1px solid #e2e8f0;
+        color: #0f172a; font-size: 0.875rem; font-weight: 600; border-radius: 0.5rem;
+        padding: 0.625rem 0.75rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.2s ease;
+    }
+    .stripe-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+    .stripe-select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem;
+    }
+    .stripe-label {
+        display: block; font-size: 0.65rem; font-weight: 700;
+        color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.375rem;
+    }
 </style>
 {% endblock %}
 
@@ -80,18 +100,18 @@
     {% set sum_dev = namespace(val=0) %}
     
     {% for eg in proyeccion.lista_egresos %}
-        {% set monto = eg.monto | default(0) %}
+        {% set monto_eg = eg.monto | default(0) %}
         {% set is_crypto = ('Binance' in eg.metodo or 'Cripto' in eg.metodo) %}
-        {% set perdida = eg.perdida_live if eg.perdida_live is defined else (((monto * bin_hoy / bcv_hoy) - monto) if is_crypto and bcv_hoy > 0 else 0) %}
-        {% set total_fuga_live.val = total_fuga_live.val + perdida %}
+        {% set perdida_live_eg = eg.perdida_live if eg.perdida_live is defined else (((monto_eg * bin_hoy / bcv_hoy) - monto_eg) if is_crypto and bcv_hoy > 0 else 0) %}
+        {% set total_fuga_live.val = total_fuga_live.val + perdida_live_eg %}
         
         {% set tipo_str = (eg.tipo_egreso | default(eg.tipo | default('fijo'))) | string | lower %}
         {% if 'devolu' in tipo_str %}
-            {% set sum_dev.val = sum_dev.val + monto %}
+            {% set sum_dev.val = sum_dev.val + monto_eg %}
         {% elif 'fijo' in tipo_str %}
-            {% set sum_fijo.val = sum_fijo.val + monto %}
+            {% set sum_fijo.val = sum_fijo.val + monto_eg %}
         {% else %}
-            {% set sum_var.val = sum_var.val + monto %}
+            {% set sum_var.val = sum_var.val + monto_eg %}
         {% endif %}
     {% endfor %}
     
@@ -210,7 +230,7 @@
                     </div>
                     <div class="flex justify-between items-center mb-2.5">
                         <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Fuga Hoy</span>
-                        <span class="text-[9px] font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(total_fuga_live.val) }}</span>
+                        <span class="text-[9px] font-black {% if total_fuga_live.val > 0 %}text-rose-600{% else %}text-teal-600{% endif %} tabular-nums">{% if total_fuga_live.val > 0 %}+{% else %}-{% endif %}${{ "{:,.2f}".format(total_fuga_live.val|abs) }}</span>
                     </div>
                 </div>
                 <div class="h-1 mt-1"></div>
@@ -235,91 +255,6 @@
                     </div>
                 </div>
                 <div class="h-1 mt-1"></div>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y lg:divide-y-0 lg:divide-x divide-slate-200 grid grid-cols-1 lg:grid-cols-4">
-            
-            <div class="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors flex flex-col justify-between h-full">
-                {% set pct_usd = (proyeccion.recaudo_real_desglose.USD_EFECTIVO / proyeccion.recaudo_desglose.USD_EFECTIVO * 100) if (proyeccion.recaudo_desglose.USD_EFECTIVO | default(0)) > 0 else 0 %}
-                <div>
-                    <div class="flex justify-between items-center mb-1.5">
-                        <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> USD Efectivo</p>
-                        <span class="text-[10px] font-black text-emerald-600">{{ "%.1f"|format(pct_usd) }}%</span>
-                    </div>
-                    <h3 class="text-xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-2">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.USD_EFECTIVO | default(0)) }}</h3>
-                </div>
-                <div class="flex flex-col mt-auto">
-                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right mb-2">Meta: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.USD_EFECTIVO | default(0)) }}</p>
-                    <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                        <div class="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" style="width: {{ pct_usd if pct_usd <= 100 else 100 }}%"></div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors flex flex-col justify-between h-full">
-                {% set pct_usdt = (proyeccion.recaudo_real_desglose.USDT_BINANCE / proyeccion.recaudo_desglose.USDT_BINANCE * 100) if (proyeccion.recaudo_desglose.USDT_BINANCE | default(0)) > 0 else 0 %}
-                <div>
-                    <div class="flex justify-between items-center mb-1.5">
-                        <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> USDT (P2P)</p>
-                        <span class="text-[10px] font-black text-amber-600">{{ "%.1f"|format(pct_usdt) }}%</span>
-                    </div>
-                    <h3 class="text-xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-2">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.USDT_BINANCE | default(0)) }}</h3>
-                </div>
-                <div class="flex flex-col mt-auto">
-                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right mb-2">Meta: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.USDT_BINANCE | default(0)) }}</p>
-                    <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                        <div class="bg-amber-500 h-1.5 rounded-full transition-all duration-500" style="width: {{ pct_usdt if pct_usdt <= 100 else 100 }}%"></div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors flex flex-col justify-between h-full">
-                {% set pct_bcv = (proyeccion.recaudo_real_desglose.VES_BCV / proyeccion.recaudo_desglose.VES_BCV * 100) if (proyeccion.recaudo_desglose.VES_BCV | default(0)) > 0 else 0 %}
-                <div>
-                    <div class="flex justify-between items-center mb-1.5">
-                        <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> Bolívares (BCV)</p>
-                        <span class="text-[10px] font-black text-indigo-600">{{ "%.1f"|format(pct_bcv) }}%</span>
-                    </div>
-                    <h3 class="text-xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-2">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.VES_BCV | default(0)) }}</h3>
-                </div>
-                <div class="flex flex-col mt-auto">
-                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right mb-2">Límite: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.VES_BCV | default(0)) }}</p>
-                    <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                        <div class="bg-indigo-500 h-1.5 rounded-full transition-all duration-500" style="width: {{ pct_bcv if pct_bcv <= 100 else 100 }}%"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors flex flex-col justify-between h-full group">
-                {% set recaudo_total_eff = proyeccion.recaudo_real_usd | default(0) %}
-                {% set atrasado_eff = (proyeccion.informe_vivo.recaudo_atrasado if proyeccion.informe_vivo else 0) | default(0) %}
-                {% set a_tiempo_eff = recaudo_total_eff - atrasado_eff %}
-                {% set eficiencia_pct = (a_tiempo_eff / recaudo_total_eff * 100) if recaudo_total_eff > 0 else 0 %}
-
-                <div>
-                    <div class="flex justify-between items-center mb-1.5">
-                        <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-clock-history text-teal-500"></i> Eficiencia y Clientes</p>
-                        <span class="text-[10px] font-black {% if eficiencia_pct >= 85 %}text-teal-600{% elif eficiencia_pct >= 60 %}text-amber-500{% else %}text-rose-600{% endif %}">
-                            {{ "%.1f"|format(eficiencia_pct) }}%
-                        </span>
-                    </div>
-                    <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-2">{{ proyeccion.clientes_activos | default(0) }} <span class="text-xs font-bold text-slate-400">Activos</span></h3>
-                </div>
-                
-                <div class="flex flex-col mt-auto">
-                    <div class="flex justify-between items-center border-b border-slate-100/80 pb-1 mb-1">
-                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">A Tiempo</span>
-                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(a_tiempo_eff) }}</span>
-                    </div>
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Con Atraso</span>
-                        <span class="text-[9px] font-black text-rose-600 tabular-nums">${{ "{:,.2f}".format(atrasado_eff) }}</span>
-                    </div>
-                    <div class="w-full bg-rose-200/50 rounded-full h-1.5 flex overflow-hidden shadow-inner">
-                        <div class="bg-teal-500 h-1.5 transition-all duration-500" style="width: {{ eficiencia_pct }}%"></div>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -357,7 +292,7 @@
                      </div>
                      <div class="flex justify-between items-center border-b border-slate-200/60 pb-2.5">
                          <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">Fuga Base Actual</span>
-                         <span class="text-sm font-black text-slate-900 tabular-nums">-${{ "{:,.2f}".format(total_fuga_live.val) }}</span>
+                         <span class="text-sm font-black {% if total_fuga_live.val > 0 %}text-slate-900{% else %}text-teal-600{% endif %} tabular-nums">{% if total_fuga_live.val > 0 %}-{% else %}+{% endif %}${{ "{:,.2f}".format(total_fuga_live.val|abs) }}</span>
                      </div>
                      <div class="flex flex-col justify-center pt-0.5">
                          <div class="flex justify-between items-end mb-2">
@@ -483,8 +418,13 @@
                                     <td class="py-3 px-3 align-middle text-right"><span class="font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(monto_eg) }}</span></td>
                                     <td class="py-3 px-3 align-middle text-right"><span class="font-bold text-slate-700 tabular-nums">${{ "{:,.2f}".format(pendiente_eg) }}</span></td>
                                     <td class="py-3 px-3 align-middle text-right">
-                                        {% if perdida_live_eg > 0.01 %}<p class="text-[10px] font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(perdida_live_eg) }}</p>
-                                        {% else %}<p class="text-[9px] font-semibold text-slate-400 mt-0.5">Eqv.</p>{% endif %}
+                                        {% if perdida_live_eg > 0.01 %}
+                                            <p class="text-[10px] font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(perdida_live_eg) }}</p>
+                                        {% elif perdida_live_eg < -0.01 %}
+                                            <p class="text-[10px] font-black text-teal-600 tabular-nums">-${{ "{:,.2f}".format(perdida_live_eg|abs) }}</p>
+                                        {% else %}
+                                            <p class="text-[9px] font-semibold text-slate-400 mt-0.5">Eqv.</p>
+                                        {% endif %}
                                     </td>
                                     <td class="py-3 px-5 align-middle text-center">
                                         <div class="flex flex-col gap-1.5 justify-center w-full max-w-[100px] mx-auto">
@@ -496,7 +436,18 @@
                                                 {% else %}
                                                     <span class="bg-slate-50 border border-slate-200 text-slate-400 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded flex items-center justify-center w-full">Sin Registro</span>
                                                 {% endif %}
-                                                <button onclick="window.location.href='{{ url_for('gestion_egresos') }}'" class="bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-800 transition-colors shadow-sm w-full"><i class="bi bi-wallet2"></i> Pagar</button>
+                                                {% set occ_id_str = egreso.ocurrencia_id | default('') | string %}
+                                                {% set titulo_esc = egreso.titulo | escape %}
+                                                {% set metodo_esc = egreso.metodo | escape %}
+                                                <button type="button"
+                                                        data-id="{{ occ_id_str }}"
+                                                        data-titulo="{{ titulo_esc }}"
+                                                        data-monto="{{ pendiente_eg }}"
+                                                        data-metodo="{{ metodo_esc }}"
+                                                        @click.prevent="$store.paymentModal.open($el.dataset.id, $el.dataset.titulo, $el.dataset.monto, $el.dataset.metodo)"
+                                                        class="bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-800 transition-colors shadow-sm w-full flex items-center justify-center gap-1">
+                                                    <i class="bi bi-wallet2"></i> Pagar
+                                                </button>
                                             {% endif %}
                                         </div>
                                     </td>
@@ -549,8 +500,13 @@
                                     <td class="py-3 px-3 align-middle text-right"><span class="font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(monto_eg) }}</span></td>
                                     <td class="py-3 px-3 align-middle text-right"><span class="font-bold text-slate-700 tabular-nums">${{ "{:,.2f}".format(pendiente_eg) }}</span></td>
                                     <td class="py-3 px-3 align-middle text-right">
-                                        {% if perdida_live_eg > 0.01 %}<p class="text-[10px] font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(perdida_live_eg) }}</p>
-                                        {% else %}<p class="text-[9px] font-semibold text-slate-400 mt-0.5">Eqv.</p>{% endif %}
+                                        {% if perdida_live_eg > 0.01 %}
+                                            <p class="text-[10px] font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(perdida_live_eg) }}</p>
+                                        {% elif perdida_live_eg < -0.01 %}
+                                            <p class="text-[10px] font-black text-teal-600 tabular-nums">-${{ "{:,.2f}".format(perdida_live_eg|abs) }}</p>
+                                        {% else %}
+                                            <p class="text-[9px] font-semibold text-slate-400 mt-0.5">Eqv.</p>
+                                        {% endif %}
                                     </td>
                                     <td class="py-3 px-5 align-middle text-center">
                                         <div class="flex flex-col gap-1.5 justify-center w-full max-w-[100px] mx-auto">
@@ -562,7 +518,18 @@
                                                 {% else %}
                                                     <span class="bg-slate-50 border border-slate-200 text-slate-400 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded flex items-center justify-center w-full">Sin Registro</span>
                                                 {% endif %}
-                                                <button onclick="window.location.href='{{ url_for('gestion_egresos') }}'" class="bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-800 transition-colors shadow-sm w-full"><i class="bi bi-wallet2"></i> Pagar</button>
+                                                {% set occ_id_str = egreso.ocurrencia_id | default('') | string %}
+                                                {% set titulo_esc = egreso.titulo | escape %}
+                                                {% set metodo_esc = egreso.metodo | escape %}
+                                                <button type="button"
+                                                        data-id="{{ occ_id_str }}"
+                                                        data-titulo="{{ titulo_esc }}"
+                                                        data-monto="{{ pendiente_eg }}"
+                                                        data-metodo="{{ metodo_esc }}"
+                                                        @click.prevent="$store.paymentModal.open($el.dataset.id, $el.dataset.titulo, $el.dataset.monto, $el.dataset.metodo)"
+                                                        class="bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-800 transition-colors shadow-sm w-full flex items-center justify-center gap-1">
+                                                    <i class="bi bi-wallet2"></i> Pagar
+                                                </button>
                                             {% endif %}
                                         </div>
                                     </td>
@@ -616,6 +583,7 @@
                                     <td class="py-3 px-3 align-middle text-right"><span class="font-bold text-slate-700 tabular-nums">${{ "{:,.2f}".format(pendiente_eg) }}</span></td>
                                     <td class="py-3 px-3 align-middle text-right">
                                         {% if perdida_live_eg > 0.01 %}<p class="text-[10px] font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(perdida_live_eg) }}</p>
+                                        {% elif perdida_live_eg < -0.01 %}<p class="text-[10px] font-black text-teal-600 tabular-nums">-${{ "{:,.2f}".format(perdida_live_eg|abs) }}</p>
                                         {% else %}<p class="text-[9px] font-semibold text-slate-400 mt-0.5">Eqv.</p>{% endif %}
                                     </td>
                                     <td class="py-3 px-5 align-middle text-center">
@@ -628,7 +596,18 @@
                                                 {% else %}
                                                     <span class="bg-slate-50 border border-slate-200 text-slate-400 text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded flex items-center justify-center w-full">Sin Registro</span>
                                                 {% endif %}
-                                                <button onclick="window.location.href='{{ url_for('gestion_egresos') }}'" class="bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-800 transition-colors shadow-sm w-full"><i class="bi bi-wallet2"></i> Pagar</button>
+                                                {% set occ_id_str = egreso.ocurrencia_id | default('') | string %}
+                                                {% set titulo_esc = egreso.titulo | escape %}
+                                                {% set metodo_esc = egreso.metodo | escape %}
+                                                <button type="button"
+                                                        data-id="{{ occ_id_str }}"
+                                                        data-titulo="{{ titulo_esc }}"
+                                                        data-monto="{{ pendiente_eg }}"
+                                                        data-metodo="{{ metodo_esc }}"
+                                                        @click.prevent="$store.paymentModal.open($el.dataset.id, $el.dataset.titulo, $el.dataset.monto, $el.dataset.metodo)"
+                                                        class="bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest py-1 px-2.5 rounded hover:bg-slate-800 transition-colors shadow-sm w-full flex items-center justify-center gap-1">
+                                                    <i class="bi bi-wallet2"></i> Pagar
+                                                </button>
                                             {% endif %}
                                         </div>
                                     </td>
@@ -643,6 +622,41 @@
             </div>
         </div>
     </div>
-    {% endif %}
-</div>
-{% endblock %}
+
+    <div x-data x-show="$store.paymentModal.isOpen" style="display: none;" 
+         class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm" 
+         x-transition.opacity>
+        <div @click.away="$store.paymentModal.close()" 
+             class="bg-white rounded-t-[1.5rem] sm:rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh] pb-6 sm:pb-0"
+             x-transition:enter="transition ease-out duration-300 transform"
+             x-transition:enter-start="translate-y-full sm:translate-y-10 sm:opacity-0"
+             x-transition:enter-end="translate-y-0 sm:translate-y-0 sm:opacity-100"
+             x-transition:leave="transition ease-in duration-200 transform"
+             x-transition:leave-start="translate-y-0 sm:translate-y-0 sm:opacity-100"
+             x-transition:leave-end="translate-y-full sm:translate-y-10 sm:opacity-0">
+             
+            <div class="px-5 sm:px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
+                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-shield-check text-slate-400"></i> Ejecución de Pago</h3>
+                <button @click="$store.paymentModal.close()" type="button" class="text-slate-400 hover:text-slate-700 bg-slate-200/50 hover:bg-slate-200 rounded-full w-8 h-8 flex items-center justify-center transition-colors"><i class="bi bi-x-lg"></i></button>
+            </div>
+            
+            <div class="p-5 sm:p-6 bg-white overflow-y-auto custom-scrollbar">
+                <p class="text-base sm:text-lg font-black text-slate-900 mb-1 leading-tight" x-text="$store.paymentModal.titulo"></p>
+                <div class="flex items-center gap-2 mb-5 sm:mb-6">
+                    <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Saldo Pendiente:</p>
+                    <span class="text-xs sm:text-sm font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200 tabular-nums">$<span x-text="$store.paymentModal.monto_deuda_original.toFixed(2)"></span></span>
+                </div>
+
+                <form :action="'/gestion/egresos/ocurrencias/' + $store.paymentModal.occ_id + '/procesar_pago'" method="POST" class="space-y-4 sm:space-y-5">
+                    <input type="hidden" name="origen_request" value="proyecciones">
+                    <input type="hidden" name="caja_origen" :value="$store.paymentModal.tipo_pago.startsWith('BANESCO') ? 'CAJA_BS_USD' : ($store.paymentModal.tipo_pago === 'BINANCE_DIRECTO' ? 'BINANCE_USDT' : 'EFECTIVO_USD')">
+                    <input type="hidden" name="moneda_origen" :value="$store.paymentModal.tipo_pago.startsWith('BANESCO') ? 'VES' : ($store.paymentModal.tipo_pago === 'BINANCE_DIRECTO' ? 'USDT' : 'USD')">
+                    <input type="hidden" name="tasa_aplicada" :value="$store.paymentModal.tasa_custom">
+                    
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl shadow-sm">
+                        <label class="stripe-label text-slate-700"><i class="bi bi-piggy-bank"></i> Abonar a la Deuda (USD) <span class="text-rose-500">*</span></label>
+                        <div class="relative mt-1">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-black">$</span>
+                            <input type="number" step="0.01" min="0.01" name="abono_usd" x-model="$store.paymentModal.abono_usd" @input="$store.paymentModal.calcTotal()" required class="stripe-input pl-8 font-black text-slate-900 bg-white border-slate-300 text-lg shadow-sm" :max="$store.paymentModal.monto_deuda_original">
+                        </div>
+                        <p class="text-[9px] font-semibold text-slate-500 mt-1.5 ml-1">Monto de la deuda que vas a liquidar. Puedes fraccionarlo.</p
