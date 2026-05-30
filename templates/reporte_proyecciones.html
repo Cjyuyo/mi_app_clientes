@@ -258,6 +258,91 @@
             </div>
         </div>
 
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 divide-y lg:divide-y-0 lg:divide-x divide-slate-200 grid grid-cols-1 lg:grid-cols-4">
+            
+            <div class="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors flex flex-col justify-between h-full">
+                {% set pct_usd = (proyeccion.recaudo_real_desglose.USD_EFECTIVO / proyeccion.recaudo_desglose.USD_EFECTIVO * 100) if (proyeccion.recaudo_desglose.USD_EFECTIVO | default(0)) > 0 else 0 %}
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> USD Efectivo</p>
+                        <span class="text-[10px] font-black text-emerald-600">{{ "%.1f"|format(pct_usd) }}%</span>
+                    </div>
+                    <h3 class="text-xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-2">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.USD_EFECTIVO | default(0)) }}</h3>
+                </div>
+                <div class="flex flex-col mt-auto">
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right mb-2">Meta: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.USD_EFECTIVO | default(0)) }}</p>
+                    <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                        <div class="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" style="width: {{ pct_usd if pct_usd <= 100 else 100 }}%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors flex flex-col justify-between h-full">
+                {% set pct_usdt = (proyeccion.recaudo_real_desglose.USDT_BINANCE / proyeccion.recaudo_desglose.USDT_BINANCE * 100) if (proyeccion.recaudo_desglose.USDT_BINANCE | default(0)) > 0 else 0 %}
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> USDT (P2P)</p>
+                        <span class="text-[10px] font-black text-amber-600">{{ "%.1f"|format(pct_usdt) }}%</span>
+                    </div>
+                    <h3 class="text-xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-2">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.USDT_BINANCE | default(0)) }}</h3>
+                </div>
+                <div class="flex flex-col mt-auto">
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right mb-2">Meta: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.USDT_BINANCE | default(0)) }}</p>
+                    <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                        <div class="bg-amber-500 h-1.5 rounded-full transition-all duration-500" style="width: {{ pct_usdt if pct_usdt <= 100 else 100 }}%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors flex flex-col justify-between h-full">
+                {% set pct_bcv = (proyeccion.recaudo_real_desglose.VES_BCV / proyeccion.recaudo_desglose.VES_BCV * 100) if (proyeccion.recaudo_desglose.VES_BCV | default(0)) > 0 else 0 %}
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> Bolívares (BCV)</p>
+                        <span class="text-[10px] font-black text-indigo-600">{{ "%.1f"|format(pct_bcv) }}%</span>
+                    </div>
+                    <h3 class="text-xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-2">${{ "{:,.2f}".format(proyeccion.recaudo_real_desglose.VES_BCV | default(0)) }}</h3>
+                </div>
+                <div class="flex flex-col mt-auto">
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right mb-2">Límite: ${{ "{:,.0f}".format(proyeccion.recaudo_desglose.VES_BCV | default(0)) }}</p>
+                    <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                        <div class="bg-indigo-500 h-1.5 rounded-full transition-all duration-500" style="width: {{ pct_bcv if pct_bcv <= 100 else 100 }}%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors flex flex-col justify-between h-full group">
+                {% set recaudo_total_eff = proyeccion.recaudo_real_usd | default(0) %}
+                {% set atrasado_eff = (proyeccion.informe_vivo.recaudo_atrasado if proyeccion.informe_vivo else 0) | default(0) %}
+                {% set a_tiempo_eff = recaudo_total_eff - atrasado_eff %}
+                {% set eficiencia_pct = (a_tiempo_eff / recaudo_total_eff * 100) if recaudo_total_eff > 0 else 0 %}
+
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <p class="text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><i class="bi bi-clock-history text-teal-500"></i> Eficiencia y Clientes</p>
+                        <span class="text-[10px] font-black {% if eficiencia_pct >= 85 %}text-teal-600{% elif eficiencia_pct >= 60 %}text-amber-500{% else %}text-rose-600{% endif %}">
+                            {{ "%.1f"|format(eficiencia_pct) }}%
+                        </span>
+                    </div>
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight tabular-nums mt-0.5 mb-2">{{ proyeccion.clientes_activos | default(0) }} <span class="text-xs font-bold text-slate-400">Activos</span></h3>
+                </div>
+                
+                <div class="flex flex-col mt-auto">
+                    <div class="flex justify-between items-center border-b border-slate-100/80 pb-1 mb-1">
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">A Tiempo</span>
+                        <span class="text-[9px] font-black text-slate-700 tabular-nums">${{ "{:,.2f}".format(a_tiempo_eff) }}</span>
+                    </div>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Con Atraso</span>
+                        <span class="text-[9px] font-black text-rose-600 tabular-nums">${{ "{:,.2f}".format(atrasado_eff) }}</span>
+                    </div>
+                    <div class="w-full bg-rose-200/50 rounded-full h-1.5 flex overflow-hidden shadow-inner">
+                        <div class="bg-teal-500 h-1.5 transition-all duration-500" style="width: {{ eficiencia_pct }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
             <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                 <h2 class="text-[10px] font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2"><i class="bi bi-graph-up-arrow text-indigo-500"></i> Riesgo y Spread Cambiario</h2>
@@ -582,9 +667,13 @@
                                     <td class="py-3 px-3 align-middle text-right"><span class="font-black text-slate-900 tabular-nums">${{ "{:,.2f}".format(monto_eg) }}</span></td>
                                     <td class="py-3 px-3 align-middle text-right"><span class="font-bold text-slate-700 tabular-nums">${{ "{:,.2f}".format(pendiente_eg) }}</span></td>
                                     <td class="py-3 px-3 align-middle text-right">
-                                        {% if perdida_live_eg > 0.01 %}<p class="text-[10px] font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(perdida_live_eg) }}</p>
-                                        {% elif perdida_live_eg < -0.01 %}<p class="text-[10px] font-black text-teal-600 tabular-nums">-${{ "{:,.2f}".format(perdida_live_eg|abs) }}</p>
-                                        {% else %}<p class="text-[9px] font-semibold text-slate-400 mt-0.5">Eqv.</p>{% endif %}
+                                        {% if perdida_live_eg > 0.01 %}
+                                            <p class="text-[10px] font-black text-rose-600 tabular-nums">+${{ "{:,.2f}".format(perdida_live_eg) }}</p>
+                                        {% elif perdida_live_eg < -0.01 %}
+                                            <p class="text-[10px] font-black text-teal-600 tabular-nums">-${{ "{:,.2f}".format(perdida_live_eg|abs) }}</p>
+                                        {% else %}
+                                            <p class="text-[9px] font-semibold text-slate-400 mt-0.5">Eqv.</p>
+                                        {% endif %}
                                     </td>
                                     <td class="py-3 px-5 align-middle text-center">
                                         <div class="flex flex-col gap-1.5 justify-center w-full max-w-[100px] mx-auto">
@@ -659,4 +748,118 @@
                             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-black">$</span>
                             <input type="number" step="0.01" min="0.01" name="abono_usd" x-model="$store.paymentModal.abono_usd" @input="$store.paymentModal.calcTotal()" required class="stripe-input pl-8 font-black text-slate-900 bg-white border-slate-300 text-lg shadow-sm" :max="$store.paymentModal.monto_deuda_original">
                         </div>
-                        <p class="text-[9px] font-semibold text-slate-500 mt-1.5 ml-1">Monto de la deuda que vas a liquidar. Puedes fraccionarlo.</p
+                        <p class="text-[9px] font-semibold text-slate-500 mt-1.5 ml-1">Monto de la deuda que vas a liquidar. Puedes fraccionarlo.</p>
+                    </div>
+
+                    <div>
+                        <label class="stripe-label">Caja y Tasa a Aplicar</label>
+                        <select name="tipo_pago" x-model="$store.paymentModal.tipo_pago" @change="$store.paymentModal.cambioCaja()" class="stripe-input stripe-select bg-slate-50 font-bold text-slate-700 border-slate-300 w-full" required>
+                            <template x-for="op in $store.paymentModal.opcionesCaja" :key="op.value"><option :value="op.value" x-text="op.label"></option></template>
+                        </select>
+                    </div>
+
+                    <div x-show="$store.paymentModal.mostrar_tasa" x-collapse x-cloak>
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm mt-2">
+                            <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-200">
+                                <label class="stripe-label !mb-0 text-slate-700"><i class="bi bi-arrow-left-right text-slate-400"></i> Tasa Operativa</label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <span class="text-[9px] font-bold text-slate-500 uppercase">Editar Real</span>
+                                    <input type="checkbox" x-model="$store.paymentModal.usar_tasa_custom" @change="$store.paymentModal.calcTotal()" class="sr-only peer">
+                                    <div class="w-7 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-slate-900 relative"></div>
+                                </label>
+                            </div>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">Bs.</span>
+                                <input type="number" step="0.0001" x-model="$store.paymentModal.tasa_custom" :readonly="!$store.paymentModal.usar_tasa_custom" @input="$store.paymentModal.calcTotal()" class="stripe-input pl-8 text-right font-bold transition-all" :class="$store.paymentModal.usar_tasa_custom ? 'bg-white text-slate-900 border-blue-500 ring-2 ring-blue-500/15' : 'bg-slate-100 text-slate-500 cursor-not-allowed border-transparent'">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+                        <div class="space-y-2">
+                            <label class="stripe-label">Exacto a Debitar</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-black" x-text="$store.paymentModal.moneda_simbolo"></span>
+                                <input type="number" step="0.01" name="monto_origen" x-model="$store.paymentModal.total_debitar" @input="$store.paymentModal.calcAbono()" class="stripe-input pl-10 pr-2 font-black text-slate-900 bg-white border-slate-300 shadow-inner text-base sm:text-lg w-full tabular-nums" required>
+                            </div>
+                            <div x-show="$store.paymentModal.tipo_pago && $store.paymentModal.tipo_pago.startsWith('BANESCO')" x-collapse>
+                                <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 shadow-sm mt-1">
+                                    <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest"><i class="bi bi-calculator mr-1"></i> Eqv. USD</span>
+                                    <span class="text-xs font-black text-slate-700 tabular-nums">$<span x-text="(parseFloat($store.paymentModal.total_debitar) / (parseFloat($store.paymentModal.tasa_custom) || 1)).toFixed(2)"></span></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="stripe-label">N° Ref / Recibo</label>
+                            <input type="text" name="referencia" x-model="$store.paymentModal.referencia" class="stripe-input font-bold text-slate-900" placeholder="#000000" required>
+                            <div class="text-[9px] font-bold text-slate-400 text-right mt-3" x-show="$store.paymentModal.tipo_pago && $store.paymentModal.tipo_pago.startsWith('BANESCO')">Implícita: <span class="text-slate-600" x-text="(parseFloat($store.paymentModal.abono_usd) > 0 ? (parseFloat($store.paymentModal.total_debitar) / parseFloat($store.paymentModal.abono_usd)) : 0).toFixed(4)"></span> Bs/$</div>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full py-3.5 rounded-xl bg-slate-900 text-white text-sm font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2 mt-2 sm:mt-4 active:scale-[0.98] mb-4 sm:mb-0"><i class="bi bi-shield-lock-fill text-slate-400"></i> Procesar Pago</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.store('paymentModal', {
+            isOpen: false, occ_id: null, titulo: '', monto_deuda_original: 0,
+            abono_usd: 0, grupo_cajas: 'TODAS', tipo_pago: '', moneda_simbolo: 'USD', total_debitar: 0,
+            tasa_bcv: parseFloat('{{ tasas_hoy.usd if tasas_hoy else 1 }}') || 1,
+            tasa_binance: parseFloat('{{ tasas_hoy.binance if tasas_hoy else 1 }}') || 1,
+            tasa_custom: 1, usar_tasa_custom: false, mostrar_tasa: false, referencia: '',
+            
+            get opcionesCaja() {
+                if (this.grupo_cajas === 'BINANCE') return [{ value: 'BANESCO_BINANCE', label: 'Caja Banesco Bs (Tasa Binance)' }, { value: 'BINANCE_DIRECTO', label: 'Binance Directo (Saldo USDT)' }];
+                if (this.grupo_cajas === 'BCV') return [{ value: 'BANESCO_BCV', label: 'Caja Banesco Bs (Tasa BCV)' }, { value: 'BINANCE_DIRECTO', label: 'Binance Directo (Saldo USDT)' }];
+                if (this.grupo_cajas === 'EFECTIVO') return [{ value: 'EFECTIVO_USD', label: 'Caja Efectivo USD' }];
+                if (this.grupo_cajas === 'BP2P') return [{ value: 'BANESCO_BINANCE', label: 'Caja Banesco Bs (Tasa B.P2P)' }, { value: 'EFECTIVO_USD', label: 'Caja Efectivo USD' }];
+                return [{ value: '', label: '-- Seleccione Caja --' }, { value: 'BANESCO_BINANCE', label: 'Caja Banesco (Tasa Binance)' }, { value: 'BANESCO_BCV', label: 'Caja Banesco (Tasa BCV)' }, { value: 'EFECTIVO_USD', label: 'Efectivo USD' }];
+            },
+
+            open(id, tit, monto, metodoRaw) {
+                this.occ_id = id; this.titulo = tit; 
+                this.monto_deuda_original = parseFloat(String(monto).replace(',', '.')) || 0;
+                this.abono_usd = this.monto_deuda_original.toFixed(2); 
+                this.usar_tasa_custom = false; this.referencia = '';
+                
+                let m = String(metodoRaw || '').toUpperCase().trim();
+                if (m.indexOf('BP2P') !== -1 || m.indexOf('B.P2P') !== -1) { this.grupo_cajas = 'BP2P'; this.tipo_pago = 'BANESCO_BINANCE'; }
+                else if (m.indexOf('BINANCE') !== -1 || m.indexOf('USDT') !== -1) { this.grupo_cajas = 'BINANCE'; this.tipo_pago = 'BANESCO_BINANCE'; }
+                else if (m.indexOf('BCV') !== -1 || m.indexOf('EUR') !== -1 || m.indexOf('BS') !== -1) { this.grupo_cajas = 'BCV'; this.tipo_pago = 'BANESCO_BCV'; }
+                else if (m.indexOf('EFECTIVO') !== -1 || m === 'USD') { this.grupo_cajas = 'EFECTIVO'; this.tipo_pago = 'EFECTIVO_USD'; }
+                else { this.grupo_cajas = 'TODAS'; this.tipo_pago = ''; }
+                
+                this.isOpen = true; setTimeout(() => this.cambioCaja(), 50);
+            },
+            
+            close() { this.isOpen = false; },
+            
+            cambioCaja() {
+                if (!this.tipo_pago) { this.moneda_simbolo = 'USD'; this.tasa_custom = 1.0; this.mostrar_tasa = false; this.total_debitar = this.abono_usd; }
+                else if (this.tipo_pago === 'BANESCO_BCV') { this.moneda_simbolo = 'Bs'; this.tasa_custom = this.tasa_bcv; this.mostrar_tasa = true; this.total_debitar = (this.abono_usd * this.tasa_custom).toFixed(2); }
+                else if (this.tipo_pago === 'BANESCO_BINANCE') { this.moneda_simbolo = 'Bs'; this.tasa_custom = this.tasa_binance; this.mostrar_tasa = true; this.total_debitar = (this.abono_usd * this.tasa_custom).toFixed(2); }
+                else if (this.tipo_pago === 'EFECTIVO_USD' || this.tipo_pago === 'BINANCE_DIRECTO') { this.moneda_simbolo = 'USDT'; this.tasa_custom = 1.0; this.mostrar_tasa = false; this.total_debitar = this.abono_usd; }
+                this.usar_tasa_custom = false;
+            },
+
+            calcTotal() {
+                let abono = parseFloat(this.abono_usd) || 0; let tasa = parseFloat(this.tasa_custom) || 1;
+                this.total_debitar = (this.tipo_pago && this.tipo_pago.startsWith('BANESCO')) ? (abono * tasa).toFixed(2) : abono.toFixed(2);
+            },
+
+            calcAbono() {
+                let total = parseFloat(this.total_debitar) || 0; let tasa = parseFloat(this.tasa_custom) || 1;
+                this.abono_usd = (this.tipo_pago && this.tipo_pago.startsWith('BANESCO') && tasa > 0) ? (total / tasa).toFixed(2) : total.toFixed(2);
+            }
+        });
+    });
+</script>
+{% endblock %}
