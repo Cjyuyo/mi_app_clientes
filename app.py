@@ -4644,29 +4644,61 @@ def auditoria_egresos():
         flash("Error de conexión a la base de datos.", "danger")
         return redirect(url_for('hub'))
 
-    from datetime import datetime
+    from datetime import datetime, timedelta, date
     import calendar
     from decimal import Decimal
+    import psycopg2.extras
     
     hoy = get_venezuela_current_date()
     hoy_date = hoy.date() if hasattr(hoy, 'date') else hoy
-    primer_dia_mes = hoy.replace(day=1).strftime('%Y-%m-%d')
-    ultimo_dia_mes = hoy.replace(day=calendar.monthrange(hoy.year, hoy.month)[1]).strftime('%Y-%m-%d')
-    fecha_desde = request.args.get('fecha_desde', primer_dia_mes)
-    fecha_hasta = request.args.get('fecha_hasta', ultimo_dia_mes)
+
+    # Captura de filtros desde la URL
+    periodo_rapido = request.args.get('periodo_rapido', 'mensual')
+    fecha_desde_raw = request.args.get('fecha_desde')
+    fecha_hasta_raw = request.args.get('fecha_hasta')
     estado_filtro = request.args.get('estado', '') 
     tipo_filtro = request.args.get('tipo', '') 
 
-    # --- NUEVO: ASEGURAMOS QUE LAS FRACCIONES EXISTAN PARA AUDITARLAS ---
+    # --- MOTOR DE CÁLCULO DE FECHAS INTELIGENTES (ATAJOS) ---
+    if periodo_rapido == 'semanal':
+        lunes = hoy_date - timedelta(days=hoy_date.weekday())
+        domingo = lunes + timedelta(days=6)
+        fecha_desde = lunes.strftime('%Y-%m-%d')
+        fecha_hasta = domingo.strftime('%Y-%m-%d')
+    elif periodo_rapido == 'quincenal':
+        if hoy_date.day <= 15:
+            fecha_desde = hoy_date.replace(day=1).strftime('%Y-%m-%d')
+            fecha_hasta = hoy_date.replace(day=15).strftime('%Y-%m-%d')
+        else:
+            fecha_desde = hoy_date.replace(day=16).strftime('%Y-%m-%d')
+            ud = calendar.monthrange(hoy_date.year, hoy_date.month)[1]
+            fecha_hasta = hoy_date.replace(day=ud).strftime('%Y-%m-%d')
+    elif periodo_rapido == 'proximos_3_meses':
+        fecha_desde = hoy_date.strftime('%Y-%m-%d')
+        target_month = hoy_date.month + 3
+        target_year = hoy_date.year
+        while target_month > 12:
+            target_month -= 12
+            target_year += 1
+        ud = calendar.monthrange(target_year, target_month)[1]
+        fecha_hasta = date(target_year, target_month, ud).strftime('%Y-%m-%d')
+    elif periodo_rapido == 'rango':
+        fecha_desde = fecha_desde_raw if fecha_desde_raw else hoy_date.replace(day=1).strftime('%Y-%m-%d')
+        fecha_hasta = fecha_hasta_raw if fecha_hasta_raw else hoy_date.replace(day=calendar.monthrange(hoy_date.year, hoy_date.month)[1]).strftime('%Y-%m-%d')
+    else:  # 'mensual' por defecto (mes actual completo)
+        fecha_desde = hoy_date.replace(day=1).strftime('%Y-%m-%d')
+        ud = calendar.monthrange(hoy_date.year, hoy_date.month)[1]
+        fecha_hasta = hoy_date.replace(day=ud).strftime('%Y-%m-%d')
+
+    # --- ASEGURAR GENERACIÓN DE OCURRENCIAS FRACCIONADAS ---
     try:
         f_start = datetime.strptime(fecha_desde, '%Y-%m-%d').date()
         f_end = datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
         generar_ocurrencias_periodo(conn, 'mensual', 'auditoria', f_start, f_end)
     except Exception as e:
         app.logger.error(f"Error generando fracciones en auditoria: {e}")
-    # --------------------------------------------------------------------
 
-        # EXTRAER TASAS VIVAS PARA QUE EL MODAL FUNCIONE AQUÍ TAMBIÉN
+    # --- EXTRACCIÓN DE TASAS VIVAS PARA EL MODAL ---
     tasas_hoy = {'usd': 1.0, 'binance': 1.0}
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
@@ -4677,6 +4709,7 @@ def auditoria_egresos():
     except Exception:
         pass
 
+    # --- INICIALIZACIÓN DE CONTENEDOR DE AUDITORÍA ---
     datos_auditoria = {
         'total_programado': Decimal('0.00'),
         'total_pagado': Decimal('0.00'),
@@ -4685,6 +4718,133 @@ def auditoria_egresos():
         'total_ahorro_spread': Decimal('0.00'),
         'historial': []
     }
+
+    # --- CONSULTA MAESTRA DE CONSOLIDACIÓN OPERATIVA ---
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            query = """
+                SELECT 
+                    eo.id as ocurrencia_id, 
+                    ep.titulo, 
+                    ep.tipo as tipo_egreso,
+                    ep.metodo_referencia,
+                    eo.estado as estado_pago,
+                    eo.fecha_programada,
+                    eo.monto_programado_usd as programado,
+                    eo.monto_pagado_usd as pagado,
+                    ot.id as operacion_id,
+                    ot.fecha_operacion,
+                    ot.monto_destino as abono_usd,
+                    ot.monto_origen as debitado_real,
+                    ot.moneda_origen,
+                    ot.perdida_cambiaria as spread
+                FROM egresos_ocurrencias eo
+                JOIN egresos_planificados ep ON ep.id = eo.egreso_id
+                LEFT JOIN operaciones_tesoreria ot ON ot.referencia_tipo = 'EGRESO' AND ot.referencia_id = eo.id
+                WHERE eo.fecha_programada >= %s AND eo.fecha_programada <= %s
+                  AND LOWER(COALESCE(ep.estado, 'activo')) IN ('activo', 'activa')
+            """
+            params = [fecha_desde, fecha_hasta]
+
+            if estado_filtro:
+                query += " AND eo.estado = %s"
+                params.append(estado_filtro)
+            if tipo_filtro:
+                query += " AND ep.tipo = %s"
+                params.append(tipo_filtro)
+                
+            query += " ORDER BY eo.fecha_programada ASC, ot.fecha_operacion DESC NULLS LAST"
+
+            cur.execute(query, tuple(params))
+            registros = cur.fetchall()
+
+            # Agrupación por Ocurrencia (Deuda) para armar el Centro de Mando
+            ocurrencias_dict = {}
+
+            for row in registros:
+                occ_id = row['ocurrencia_id']
+
+                # Si la deuda no está en el mapa, la creamos y sumamos sus montos base
+                if occ_id not in ocurrencias_dict:
+                    prog = Decimal(str(row['programado'] or '0.00'))
+                    pag = Decimal(str(row['pagado'] or '0.00'))
+                    pend = max(Decimal('0.00'), prog - pag)
+
+                    datos_auditoria['total_programado'] += prog
+                    datos_auditoria['total_pagado'] += pag
+                    datos_auditoria['total_pendiente'] += pend
+
+                    # Lógica de Estatus Visual
+                    est = (row['estado_pago'] or '').lower()
+                    if est == 'pagado' or pend <= Decimal('0.0001'):
+                        estado_visual = 'Saldado'
+                        clase_visual = 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    elif est == 'parcial':
+                        estado_visual = 'Parcial'
+                        clase_visual = 'bg-blue-50 text-blue-700 border-blue-200'
+                    elif row['fecha_programada'] < hoy_date:
+                        estado_visual = 'Atrasado'
+                        clase_visual = 'bg-rose-50 text-rose-700 border-rose-200'
+                    else:
+                        estado_visual = 'Pendiente'
+                        clase_visual = 'bg-amber-50 text-amber-700 border-amber-200'
+
+                    ocurrencias_dict[occ_id] = {
+                        'ocurrencia_id': occ_id,
+                        'titulo': row['titulo'],
+                        'tipo_egreso': row['tipo_egreso'],
+                        'metodo_referencia': row['metodo_referencia'] or 'NO DEFINIDA',
+                        'estado_visual': estado_visual,
+                        'clase_visual': clase_visual,
+                        'fecha_programada': row['fecha_programada'],
+                        'programado': prog,
+                        'pagado': pag,
+                        'pendiente': pend,
+                        'spread_total': Decimal('0.00'),
+                        'operaciones': []
+                    }
+
+                # Si esta deuda tiene un pago asociado, lo anidamos dentro de ella
+                if row['operacion_id']:
+                    abono = Decimal(str(row['abono_usd'] or '0.00'))
+                    spread = Decimal(str(row['spread'] or '0.00'))
+
+                    ocurrencias_dict[occ_id]['operaciones'].append({
+                        'operacion_id': row['operacion_id'],
+                        'fecha_operacion': row['fecha_operacion'],
+                        'abono_usd': abono,
+                        'debitado_real': Decimal(str(row['debitado_real'] or '0.00')),
+                        'moneda_origen': row['moneda_origen'],
+                        'spread': spread
+                    })
+
+                    ocurrencias_dict[occ_id]['spread_total'] += spread
+                    
+                    if spread > 0:
+                        datos_auditoria['total_fuga_spread'] += spread
+                    elif spread < 0:
+                        datos_auditoria['total_ahorro_spread'] += abs(spread)
+
+            # Convertimos el diccionario a lista para el HTML
+            datos_auditoria['historial'] = list(ocurrencias_dict.values())
+
+    except Exception as e:
+        import traceback
+        app.logger.error(f"Error ejecutando query de auditoria: {e}\n{traceback.format_exc()}")
+        flash("Ocurrió un error al procesar los datos de auditoría.", "danger")
+
+    return render_template(
+        'auditoria_egresos.html', 
+        datos=datos_auditoria,
+        filtros={
+            'desde': fecha_desde, 
+            'hasta': fecha_hasta, 
+            'estado': estado_filtro, 
+            'tipo': tipo_filtro, 
+            'periodo_rapido': periodo_rapido
+        },
+        tasas_hoy=tasas_hoy
+    )
 
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
